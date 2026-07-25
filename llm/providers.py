@@ -61,7 +61,7 @@ class OpenAICompatibleClient:
         api_key: str | None,
         model: str,
         extra_body: dict[str, Any] | None = None,
-        temperature: float = 0.2,
+        temperature: float = 0.0,
         timeout: float = 300.0,
     ) -> None:
         self.base_url = base_url
@@ -212,7 +212,10 @@ class DeepSeekClient(OpenAICompatibleClient):
         **kwargs: Any,
     ) -> None:
         extra: dict[str, Any] = {}
-        want_thinking = _flag("DEEPSEEK_THINKING") if thinking is None else thinking
+        # Off by default: on a full pipeline run extended thinking cost roughly
+        # 25 minutes and produced no better layout than the same model without
+        # it. Set DEEPSEEK_THINKING=1 to turn it back on.
+        want_thinking = _flag("DEEPSEEK_THINKING", "0") if thinking is None else thinking
         if want_thinking:
             # reasoning_effort only tunes an enabled thinking budget, so the two
             # travel together rather than leaking an orphaned knob into the request.

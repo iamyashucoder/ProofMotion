@@ -50,6 +50,7 @@ def _index() -> dict[str, Any]:
 
     classes: dict[str, type] = {}
     methods: dict[str, list[str]] = {}
+    properties: dict[str, list[str]] = {}
     for name in dir(manim):
         if name.startswith("_"):
             continue
@@ -62,7 +63,16 @@ def _index() -> dict[str, Any]:
         for member, _ in inspect.getmembers(obj, inspect.isroutine):
             if not member.startswith("_"):
                 methods.setdefault(member, []).append(name)
-    return {"module": manim, "classes": classes, "methods": methods}
+        # Properties are API as well. `.animate` is the obvious one — the whole
+        # `mob.animate.shift(...)` idiom goes through it — and indexing only
+        # routines made the validator report every animate call as undefined.
+        for member in dir(obj):
+            if member.startswith("_"):
+                continue
+            static = inspect.getattr_static(obj, member, None)
+            if isinstance(static, property) or inspect.isdatadescriptor(static):
+                properties.setdefault(member, []).append(name)
+    return {"module": manim, "classes": classes, "methods": methods, "properties": properties}
 
 
 def _params(fn: Any) -> tuple[list[str], bool]:
@@ -326,6 +336,8 @@ def manim_validate_code(code: str) -> dict[str, Any]:
             if isinstance(node.func.value, ast.Name) and node.func.value.id in module_names:
                 continue  # a module function, not a Manim method
             method = node.func.attr
+            if method in index["properties"] and method not in index["methods"]:
+                continue  # e.g. mob.animate.shift(...) goes through a property
             owners = index["methods"].get(method)
             if not owners:
                 close = get_close_matches(method, list(index["methods"]), n=3)
