@@ -135,6 +135,40 @@ class ProviderTests(unittest.TestCase):
         self.assertEqual(DeepSeekClient.token_param, "max_tokens")
         self.assertEqual(OpenRouterClient.token_param, "max_tokens")
 
+    def test_unsupported_parameters_are_read_from_the_api_error(self):
+        from llm.providers import _unsupported_parameter
+
+        # Both phrasings occur: gpt-5.6 rejects max_tokens as a "parameter" and
+        # temperature as a "value".
+        self.assertEqual(_unsupported_parameter("Unsupported parameter: 'max_tokens' is not supported"), "max_tokens")
+        self.assertEqual(_unsupported_parameter("Unsupported value: 'temperature' does not support 0.2"), "temperature")
+        self.assertIsNone(_unsupported_parameter("some unrelated failure"))
+
+    def test_responses_tool_schema_is_flattened(self):
+        from llm.providers import OpenAIResponsesClient
+
+        # Chat nests the schema under "function"; Responses expects it flat.
+        chat_style = [{"type": "function", "function": {"name": "f", "description": "d", "parameters": {"a": 1}}}]
+        flat = OpenAIResponsesClient._to_responses_tools(chat_style)
+        self.assertEqual(flat[0]["name"], "f")
+        self.assertNotIn("function", flat[0])
+
+    def test_responses_input_splits_system_and_tool_results(self):
+        from llm.providers import OpenAIResponsesClient
+
+        instructions, items = OpenAIResponsesClient._to_responses_input(
+            [
+                {"role": "system", "content": "be precise"},
+                {"role": "user", "content": "hello"},
+                {"role": "assistant", "content": "", "tool_calls": [
+                    {"id": "c1", "function": {"name": "f", "arguments": "{}"}}]},
+                {"role": "tool", "tool_call_id": "c1", "content": "result"},
+            ]
+        )
+        self.assertEqual(instructions, "be precise")
+        kinds = [i.get("type") or i.get("role") for i in items]
+        self.assertEqual(kinds, ["user", "function_call", "function_call_output"])
+
     def test_every_provider_is_reachable_by_name(self):
         from llm.providers import PROVIDERS, LLMError, get_client
 

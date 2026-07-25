@@ -99,7 +99,7 @@ PROOFMOTION_LLM_PROVIDER=openai uv run proofmotion "..."   # or set it once
 
 | Provider | Key | Model env var | Default |
 |---|---|---|---|
-| `openai` | `OPENAI_API_KEY` | `OPENAI_MODEL` | `gpt-5.2` |
+| `openai` | `OPENAI_API_KEY` | `OPENAI_MODEL` | `gpt-5.6-terra` |
 | `deepseek` | `DEEPSEEK_API_KEY` | `DEEPSEEK_MODEL` | `deepseek-v4-pro` |
 | `openrouter` | `OPENROUTER_API_KEY` | `OPENROUTER_MODEL` | `google/gemma-4-26b-a4b-it:free` |
 | `vllm` | not required | `VLLM_MODEL` | — (set `VLLM_BASE_URL`) |
@@ -110,9 +110,22 @@ to upstreams that accept the `tools` parameter and silently ignore it, returning
 prose instead, and `provider.require_parameters` will not force a tool-capable
 route. Use free models for smoke tests only; the paid variants work.
 
-OpenAI's gpt-5 family rejects `max_tokens` and requires `max_completion_tokens`,
-while DeepSeek and OpenRouter expect `max_tokens`, so the parameter name is set
-per provider rather than hardcoded.
+Which parameters and endpoints a model accepts varies by model and changes
+between releases, so none of it is hardcoded — the client learns from the API's
+own errors and remembers:
+
+- **`max_tokens` vs `max_completion_tokens`** — the gpt-5 family rejects the
+  former; DeepSeek and OpenRouter require it.
+- **`temperature`** — gpt-5.2 accepts it, gpt-5.6 rejects any value but the
+  default. Rejected parameters are dropped and the call retried.
+- **Chat-completions vs Responses** — gpt-5.6 refuses function tools on
+  `/v1/chat/completions` unless reasoning is disabled, which would forfeit the
+  reason to use it. `--provider openai` detects this from the error and switches
+  to `/v1/responses`, where tools run with reasoning intact. Older models stay on
+  chat-completions.
+
+So `--provider openai --model <anything>` works without knowing which API the
+model needs.
 
 DeepSeek serves exactly two model ids, `deepseek-v4-pro` and `deepseek-v4-flash`,
 and supports extended thinking:
