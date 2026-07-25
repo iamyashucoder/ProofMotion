@@ -25,6 +25,8 @@ class MathAnimationState:
     math_feedback: list[dict[str, Any]] = field(default_factory=list)
     generation_attempt: int = 0
     repair_attempt: int = 0
+    llm_provider: str = ""
+    llm_model: str = ""
     status: str = "created"
 
     def to_dict(self) -> dict[str, Any]:

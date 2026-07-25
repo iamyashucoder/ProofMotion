@@ -80,11 +80,43 @@ uv run proofmotion "Explain gradient descent visually for a beginner"
 uv run proofmotion-preview generated_projects/<project-id>
 ```
 
-Deterministic planning and verification run without an API key. With
-`OPENROUTER_API_KEY` set, an LLM generates and repairs Manim code, while symbolic
-and validation tools remain the source of truth for mathematics and safety.
+Deterministic planning and verification run without an API key. With a provider
+configured, an LLM generates and repairs Manim code, while symbolic and
+validation tools remain the source of truth for mathematics and safety.
 
-The provider layer is being generalized in Phase 2 — ProofMotion is
-provider-agnostic by design and not tied to any single model vendor.
+## Model providers
+
+ProofMotion is provider-agnostic. Every backend speaks the OpenAI
+chat-completions wire format, so one implementation (`llm/providers.py`) covers
+all of them. Select with `PROOFMOTION_LLM_PROVIDER`:
+
+```bash
+PROOFMOTION_LLM_PROVIDER=deepseek   uv run proofmotion "..."
+PROOFMOTION_LLM_PROVIDER=openrouter uv run proofmotion "..."   # default
+PROOFMOTION_LLM_PROVIDER=vllm       uv run proofmotion "..."   # local, on the A6000s
+```
+
+| Provider | Key | Model env var | Default |
+|---|---|---|---|
+| `deepseek` | `DEEPSEEK_API_KEY` | `DEEPSEEK_MODEL` | `deepseek-v4-pro` |
+| `openrouter` | `OPENROUTER_API_KEY` | `OPENROUTER_MODEL` | `google/gemma-3-27b-it` |
+| `vllm` | not required | `VLLM_MODEL` | — (set `VLLM_BASE_URL`) |
+
+DeepSeek serves exactly two model ids, `deepseek-v4-pro` and `deepseek-v4-flash`,
+and supports extended thinking:
+
+```bash
+DEEPSEEK_MODEL=deepseek-v4-flash
+DEEPSEEK_THINKING=1              # sends {"thinking": {"type": "enabled"}}
+DEEPSEEK_REASONING_EFFORT=high   # only sent when thinking is enabled
+```
+
+Reasoning traces come back on `Completion.reasoning` when the model exposes
+them. Phase 3's proof kernel uses those traces as evidence when scoring which
+candidate proof steps are worth expanding.
+
+A provider failure raises `LLMError` rather than returning `None`. Silently
+degrading to template output would hide the cause; `None` means only "this
+provider has no key configured", which selects the deterministic path.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development rules.

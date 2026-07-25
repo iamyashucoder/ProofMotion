@@ -10,13 +10,12 @@ from agents.math_verifier import run_math_verifier
 from agents.pedagogy_agent import run_pedagogy_agent
 from agents.tool_router import select_tools
 from agents.visual_director import run_visual_director
-from llm.gemma_client import GemmaClient
+from llm.providers import get_client
 from schemas.state import MathAnimationState
 from tools.code_validator import validate_generated_code
 from tools.live_preview import write_preview_manifest
 from tools.manim_renderer import render_manim_scene
 from tools.numerical_math import gradient_descent_sequence
-
 
 PROJECTS_DIR = Path("generated_projects")
 
@@ -56,8 +55,10 @@ def create_math_animation(user_prompt: str, *, render_final: bool = False, proje
     if intent.topic == "gradient descent":
         state.tool_results["gradient_descent"] = gradient_descent_sequence(-2, 0.2, 7, lambda x: 2 * (x - 2))
 
-    client = GemmaClient()
-    llm = client if client.available else None
+    # None when the selected provider has no key; the deterministic path then runs.
+    llm = get_client()
+    if llm:
+        state.llm_provider, state.llm_model = llm.name, llm.model
     state.generated_code = run_manim_coder(llm, state.to_dict())
     valid, error = validate_generated_code(state.generated_code)
     if not valid:
