@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "math-manim-agents"
+version = "0.1.0"
+description = "Preview-first multi-agent system for mathematically verified Manim animations."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [{ name = "Math Manim Agents contributors" }]
+keywords = ["manim", "mathematics", "agents", "visualization", "education"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Education",
+  "Programming Language :: Python :: 3",
+  "Topic :: Education",
+  "Topic :: Scientific/Engineering :: Mathematics",
+]
+dependencies = [
+  "pydantic>=2.8,<3",
+  "sympy>=1.13,<2",
+  "numpy>=2.0,<3",
+  "python-dotenv>=1.0,<2",
+  "openai>=1.0,<2",
+]
+
+[project.optional-dependencies]
+render = ["manim>=0.20.1,<0.21"]
+dev = ["pytest>=8,<9", "build>=1.2,<2", "twine>=5,<7"]
+
+[project.urls]
+Homepage = "https://github.com/your-org/math-manim-agents"
+Repository = "https://github.com/your-org/math-manim-agents"
+Issues = "https://github.com/your-org/math-manim-agents/issues"
+
+[project.scripts]
+math-manim = "math_manim_agents.cli:main"
+math-manim-preview = "math_manim_agents.preview_cli:main"
+
+[tool.setuptools]
+py-modules = ["orchestrator"]
+
+[tool.setuptools.packages.find]
+include = ["agents*", "llm*", "schemas*", "tools*", "math_manim_agents*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

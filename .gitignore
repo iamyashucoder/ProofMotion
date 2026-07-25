@@ -1,0 +1,8 @@
+.env
+__pycache__/
+*.py[cod]
+media/
+generated_projects/
+build/
+dist/
+*.egg-info/
