@@ -42,6 +42,8 @@ TOOLSETS: dict[str, list[str]] = {
         "layout_check",
         "typeset_check",
         "inspect_scene",
+        "component_search",
+        "component_build",
     ],
 }
 

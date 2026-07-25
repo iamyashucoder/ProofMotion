@@ -156,8 +156,14 @@ def create_math_animation(
     state.generated_code = written["code"]
     state.api_validation = written["validation"]
     state.agent_tools_used = written["tools_used"]
+    state.components_used = written.get("components_used", [])
+    state.composed = written.get("composed", False)
     artifact("code", state.generated_code)
     lookups = sum(1 for t in written["tools_used"] if t.startswith("manim_"))
+    if state.components_used:
+        headline(f"Composed from verified components: {', '.join(state.components_used)}", "improved")
+    else:
+        headline("No component fitted; the scene was written by hand", "warned")
     if written["validation"]["valid"]:
         headline(f"Scene passed API validation after {lookups} Manim lookups", "improved")
     else:

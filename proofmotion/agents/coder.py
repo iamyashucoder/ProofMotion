@@ -16,9 +16,27 @@ from proofmotion.runtime.loop import run_agent
 from proofmotion.tools import toolset
 from proofmotion.tools.manim_api import manim_validate_code
 
-SYSTEM = """You write Manim Community Edition scenes.
+SYSTEM = """You assemble Manim scenes, preferring verified components to hand-written layout.
 
-Do not write any Manim API call from memory. Look it up:
+Start with component_search. Components are tested builders that already own the
+hard parts — axis ranges derived from the actual function, label positions scored
+against the geometry, text fitted to its region. Composing one is both less work
+and more reliable than positioning objects yourself, and their layout is verified
+before you see it.
+
+    built = build("function_plot", dict(expr="(x-2)**2+1", x_min=-1, x_max=5))
+    self.play(Create(built.parts["axes"]))
+    self.play(Create(built.parts["curve"]))
+
+`built.parts` holds the named pieces and `built.beats` gives a sensible reveal
+order, so you animate the pieces rather than placing them.
+
+Write raw Manim only where no component fits. That is expected for anything
+unusual — it is a normal outcome, not a failure — but check first, because a
+hand-placed label on a curve is the defect this system exists to remove.
+
+When you do write it yourself, do not write any Manim API call from memory.
+Look it up:
   manim_search    — find what exists
   manim_signature — the real parameters, defaults, and docs
   manim_members   — what methods a class has
@@ -60,6 +78,14 @@ Requirements:
   - only equations that appear in the verified plan you are given
 
 Return the finished Python source and nothing else: no prose, no code fences."""
+
+
+def _component_name(arguments: str) -> str | None:
+    """The component a component_build call asked for, if the arguments parse."""
+    try:
+        return json.loads(arguments or "{}").get("name")
+    except json.JSONDecodeError:
+        return None
 
 
 def _strip_fences(code: str) -> str:
@@ -131,9 +157,15 @@ def write_scene(client: Any, context: dict[str, Any], *, max_iterations: int = 2
     )
     code = _strip_fences(result.content)
     report = manim_validate_code(code) if code else {"valid": False, "problems": [{"problem": "agent returned no code"}]}
+    used = sorted({
+        m for call in result.tool_calls if call["name"] == "component_build" and not call["failed"]
+        for m in [_component_name(call["arguments"])] if m
+    })
     return {
         "code": code,
         "validation": report,
+        "components_used": used,
+        "composed": bool(used) and "build(" in code,
         "tools_used": result.tools_used,
         "iterations": result.iterations,
         "stopped_early": result.stopped_early,

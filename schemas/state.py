@@ -29,6 +29,8 @@ class MathAnimationState:
     llm_model: str = ""
     api_validation: dict[str, Any] = field(default_factory=dict)
     layout_report: dict[str, Any] = field(default_factory=dict)
+    components_used: list[str] = field(default_factory=list)
+    composed: bool = False
     agent_tools_used: list[str] = field(default_factory=list)
     status: str = "created"
 

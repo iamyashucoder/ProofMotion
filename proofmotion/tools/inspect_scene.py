@@ -23,6 +23,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from proofmotion.layout.collision import is_text, text_on_ink, text_units
 from proofmotion.runtime.registry import ToolError, tool
 
 log = logging.getLogger(__name__)
@@ -36,46 +37,13 @@ MIN_TEXT_HEIGHT = 0.14
 SAFE_MARGIN = 0.25
 
 
-def _is_text(mobject: Any) -> bool:
-    from manim import DecimalNumber, MarkupText, MathTex, SingleStringMathTex, Tex, Text
-
-    # DecimalNumber must be here: Manim builds axis tick labels from it, and
-    # without it descent continued into per-glyph submobjects, so every minus
-    # sign on a negative tick was reported as unreadable text 0.015 units tall.
-    types: tuple[type, ...] = (Text, MarkupText, MathTex, Tex, SingleStringMathTex, DecimalNumber)
-    try:
-        from manim import Typst, TypstMath
-
-        types = (*types, Typst, TypstMath)
-    except ImportError:
-        pass
-    return isinstance(mobject, types)
-
-
-def _text_units(mobject: Any, found: list[Any] | None = None) -> list[Any]:
-    """Text-bearing mobjects anywhere in the tree, without splitting them apart.
-
-    Axis labels arrive as VGroups, so checking only top-level mobjects missed the
-    single most common collision: an axis label drawn over an equation. Descent
-    stops at a text object, since splitting MathTex into glyphs would report every
-    expression as overlapping itself.
-    """
-    found = [] if found is None else found
-    if _is_text(mobject):
-        found.append(mobject)
-        return found
-    for child in getattr(mobject, "submobjects", ()) or ():
-        _text_units(child, found)
-    return found
-
-
 def _label(mobject: Any) -> str:
     text = getattr(mobject, "text", None) or getattr(mobject, "tex_string", None) or ""
     text = " ".join(str(text).split())
     return f"{type(mobject).__name__}({text[:34]})" if text else type(mobject).__name__
 
 
-def _box(mobject: Any) -> dict[str, float]:
+def _boxdict(mobject: Any) -> dict[str, float]:
     from manim import DOWN, LEFT, RIGHT, UP
 
     return {
@@ -172,15 +140,15 @@ def inspect_scene(code: str) -> dict[str, Any]:
             for top in self.mobjects:
                 # Text is collected from anywhere in the tree; frame bounds are
                 # checked against the top-level object the scene actually placed.
-                for unit in _text_units(top):
+                for unit in text_units(top):
                     if id(unit) in seen_ids or not float(getattr(unit, "width", 0)):
                         continue
                     seen_ids.add(id(unit))
-                    items.append({"label": _label(unit), "text": True, **_box(unit)})
-                if not _is_text(top) and float(getattr(top, "width", 0)) and id(top) not in seen_ids:
+                    items.append({"label": _label(unit), "text": True, **_boxdict(unit)})
+                if not is_text(top) and float(getattr(top, "width", 0)) and id(top) not in seen_ids:
                     seen_ids.add(id(top))
-                    items.append({"label": _label(top), "text": False, **_box(top)})
-            beats.append({"index": len(beats) + 1, "items": items})
+                    items.append({"label": _label(top), "text": False, **_boxdict(top)})
+            beats.append({"index": len(beats) + 1, "items": items, "roots": list(self.mobjects)})
 
     with tempconfig({"dry_run": True, "disable_caching": True}):
         scene = Inspector()
@@ -238,7 +206,17 @@ def inspect_scene(code: str) -> dict[str, Any]:
                     {"beat": beat["index"], "label": item["label"], "height": round(item["height"], 3)}
                 )
 
-    problems = len(overlaps) + len(offscreen) + len(unreadable)
+    on_ink: list[dict[str, Any]] = []
+    seen_ink: set[tuple[str, str]] = set()
+    for beat in beats:
+        for hit in text_on_ink(beat["roots"]):
+            key = (hit["text"], hit["over"])
+            if key in seen_ink:
+                continue
+            seen_ink.add(key)
+            on_ink.append({"beat": beat["index"], **hit})
+
+    problems = len(overlaps) + len(offscreen) + len(unreadable) + len(on_ink)
     advice = []
     if overlaps:
         advice.append("Move overlapping text onto separate rows, or fade the earlier one out before the next appears.")
@@ -246,6 +224,11 @@ def inspect_scene(code: str) -> dict[str, Any]:
         advice.append(f"Keep everything within {SAFE_MARGIN} units of the frame edge; scale it down if needed.")
     if unreadable:
         advice.append(f"Raise font_size so text is at least {MIN_TEXT_HEIGHT} units tall.")
+    if on_ink:
+        advice.append(
+            "Text is sitting on a curve or axis. Move it to empty space, or add a background "
+            "rectangle behind it, so the characters are not competing with the geometry."
+        )
 
     estimated = round(timing["plays"] + timing["waits"], 1)
     return {
@@ -255,5 +238,6 @@ def inspect_scene(code: str) -> dict[str, Any]:
         "text_overlaps": overlaps[:20],
         "out_of_frame": offscreen[:20],
         "unreadable_text": unreadable[:20],
+        "text_on_ink": on_ink[:20],
         "advice": " ".join(advice) or "Nothing on screen overlaps, escapes the frame, or is too small.",
     }
