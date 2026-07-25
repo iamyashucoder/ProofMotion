@@ -123,6 +123,65 @@ class ManimApiTests(unittest.TestCase):
             self.assertTrue(report["valid"], f"false positive in {scene}: {report['problems']}")
 
 
+class SceneInspectionTests(unittest.TestCase):
+    """Measuring the written scene, not the planned one — where overlaps came from."""
+
+    OVERLAPPING = (
+        "from manim import *\n"
+        "class GeneratedScene(Scene):\n"
+        "    def construct(self):\n"
+        "        a = Text('First Section Title').move_to(ORIGIN)\n"
+        "        self.play(Write(a))\n"
+        "        b = Text('Second Section Title').move_to(ORIGIN)\n"
+        "        self.play(Write(b))\n"
+    )
+    CLEAN = (
+        "from manim import *\n"
+        "class GeneratedScene(Scene):\n"
+        "    def construct(self):\n"
+        "        a = Text('First Section Title').move_to(UP * 2)\n"
+        "        self.play(Write(a))\n"
+        "        self.play(FadeOut(a))\n"
+        "        b = Text('Second Section Title').move_to(UP * 2)\n"
+        "        self.play(Write(b))\n"
+    )
+
+    def test_text_drawn_over_text_is_detected(self):
+        from proofmotion.tools.inspect_scene import inspect_scene
+
+        report = inspect_scene(self.OVERLAPPING)
+        self.assertFalse(report["ok"])
+        self.assertTrue(report["text_overlaps"], "an overlap should have been measured")
+
+    def test_a_scene_that_clears_the_stage_passes(self):
+        from proofmotion.tools.inspect_scene import inspect_scene
+
+        report = inspect_scene(self.CLEAN)
+        self.assertTrue(report["ok"], report)
+
+    def test_unreadably_small_text_is_flagged(self):
+        from proofmotion.tools.inspect_scene import inspect_scene
+
+        tiny = (
+            "from manim import *\n"
+            "class GeneratedScene(Scene):\n"
+            "    def construct(self):\n"
+            "        self.play(Write(Text('barely visible', font_size=6)))\n"
+        )
+        self.assertTrue(inspect_scene(tiny)["unreadable_text"])
+
+
+class PacingTests(unittest.TestCase):
+    def test_step_budget_scales_with_duration_and_stays_bounded(self):
+        from proofmotion.agents.planner import _step_budget
+
+        self.assertEqual(_step_budget(20), 3)
+        self.assertEqual(_step_budget(30), 5)
+        # An 11-step plan for a 30s animation is what made runs feel endless.
+        self.assertLessEqual(_step_budget(600), 8)
+        self.assertGreaterEqual(_step_budget(1), 3)
+
+
 class RepairExtractionTests(unittest.TestCase):
     def test_code_is_recovered_from_a_reply_containing_prose(self):
         """A repair that explained itself first was returned verbatim and failed to parse."""

@@ -7,6 +7,7 @@ that wrote the code, and the validator's report naming the valid alternatives.
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from proofmotion.agents.coder import _strip_fences
@@ -28,6 +29,55 @@ class and every equation from the original: the mathematics was verified, so a
 "fix" that alters it is a regression.
 
 Return the complete corrected Python source and nothing else."""
+
+
+POLISH_SYSTEM = """You fix layout defects in a Manim scene that already runs.
+
+You are given a measurement of what the scene actually puts on screen, beat by
+beat. It is not an opinion; the boxes were measured from your own code.
+
+The usual causes, in order of how often they are the answer:
+  - Something from an earlier section was never removed, so the new content is
+    drawn on top of it. Fade out or remove what a beat has finished with.
+  - Two things are placed in the same region. Put them on separate rows, or
+    show them one at a time.
+  - font_size is too small to read. Raise it, or shorten the text.
+  - Something sits past the frame edge. Move it in, or scale the group down.
+
+Re-run inspect_scene after your changes and keep going until it reports ok.
+
+Change layout only. Every equation, value, and animation must survive: the
+mathematics was verified, so altering it is a regression, not a fix.
+
+Return the complete corrected Python source and nothing else."""
+
+
+def polish_scene(client: Any, code: str, report: dict[str, Any], *, max_iterations: int = 12) -> dict[str, Any]:
+    """Fix measured layout defects in a scene that renders but reads badly."""
+    summary = json.dumps(
+        {
+            "text_overlaps": report.get("text_overlaps", [])[:12],
+            "out_of_frame": report.get("out_of_frame", [])[:12],
+            "unreadable_text": report.get("unreadable_text", [])[:12],
+            "advice": report.get("advice", ""),
+        },
+        indent=2,
+    )
+    result = run_agent(
+        client,
+        POLISH_SYSTEM,
+        f"Measured layout problems in this scene:\n{summary}\n\nCURRENT SOURCE:\n{code}",
+        toolset("manim", "visual"),
+        max_iterations=max_iterations,
+        max_tokens=8000,
+        agent_name="polisher",
+        final_instruction=(
+            "Stop calling tools. Output the complete corrected Manim source now: "
+            "from manim import * followed by one GeneratedScene class. Code only."
+        ),
+    )
+    fixed = _strip_fences(result.content)
+    return {"code": fixed, "tools_used": result.tools_used}
 
 
 def repair_scene(client: Any, code: str, error: str, *, max_iterations: int = 14) -> dict[str, Any]:

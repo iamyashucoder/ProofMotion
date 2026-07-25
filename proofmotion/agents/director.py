@@ -20,6 +20,14 @@ SYSTEM = """You design how a mathematical explanation should look and unfold.
 One idea per scene. Introduce an object before referring to it, and give the
 viewer time to read anything you put on screen.
 
+Clear the stage. Every scene must say what leaves the screen as well as what
+arrives — a title or equation left behind gets drawn over by the next one, and
+the result reads as garbled text rather than as two things. If a scene keeps
+something from the previous one, say so explicitly; otherwise assume it goes.
+
+The scene budget you are given is a limit. Scenes that exist only to restate
+what was just shown should be cut.
+
 Measure before you place. layout_measure tells you how much room a piece of
 text or maths will occupy; layout_frame tells you the usable area; layout_check
 tells you whether a planned arrangement overlaps or falls off the edge. Use
@@ -51,6 +59,8 @@ def direct_storyboard(
             f"Audience: {intent.audience} ({intent.difficulty})\n"
             f"Goal: {intent.educational_goal}\n"
             f"Target length: about {intent.duration_seconds} seconds\n"
+            f"Budget: at most {max(3, min(6, round(intent.duration_seconds / 8)))} scenes, "
+            f"and the scene durations must total close to {intent.duration_seconds}s\n"
             f"Mathematics verified: {verification['valid']}\n\n"
             f"Verified steps:\n{steps}\n\n"
             "Design the storyboard."

@@ -18,13 +18,16 @@ from uuid import uuid4
 
 from llm.providers import LLMError, get_client
 from proofmotion.agents.coder import write_scene
-from proofmotion.agents.debugger import repair_scene
+from proofmotion.agents.debugger import polish_scene, repair_scene
 from proofmotion.agents.director import direct_storyboard
 from proofmotion.agents.intent import understand_request
 from proofmotion.agents.planner import plan_mathematics
 from proofmotion.agents.verifier import verify_plan
 from proofmotion.runtime.events import BUS, artifact, headline, stage
+from proofmotion.runtime.registry import ToolError
 from proofmotion.runtime.watcher import watch_render
+from proofmotion.tools.inspect_scene import inspect_scene
+from proofmotion.tools.manim_api import manim_validate_code
 from schemas.state import MathAnimationState
 from tools.code_validator import validate_generated_code
 from tools.live_preview import write_preview_manifest
@@ -173,6 +176,43 @@ def create_math_animation(
         headline(f"Stopped: {error}", "warned")
         state.save(project_dir)
         return state
+
+    # Measure what the code actually puts on screen. The director checked a plan;
+    # this checks the scene that was written, which is where overlaps came from.
+    stage("layout")
+    try:
+        report = inspect_scene(state.generated_code)
+    except ToolError as error:
+        report = {"ok": True, "skipped": str(error)}
+        headline(f"Layout check skipped: {error}", "warned")
+
+    if not report.get("ok", True):
+        counts = (
+            len(report.get("text_overlaps", [])),
+            len(report.get("out_of_frame", [])),
+            len(report.get("unreadable_text", [])),
+        )
+        headline(f"Measured {counts[0]} text overlaps, {counts[1]} off-frame, {counts[2]} too small", "warned")
+        polished = polish_scene(client, state.generated_code, report)
+        renderable, _ = _is_renderable_scene(polished["code"])
+        if renderable:
+            after = inspect_scene(polished["code"])
+            before_total, after_total = sum(counts), (
+                len(after.get("text_overlaps", []))
+                + len(after.get("out_of_frame", []))
+                + len(after.get("unreadable_text", []))
+            )
+            if after_total < before_total:
+                state.generated_code = polished["code"]
+                state.api_validation = manim_validate_code(state.generated_code)
+                report = after
+                headline(f"Layout polished: {before_total} problems down to {after_total}", "fixed")
+            else:
+                headline(f"Polish did not improve layout ({after_total} vs {before_total}); keeping original", "warned")
+    else:
+        headline(f"Layout clean across {report.get('beats', 0)} beats", "improved")
+    state.layout_report = report
+    stage("layout", "done")
 
     scene_file = _save_code(project_dir, state.generated_code)
     state.scene_file = str(scene_file)

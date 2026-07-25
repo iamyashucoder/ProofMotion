@@ -29,9 +29,22 @@ every call against the installed Manim and reports invalid arguments together
 with the valid ones. Fix what it reports and validate again. Do not return code
 that has not passed.
 
-Use layout_measure, layout_frame, and layout_check to place things. Text that
-overlaps other text is the most common failure in generated scenes, and it comes
-from guessing at sizes instead of measuring them.
+Clear the stage between sections. The single most common defect in generated
+scenes is a title or equation from an earlier section still on screen when the
+next one is drawn over it — on the finished video that reads as smeared,
+half-legible text rather than as two objects. FadeOut or Transform what a
+section has finished with before adding its replacement.
+
+Keep text readable. Use font_size 40 or more for titles, and 28 or more for
+equations and body text; axis tick labels may be smaller. Never go below 16 —
+that is unreadable in the final video. If something does not fit, shorten the
+string or give it its own beat, rather than shrinking it until it does.
+
+Use layout_measure, layout_frame, and layout_check to place things, then run
+inspect_scene on your finished source. inspect_scene executes the scene without
+rendering and measures the real bounding boxes beat by beat, so it catches
+overlaps that planning missed. Fix everything it reports and run it again. It
+is the difference between a layout you intended and the one you wrote.
 
 Requirements:
   - exactly one Scene subclass, named GeneratedScene

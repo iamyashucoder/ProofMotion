@@ -6,7 +6,14 @@ measurement, which compose into gradient descent and into everything else.
 """
 
 from proofmotion.runtime.registry import REGISTRY
-from proofmotion.tools import layout, manim_api, numeric, symbolic, typeset  # noqa: F401  (import registers)
+from proofmotion.tools import (  # noqa: F401  (import registers)
+    inspect_scene,
+    layout,
+    manim_api,
+    numeric,
+    symbolic,
+    typeset,
+)
 
 #: Tools grouped by the job they serve, so an agent is handed only what it needs.
 TOOLSETS: dict[str, list[str]] = {
@@ -34,6 +41,7 @@ TOOLSETS: dict[str, list[str]] = {
         "layout_measure",
         "layout_check",
         "typeset_check",
+        "inspect_scene",
     ],
 }
 
