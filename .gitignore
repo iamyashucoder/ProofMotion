@@ -6,3 +6,11 @@ generated_projects/
 build/
 dist/
 *.egg-info/
+.venv/
+.ruff_cache/
+.pytest_cache/
+
+# Vendored Manim is a git clone with its own history. The upstream commit it is
+# pinned to is tracked in vendor/MANIM_PINNED_COMMIT.txt; our patches will be
+# tracked as diffs against that pin (see PLAN.md Phase 4/5).
+vendor/manim/

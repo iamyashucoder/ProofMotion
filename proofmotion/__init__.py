@@ -1,4 +1,4 @@
-"""Math Manim Agents public package."""
+"""ProofMotion public package."""
 
 from orchestrator import create_math_animation
 

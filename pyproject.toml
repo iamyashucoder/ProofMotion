@@ -3,48 +3,62 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "math-manim-agents"
+name = "proofmotion"
 version = "0.1.0"
-description = "Preview-first multi-agent system for mathematically verified Manim animations."
+description = "Verified mathematics, animated. Neuro-symbolic proof search driving an interactive scene compiler."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
-authors = [{ name = "Math Manim Agents contributors" }]
-keywords = ["manim", "mathematics", "agents", "visualization", "education"]
+authors = [{ name = "ProofMotion contributors" }]
+keywords = ["manim", "mathematics", "proof", "agents", "visualization", "education"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Education",
-  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
   "Topic :: Education",
   "Topic :: Scientific/Engineering :: Mathematics",
 ]
 dependencies = [
+  "manim>=0.20.1",
   "pydantic>=2.8,<3",
   "sympy>=1.13,<2",
-  "numpy>=2.0,<3",
+  "numpy>=2.1,<3",
   "python-dotenv>=1.0,<2",
   "openai>=1.0,<2",
+  "typst>=0.14",
 ]
 
 [project.optional-dependencies]
-render = ["manim>=0.20.1,<0.21"]
-dev = ["pytest>=8,<9", "build>=1.2,<2", "twine>=5,<7"]
+# Phase 2 verification tiers. Optional so Phase 0/1 stay light.
+verify = ["z3-solver>=4.13"]
+
+[dependency-groups]
+dev = ["pytest>=8,<9", "ruff>=0.6"]
 
 [project.urls]
-Homepage = "https://github.com/your-org/math-manim-agents"
-Repository = "https://github.com/your-org/math-manim-agents"
-Issues = "https://github.com/your-org/math-manim-agents/issues"
+Homepage = "https://github.com/MAXNORM8650/ProofMotion"
+Repository = "https://github.com/MAXNORM8650/ProofMotion"
 
 [project.scripts]
-math-manim = "math_manim_agents.cli:main"
-math-manim-preview = "math_manim_agents.preview_cli:main"
+proofmotion = "proofmotion.cli:main"
+proofmotion-preview = "proofmotion.preview_cli:main"
+
+# Manim is vendored so Phase 4/5 improvements (layout solver, scene
+# introspection, geometry serializer) land as tracked patches, not a fork.
+# Pinned upstream commit: vendor/MANIM_PINNED_COMMIT.txt
+[tool.uv.sources]
+manim = { path = "vendor/manim", editable = true }
 
 [tool.setuptools]
-py-modules = ["orchestrator"]
+py-modules = ["orchestrator", "prompts"]
 
 [tool.setuptools.packages.find]
-include = ["agents*", "llm*", "schemas*", "tools*", "math_manim_agents*"]
+include = ["agents*", "llm*", "schemas*", "tools*", "proofmotion*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
