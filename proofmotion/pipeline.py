@@ -9,9 +9,11 @@ than a silent substitution.
 
 from __future__ import annotations
 
+import ast
 import logging
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 from uuid import uuid4
 
 from llm.providers import LLMError, get_client
@@ -21,6 +23,8 @@ from proofmotion.agents.director import direct_storyboard
 from proofmotion.agents.intent import understand_request
 from proofmotion.agents.planner import plan_mathematics
 from proofmotion.agents.verifier import verify_plan
+from proofmotion.runtime.events import BUS, artifact, headline, stage
+from proofmotion.runtime.watcher import watch_render
 from schemas.state import MathAnimationState
 from tools.code_validator import validate_generated_code
 from tools.live_preview import write_preview_manifest
@@ -45,6 +49,38 @@ def _find_video(output_dir: Path) -> str:
     return str(videos[0]) if videos else ""
 
 
+def _render_failure(result: Any, output_dir: Path) -> str:
+    """Return a failure message, or "" if the render genuinely produced a video.
+
+    Exit code alone is not enough: Manim can exit 0 having written nothing, and
+    trusting it once produced a run that reported preview_ready with no video.
+    """
+    if result.returncode != 0:
+        return result.stderr or f"manim exited {result.returncode}"
+    if not _find_video(output_dir):
+        return "manim exited 0 but produced no video file"
+    return ""
+
+
+def _is_renderable_scene(code: str) -> tuple[bool, str]:
+    """Reject code that cannot possibly render.
+
+    tools.code_validator only calls ast.parse, and the empty string parses
+    cleanly — which once let an empty file through to a render that produced no
+    video while the run reported preview_ready.
+    """
+    if not code.strip():
+        return False, "the coding agent returned no code"
+    try:
+        tree = ast.parse(code)
+    except SyntaxError as error:
+        return False, f"SyntaxError: {error}"
+    classes = [n.name for n in ast.walk(tree) if isinstance(n, ast.ClassDef)]
+    if "GeneratedScene" not in classes:
+        return False, f"no GeneratedScene class (found: {classes or 'none'})"
+    return True, ""
+
+
 def create_math_animation(
     user_prompt: str,
     *,
@@ -66,42 +102,75 @@ def create_math_animation(
     state.llm_provider, state.llm_model = client.name, client.model
     project_dir = project_root / state.project_id
     project_dir.mkdir(parents=True, exist_ok=False)
+    BUS.emit("run", prompt=user_prompt, project=state.project_id, model=f"{client.name}/{client.model}")
 
-    log.info("understanding request")
+    stage("understand")
     intent = understand_request(client, user_prompt)
     state.intent = intent.model_dump()
+    artifact("intent", state.intent)
+    headline(f"Read the request as: {intent.topic} ({intent.domain}, {intent.difficulty})")
+    if intent.assumptions:
+        headline(f"Assumed: {'; '.join(intent.assumptions)}", "warned")
+    stage("understand", "done")
     state.save(project_dir)
 
-    log.info("planning mathematics for %r", intent.topic)
+    stage("plan")
     plan = plan_mathematics(client, intent)
     state.math_plan = plan.model_dump()
+    artifact("plan", state.math_plan)
+    headline(f"Derived {len(plan.concept_sequence)} mathematical steps using symbolic tools", "improved")
+    stage("plan", "done")
 
-    log.info("verifying %d steps", len(plan.concept_sequence))
+    stage("verify")
     state.verified_math = verify_plan(plan)
-    if not state.verified_math["valid"]:
+    checked = sum(1 for c in state.verified_math["checks"] if c.get("equal") is not None)
+    artifact("verification", state.verified_math)
+    if state.verified_math["valid"]:
+        headline(f"All {len(plan.concept_sequence)} steps typeset; {checked} equalities proved by sympy", "improved")
+    else:
         # Not fatal: some steps are notation rather than checkable claims. It is
         # recorded so the storyboard knows how much it may assert.
-        log.warning("verification found %d problem(s)", len(state.verified_math["failures"]))
+        headline(f"{len(state.verified_math['failures'])} step(s) failed verification", "warned")
+    stage("verify", "done")
     state.save(project_dir)
 
-    log.info("directing storyboard")
+    stage("storyboard")
     storyboard = direct_storyboard(client, intent, plan, state.verified_math)
     state.storyboard = storyboard.model_dump()
     state.selected_tools = ["symbolic", "numeric", "manim_api", "layout", "typeset"]
+    artifact("storyboard", state.storyboard)
+    headline(f"Composed {len(storyboard.scenes)} scenes, measured against the frame", "improved")
+    stage("storyboard", "done")
     state.save(project_dir)
 
-    log.info("writing scene")
+    stage("code")
     written = write_scene(client, state.to_dict())
     state.generated_code = written["code"]
     state.api_validation = written["validation"]
     state.agent_tools_used = written["tools_used"]
-    if not written["validation"]["valid"]:
-        log.warning("scene failed API validation: %s", written["validation"]["problems"][:3])
+    artifact("code", state.generated_code)
+    lookups = sum(1 for t in written["tools_used"] if t.startswith("manim_"))
+    if written["validation"]["valid"]:
+        headline(f"Scene passed API validation after {lookups} Manim lookups", "improved")
+    else:
+        problems = written["validation"]["problems"]
+        headline(f"Scene still has {len(problems)} invalid API call(s): {problems[0].get('problem', '')}", "warned")
+    stage("code", "done")
+
+    renderable, why = _is_renderable_scene(state.generated_code)
+    if not renderable:
+        state.status = "code_validation_failed"
+        state.render_errors.append(why)
+        headline(f"Stopped: {why}", "warned")
+        stage("code", "failed", reason=why)
+        state.save(project_dir)
+        return state
 
     valid, error = validate_generated_code(state.generated_code)
     if not valid:
         state.status = "code_validation_failed"
         state.render_errors.append(error or "static validation failed")
+        headline(f"Stopped: {error}", "warned")
         state.save(project_dir)
         return state
 
@@ -112,34 +181,50 @@ def create_math_animation(
     state.save(project_dir)
 
     preview_dir = project_dir / "preview"
-    preview = render_manim_scene(scene_file, preview_dir, quality="l", timeout_seconds=120)
+    stage("render")
+    with watch_render(preview_dir):
+        preview = render_manim_scene(scene_file, preview_dir, quality="l", timeout_seconds=120)
+    render_error = _render_failure(preview, preview_dir)
 
-    if preview.returncode != 0:
-        state.render_errors.append(preview.stderr[-4000:])
-        log.info("render failed; attempting repair")
-        repaired = repair_scene(client, state.generated_code, preview.stderr)
-        if repaired["code"]:
-            ok, static_error = validate_generated_code(repaired["code"])
-            if ok:
-                state.repair_attempt += 1
-                state.generated_code = repaired["code"]
-                state.api_validation = repaired["validation"]
-                scene_file = _save_code(project_dir, repaired["code"])
+    if render_error:
+        state.render_errors.append(render_error[-4000:])
+        headline(f"Render failed: {render_error.strip().splitlines()[-1][:150]}", "warned")
+        stage("render", "failed")
+
+        stage("repair")
+        repaired = repair_scene(client, state.generated_code, render_error)
+        renderable, why = _is_renderable_scene(repaired["code"])
+        if renderable:
+            state.repair_attempt += 1
+            state.generated_code = repaired["code"]
+            state.api_validation = repaired["validation"]
+            artifact("code", state.generated_code)
+            scene_file = _save_code(project_dir, repaired["code"])
+            with watch_render(preview_dir, label="repaired"):
                 retry = render_manim_scene(scene_file, preview_dir, quality="l", timeout_seconds=120)
-                if retry.returncode == 0:
-                    state.preview_file = _find_video(preview_dir)
-                    state.status = "preview_ready"
-                    state.save(project_dir)
-                    return state
-                state.render_errors.append(retry.stderr[-4000:])
-            else:
-                state.render_errors.append(static_error or "repair failed static validation")
+            retry_error = _render_failure(retry, preview_dir)
+            if not retry_error:
+                state.preview_file = _find_video(preview_dir)
+                state.status = "preview_ready"
+                headline("Repair succeeded; the scene now renders", "fixed")
+                stage("repair", "done")
+                BUS.emit("video", path=state.preview_file)
+                state.save(project_dir)
+                return state
+            state.render_errors.append(retry_error[-4000:])
+        else:
+            state.render_errors.append(f"repair unusable: {why}")
+        headline("Repair did not produce a renderable scene", "warned")
+        stage("repair", "failed")
         state.status = "preview_failed"
         state.save(project_dir)
         return state
 
     state.preview_file = _find_video(preview_dir)
     state.status = "preview_ready"
+    headline("Preview rendered", "improved")
+    stage("render", "done")
+    BUS.emit("video", path=state.preview_file)
     state.save(project_dir)
     if not render_final:
         return state

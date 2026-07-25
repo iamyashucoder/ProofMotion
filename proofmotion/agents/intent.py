@@ -35,4 +35,5 @@ def understand_request(client: Any, user_prompt: str) -> AnimationIntent:
         toolset("math"),
         AnimationIntent,
         max_iterations=6,
+        agent_name="intent",
     )

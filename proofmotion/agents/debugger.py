@@ -50,6 +50,7 @@ def repair_scene(client: Any, code: str, error: str, *, max_iterations: int = 14
         toolset("manim", "visual"),
         max_iterations=max_iterations,
         max_tokens=8000,
+        agent_name="debugger",
     )
     fixed = _strip_fences(result.content)
     return {

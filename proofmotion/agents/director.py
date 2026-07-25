@@ -58,4 +58,5 @@ def direct_storyboard(
         toolset("visual"),
         Storyboard,
         max_iterations=16,
+        agent_name="director",
     )

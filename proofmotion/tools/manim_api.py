@@ -187,6 +187,25 @@ def manim_validate_code(code: str) -> dict[str, Any]:
     index = _index()
     problems: list[dict[str, Any]] = []
 
+    # `from manim import *` does not bind the name `manim`, so `manim.Circle(...)`
+    # raises NameError at render time while looking perfectly reasonable.
+    imports_module = any(
+        isinstance(n, ast.Import) and any(a.name.split(".")[0] == "manim" for a in n.names) for n in ast.walk(tree)
+    )
+    if not imports_module:
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) and node.value.id == "manim":
+                problems.append(
+                    {
+                        "line": node.lineno,
+                        "call": f"manim.{node.attr}",
+                        "problem": "the name 'manim' is not defined: `from manim import *` imports the "
+                        "contents, not the module itself",
+                        "fix": f"write {node.attr} directly, or add `import manim` as well",
+                    }
+                )
+                break  # one report is enough; the fix is the same everywhere
+
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue

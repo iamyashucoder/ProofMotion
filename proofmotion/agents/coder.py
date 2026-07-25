@@ -72,6 +72,14 @@ def write_scene(client: Any, context: dict[str, Any], *, max_iterations: int = 2
         toolset("manim", "visual"),
         max_iterations=max_iterations,
         max_tokens=8000,
+        agent_name="coder",
+        # A coder that runs out of iterations must still emit code. The generic
+        # "answer now" produced an empty response, which then sailed through
+        # ast.parse (the empty string is valid Python) and rendered nothing.
+        final_instruction=(
+            "Stop calling tools. Output the complete Manim source now, exactly as it should "
+            "be saved: from manim import * followed by one GeneratedScene class. Code only."
+        ),
     )
     code = _strip_fences(result.content)
     report = manim_validate_code(code) if code else {"valid": False, "problems": [{"problem": "agent returned no code"}]}

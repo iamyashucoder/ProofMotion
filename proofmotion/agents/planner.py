@@ -45,4 +45,5 @@ def plan_mathematics(client: Any, intent: AnimationIntent) -> MathematicalPlan:
         toolset("math"),
         MathematicalPlan,
         max_iterations=14,
+        agent_name="planner",
     )

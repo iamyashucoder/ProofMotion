@@ -13,9 +13,11 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from dataclasses import dataclass, field
 from typing import Any
 
+from proofmotion.runtime.events import BUS
 from proofmotion.runtime.registry import ToolError, ToolRegistry
 
 log = logging.getLogger(__name__)
@@ -70,6 +72,7 @@ def run_structured(
     # default truncates them mid-object, which reads as a parse failure and
     # burns a repair attempt on a problem the model did not have.
     max_tokens: int = 12000,
+    agent_name: str = "agent",
 ) -> Any:
     """Run an agent and validate its answer against a Pydantic model.
 
@@ -81,12 +84,16 @@ def run_structured(
     last_error = ""
     for attempt in range(repairs + 1):
         prompt = instruction if not last_error else f"{instruction}\n\nYour previous answer was rejected: {last_error}"
-        result = run_agent(client, system_prompt, prompt, registry, max_iterations=max_iterations, max_tokens=max_tokens)
+        result = run_agent(
+            client, system_prompt, prompt, registry,
+            max_iterations=max_iterations, max_tokens=max_tokens, agent_name=agent_name,
+        )
         try:
             return model_cls.model_validate(extract_json(result.content))
         except Exception as error:  # noqa: BLE001 - fed back as a repair signal
             last_error = str(error)[:600]
             log.warning("structured output attempt %s rejected: %s", attempt + 1, last_error)
+            BUS.emit("retry", agent=agent_name, attempt=attempt + 1, reason=last_error[:220])
     raise ToolError(f"{model_cls.__name__} could not be produced after {repairs + 1} attempts. Last error: {last_error}")
 
 
@@ -108,6 +115,8 @@ def run_agent(
     *,
     max_iterations: int = 12,
     max_tokens: int = 4000,
+    agent_name: str = "agent",
+    final_instruction: str = "Stop calling tools. Answer now using only what you have already gathered.",
 ) -> AgentResult:
     """Run a tool-using agent until it answers or runs out of iterations.
 
@@ -118,6 +127,7 @@ def run_agent(
         registry: Tools this agent may call.
         max_iterations: Cap on model turns, so a confused agent cannot spin.
         max_tokens: Per-turn generation cap.
+        agent_name: Label used in the live event stream.
     """
     messages: list[dict[str, Any]] = [
         {"role": "system", "content": system_prompt},
@@ -127,6 +137,7 @@ def run_agent(
     performed: list[dict[str, Any]] = []
 
     for iteration in range(1, max_iterations + 1):
+        BUS.emit("turn", agent=agent_name, iteration=iteration, of=max_iterations)
         message = client.chat(messages, tools=schemas, max_tokens=max_tokens)
         calls = getattr(message, "tool_calls", None)
 
@@ -157,6 +168,7 @@ def run_agent(
 
         for call in calls:
             name, raw_args = call.function.name, call.function.arguments
+            started = time.monotonic()
             try:
                 result = registry.dispatch(name, raw_args)
                 observation, failed = _observation(result), False
@@ -168,18 +180,23 @@ def run_agent(
                 observation, failed = f"{type(error).__name__}: {error}", True
 
             performed.append({"name": name, "arguments": raw_args, "failed": failed})
+            BUS.emit(
+                "tool",
+                name=name,
+                arguments=raw_args[:400],
+                failed=failed,
+                result=observation[:400],
+                seconds=round(time.monotonic() - started, 2),
+                agent=agent_name,
+            )
             messages.append({"role": "tool", "tool_call_id": call.id, "name": name, "content": observation})
 
     # Out of iterations. Ask once more with no tools offered, so the model must
     # answer from what it has gathered. Returning the last tool result instead
     # would hand the caller raw JSON and call it an answer.
     log.warning("agent hit max_iterations=%s; forcing a final answer", max_iterations)
-    messages.append(
-        {
-            "role": "user",
-            "content": "Stop calling tools. Answer now using only what you have already gathered.",
-        }
-    )
+    BUS.emit("retry", agent=agent_name, attempt=max_iterations, reason="hit iteration cap; forcing final answer")
+    messages.append({"role": "user", "content": final_instruction})
     final = client.chat(messages, tools=None, max_tokens=max_tokens)
     return AgentResult(
         content=final.content or "",
