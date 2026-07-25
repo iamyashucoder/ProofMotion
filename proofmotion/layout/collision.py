@@ -63,6 +63,62 @@ def bounds(mobject: Any) -> tuple[float, float, float, float]:
     )
 
 
+#: Samples per Bézier segment. Control points alone are far too sparse for
+#: straight geometry: an axis is one cubic with four control points, so a formula
+#: sitting directly on the axis line contained almost none of them and was
+#: reported clean while the rendered frame showed the collision plainly.
+SEGMENT_SAMPLES = 12
+
+
+def densify(points: np.ndarray) -> np.ndarray:
+    """Sample along each cubic Bézier segment instead of trusting control points."""
+    if len(points) < 4:
+        return points
+    usable = len(points) - (len(points) % 4)
+    if usable < 4:
+        return points
+    control = points[:usable].reshape(-1, 4, points.shape[1])
+    t = np.linspace(0.0, 1.0, SEGMENT_SAMPLES).reshape(1, -1, 1)
+    p0, p1, p2, p3 = (control[:, i, :][:, None, :] for i in range(4))
+    curve = (
+        (1 - t) ** 3 * p0
+        + 3 * (1 - t) ** 2 * t * p1
+        + 3 * (1 - t) * t**2 * p2
+        + t**3 * p3
+    )
+    return curve.reshape(-1, points.shape[1])
+
+
+def _is_axis(mobject: Any) -> bool:
+    from manim import CoordinateSystem, NumberLine
+
+    return isinstance(mobject, (NumberLine, CoordinateSystem))
+
+
+def axis_owned_text(roots: list[Any]) -> dict[int, set[int]]:
+    """Map each text to the axes that own it, i.e. its tick and axis labels.
+
+    Only this relationship is exempt from collision. An earlier rule exempted
+    anything sharing a root, which a scene defeated simply by putting the whole
+    figure in one VGroup — the axes and a stray label then counted as the same
+    tree, and a label sitting on the axis line was reported clean.
+    """
+    owners: dict[int, set[int]] = {}
+
+    def walk(node: Any, axes: tuple[int, ...]) -> None:
+        if is_text(node):
+            if axes:
+                owners.setdefault(id(node), set()).update(axes)
+            return
+        inner = (*axes, id(node)) if _is_axis(node) else axes
+        for child in getattr(node, "submobjects", ()) or ():
+            walk(child, inner)
+
+    for root in roots:
+        walk(root, ())
+    return owners
+
+
 def ink_of(roots: list[Any]) -> list[tuple[Any, Any, np.ndarray]]:
     """Drawable, non-text geometry, tagged with the root it belongs to.
 
@@ -75,16 +131,27 @@ def ink_of(roots: list[Any]) -> list[tuple[Any, Any, np.ndarray]]:
     object, and counting them turns every rendered character into ink.
     """
     collected: list[tuple[Any, Any, np.ndarray]] = []
+
+    def walk(node: Any, axes: tuple[int, ...], glyphs: set[int]) -> None:
+        if is_text(node) or id(node) in glyphs:
+            return
+        inner = (*axes, id(node)) if _is_axis(node) else axes
+        # A node's own points, not get_all_points(): the family version rolls every
+        # descendant into the container, so a VGroup wrapping the figure became one
+        # giant blob owned by nothing, and its own axis's tick labels collided with it.
+        points = getattr(node, "points", None)
+        points = points if points is not None and len(points) else []
+        if len(points):
+            collected.append(((inner[-1] if inner else id(node)), node, densify(np.asarray(points))))
+        for child in getattr(node, "submobjects", ()) or ():
+            walk(child, inner, glyphs)
+
     for root in roots:
         if is_text(root):
             continue
         glyphs = {id(part) for unit in text_units(root) for part in unit.family_members_with_points()}
-        for member in root.family_members_with_points():
-            if id(member) in glyphs or is_text(member):
-                continue
-            points = member.get_all_points()
-            if len(points):
-                collected.append((root, member, np.asarray(points)))
+        glyphs |= {id(unit) for unit in text_units(root)}
+        walk(root, (), glyphs)
     return collected
 
 
@@ -107,6 +174,7 @@ def text_on_ink(
         min_points: Ink points inside a text box before it counts.
     """
     ink = ink_of(roots)
+    owners = axis_owned_text(roots)
     problems: list[dict[str, Any]] = []
     seen: set[tuple[int, int]] = set()
 
@@ -115,26 +183,38 @@ def text_on_ink(
             if not float(getattr(unit, "width", 0)):
                 continue
             box = bounds(unit)
-            for ink_root, member, points in ink:
-                if ink_root is root:
+            owned_by = owners.get(id(unit), set())
+            for owner_id, member, points in ink:
+                if owner_id in owned_by:
                     continue  # a tick label on its own axis is design, not collision
                 count = ink_inside(box, points)
                 if count < min_points:
                     continue
-                key = (id(unit), id(ink_root))
+                key = (id(unit), owner_id)
                 if key in seen:
                     continue
                 seen.add(key)
+                # An axis tick number that a curve happens to cross is a minor
+                # legibility issue that even hand-made plots have, and the axis
+                # owns its own numbering so nothing can move them. A label, title
+                # or formula sitting on geometry is the defect worth failing on.
+                severity = "minor" if owned_by else "major"
                 problems.append(
                     {
                         "text": _describe(unit),
-                        "over": type(ink_root).__name__,
+                        "over": type(member).__name__,
                         "part": type(member).__name__,
                         "ink_points": count,
+                        "severity": severity,
                     }
                 )
                 break
     return problems
+
+
+def major_collisions(roots: list[Any], **kwargs: Any) -> list[dict[str, Any]]:
+    """Only the collisions worth failing a build over."""
+    return [hit for hit in text_on_ink(roots, **kwargs) if hit["severity"] == "major"]
 
 
 def _describe(mobject: Any) -> str:

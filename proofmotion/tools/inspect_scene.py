@@ -216,7 +216,8 @@ def inspect_scene(code: str) -> dict[str, Any]:
             seen_ink.add(key)
             on_ink.append({"beat": beat["index"], **hit})
 
-    problems = len(overlaps) + len(offscreen) + len(unreadable) + len(on_ink)
+    serious_ink = [h for h in on_ink if h["severity"] == "major"]
+    problems = len(overlaps) + len(offscreen) + len(unreadable) + len(serious_ink)
     advice = []
     if overlaps:
         advice.append("Move overlapping text onto separate rows, or fade the earlier one out before the next appears.")
@@ -224,7 +225,7 @@ def inspect_scene(code: str) -> dict[str, Any]:
         advice.append(f"Keep everything within {SAFE_MARGIN} units of the frame edge; scale it down if needed.")
     if unreadable:
         advice.append(f"Raise font_size so text is at least {MIN_TEXT_HEIGHT} units tall.")
-    if on_ink:
+    if serious_ink:
         advice.append(
             "Text is sitting on a curve or axis. Move it to empty space, or add a background "
             "rectangle behind it, so the characters are not competing with the geometry."
@@ -238,6 +239,7 @@ def inspect_scene(code: str) -> dict[str, Any]:
         "text_overlaps": overlaps[:20],
         "out_of_frame": offscreen[:20],
         "unreadable_text": unreadable[:20],
-        "text_on_ink": on_ink[:20],
+        "text_on_ink": [h for h in on_ink if h["severity"] == "major"][:20],
+        "text_on_ink_minor": [h for h in on_ink if h["severity"] == "minor"][:10],
         "advice": " ".join(advice) or "Nothing on screen overlaps, escapes the frame, or is too small.",
     }

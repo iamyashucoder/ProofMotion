@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from proofmotion.components import COMPONENTS, build
-from proofmotion.layout.collision import bounds, text_on_ink
+from proofmotion.layout.collision import bounds, major_collisions, text_on_ink
 from proofmotion.runtime.registry import tool
 
 
@@ -62,6 +62,7 @@ def component_build(name: str, parameters: dict) -> dict[str, Any]:
         built = build(name, parameters)
         roots = [built.group]
         collisions = text_on_ink(roots)
+        serious = major_collisions(roots)
         left, right, bottom, top = bounds(built.group)
         half_w, half_h = float(config.frame_width) / 2, float(config.frame_height) / 2
         escapes = [
@@ -75,7 +76,7 @@ def component_build(name: str, parameters: dict) -> dict[str, Any]:
 
     argument_text = ", ".join(f"{key}={value!r}" for key, value in parameters.items())
     return {
-        "ok": not collisions and not escapes,
+        "ok": not serious and not escapes,
         "component": name,
         "parts": sorted(built.parts),
         "beats": built.beats,
