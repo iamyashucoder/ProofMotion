@@ -48,6 +48,10 @@ class OpenAICompatibleClient:
     """One client for any endpoint speaking OpenAI chat-completions."""
 
     name = "openai-compatible"
+    #: OpenAI's newer models reject max_tokens and require max_completion_tokens,
+    #: while DeepSeek and OpenRouter still expect max_tokens. Providers differ, so
+    #: the name is a class attribute rather than a hardcoded key.
+    token_param = "max_tokens"
 
     def __init__(
         self,
@@ -95,8 +99,8 @@ class OpenAICompatibleClient:
                     model=self.model,
                     messages=messages,
                     temperature=self.temperature,
-                    max_tokens=max_tokens,
                     extra_body=self.extra_body or None,
+                    **{self.token_param: max_tokens},
                     **({"tools": tools, "tool_choice": "auto"} if tools else {}),
                 )
             except Exception as error:
@@ -123,8 +127,8 @@ class OpenAICompatibleClient:
                     {"role": "user", "content": user_prompt},
                 ],
                 temperature=self.temperature,
-                max_tokens=max_tokens,
                 extra_body=self.extra_body or None,
+                **{self.token_param: max_tokens},
             )
         except Exception as error:
             log.error("%s request failed (model=%s): %s", self.name, self.model, error)
@@ -218,8 +222,30 @@ class LocalVLLMClient(OpenAICompatibleClient):
         )
 
 
+class OpenAIClient(OpenAICompatibleClient):
+    """OpenAI directly.
+
+    The gpt-5 family rejects max_tokens outright, so token_param changes here.
+    Verified against the live API: gpt-5.2 accepts max_completion_tokens and
+    refuses max_tokens with a 400; gpt-4.1 accepts either.
+    """
+
+    name = "openai"
+    token_param = "max_completion_tokens"
+    DEFAULT_MODEL = "gpt-5.2"
+
+    def __init__(self, model: str | None = None, **kwargs: Any) -> None:
+        super().__init__(
+            base_url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+            api_key=os.getenv("OPENAI_API_KEY"),
+            model=model or os.getenv("OPENAI_MODEL", self.DEFAULT_MODEL),
+            **kwargs,
+        )
+
+
 PROVIDERS: dict[str, type[OpenAICompatibleClient]] = {
     "deepseek": DeepSeekClient,
+    "openai": OpenAIClient,
     "openrouter": OpenRouterClient,
     "vllm": LocalVLLMClient,
 }

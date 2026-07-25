@@ -91,16 +91,28 @@ chat-completions wire format, so one implementation (`llm/providers.py`) covers
 all of them. Select with `PROOFMOTION_LLM_PROVIDER`:
 
 ```bash
-PROOFMOTION_LLM_PROVIDER=deepseek   uv run proofmotion "..."
-PROOFMOTION_LLM_PROVIDER=openrouter uv run proofmotion "..."   # default
-PROOFMOTION_LLM_PROVIDER=vllm       uv run proofmotion "..."   # local, on the A6000s
+uv run proofmotion --provider openai   "..."
+uv run proofmotion --provider deepseek "..."
+uv run proofmotion --provider vllm     "..."   # local, on the A6000s
+PROOFMOTION_LLM_PROVIDER=openai uv run proofmotion "..."   # or set it once
 ```
 
 | Provider | Key | Model env var | Default |
 |---|---|---|---|
+| `openai` | `OPENAI_API_KEY` | `OPENAI_MODEL` | `gpt-5.2` |
 | `deepseek` | `DEEPSEEK_API_KEY` | `DEEPSEEK_MODEL` | `deepseek-v4-pro` |
-| `openrouter` | `OPENROUTER_API_KEY` | `OPENROUTER_MODEL` | `google/gemma-3-27b-it` |
+| `openrouter` | `OPENROUTER_API_KEY` | `OPENROUTER_MODEL` | `google/gemma-4-26b-a4b-it:free` |
 | `vllm` | not required | `VLLM_MODEL` | — (set `VLLM_BASE_URL`) |
+
+The agent loop needs tool calling, so the provider must support it. OpenAI and
+DeepSeek both do. **OpenRouter `:free` endpoints generally do not** — they route
+to upstreams that accept the `tools` parameter and silently ignore it, returning
+prose instead, and `provider.require_parameters` will not force a tool-capable
+route. Use free models for smoke tests only; the paid variants work.
+
+OpenAI's gpt-5 family rejects `max_tokens` and requires `max_completion_tokens`,
+while DeepSeek and OpenRouter expect `max_tokens`, so the parameter name is set
+per provider rather than hardcoded.
 
 DeepSeek serves exactly two model ids, `deepseek-v4-pro` and `deepseek-v4-flash`,
 and supports extended thinking:

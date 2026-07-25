@@ -123,6 +123,26 @@ class ManimApiTests(unittest.TestCase):
             self.assertTrue(report["valid"], f"false positive in {scene}: {report['problems']}")
 
 
+class ProviderTests(unittest.TestCase):
+    """Provider differences that silently break requests if hardcoded."""
+
+    def test_openai_uses_max_completion_tokens_and_others_do_not(self):
+        from llm.providers import DeepSeekClient, OpenAIClient, OpenRouterClient
+
+        # Verified against the live APIs: gpt-5.2 rejects max_tokens with a 400,
+        # while DeepSeek and OpenRouter require exactly that name.
+        self.assertEqual(OpenAIClient.token_param, "max_completion_tokens")
+        self.assertEqual(DeepSeekClient.token_param, "max_tokens")
+        self.assertEqual(OpenRouterClient.token_param, "max_tokens")
+
+    def test_every_provider_is_reachable_by_name(self):
+        from llm.providers import PROVIDERS, LLMError, get_client
+
+        self.assertIn("openai", PROVIDERS)
+        with self.assertRaises(LLMError):
+            get_client("nonexistent-provider")
+
+
 class SceneInspectionTests(unittest.TestCase):
     """Measuring the written scene, not the planned one — where overlaps came from."""
 
