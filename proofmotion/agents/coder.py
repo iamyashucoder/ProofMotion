@@ -8,6 +8,7 @@ checked against the real API before anything renders.
 
 from __future__ import annotations
 
+import ast
 import json
 from typing import Any
 
@@ -42,11 +43,32 @@ Return the finished Python source and nothing else: no prose, no code fences."""
 
 
 def _strip_fences(code: str) -> str:
+    """Extract Python source from a reply that may also contain prose.
+
+    The naive version only stripped a fence at position 0, so a repair that
+    began with an explanation was returned verbatim and failed to parse on a
+    stray arrow character. Prefer a fenced block that actually parses.
+    """
     text = code.strip()
-    if text.startswith("```"):
-        text = text.split("```")[1] if len(text.split("```")) > 1 else text
-        text = text.removeprefix("python").strip()
-    return text.strip()
+    candidates: list[str] = []
+    if "```" in text:
+        # Fenced blocks are the odd-indexed segments of a ```-split.
+        parts = text.split("```")
+        candidates.extend(part.removeprefix("python").removeprefix("py").strip() for part in parts[1::2])
+    candidates.append(text)
+
+    for candidate in candidates:
+        if not candidate:
+            continue
+        try:
+            ast.parse(candidate)
+        except SyntaxError:
+            continue
+        if "GeneratedScene" in candidate:
+            return candidate
+    # Nothing parsed with a scene in it. Return the best-effort block so the
+    # caller's validator reports a real diagnosis rather than an empty string.
+    return next((c for c in candidates if c), "")
 
 
 def write_scene(client: Any, context: dict[str, Any], *, max_iterations: int = 20) -> dict[str, Any]:

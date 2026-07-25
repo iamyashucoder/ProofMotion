@@ -79,6 +79,66 @@ class ManimApiTests(unittest.TestCase):
         with self.assertRaises(ToolError):
             manim_signature("Axees")
 
+    def test_catches_a_colour_manim_does_not_have(self):
+        """MAGENTA is not a Manim colour; it reached render and raised NameError."""
+        code = "from manim import *\nclass GeneratedScene(Scene):\n    def construct(self):\n        self.add(Dot(color=MAGENTA))\n"
+        report = manim_validate_code(code)
+        self.assertFalse(report["valid"])
+        self.assertEqual(report["problems"][0]["call"], "MAGENTA")
+        self.assertIn("PURE_MAGENTA", report["problems"][0]["did_you_mean"])
+
+    def test_catches_module_access_that_star_import_does_not_bind(self):
+        """`from manim import *` imports the contents, not the name `manim`."""
+        code = "from manim import *\nclass GeneratedScene(Scene):\n    def construct(self):\n        self.add(manim.Dot())\n"
+        self.assertFalse(manim_validate_code(code)["valid"])
+        with_import = "import manim\n" + code
+        self.assertTrue(manim_validate_code(with_import)["valid"])
+
+    def test_module_functions_are_not_mistaken_for_manim_methods(self):
+        """np comes through Manim's star-export; np.zeros() is not a Manim method."""
+        code = (
+            "from manim import *\nclass GeneratedScene(Scene):\n"
+            "    def construct(self):\n        a = np.zeros(4)\n        self.add(Dot())\n"
+        )
+        self.assertTrue(manim_validate_code(code)["valid"], manim_validate_code(code)["problems"])
+
+    def test_every_generated_scene_that_rendered_is_still_clean(self):
+        """The validator must not flag code known to work."""
+        def produced_a_video(project: Path) -> bool:
+            # partial_movie_files exist even for failed renders, so a plain
+            # *.mp4 glob counts scenes that never finished as successes.
+            return any(
+                "partial_movie_files" not in v.parts for v in (project / "preview").rglob("*.mp4")
+            )
+
+        rendered = [
+            p
+            for p in Path("generated_projects").glob("*/generated_scene.py")
+            if p.stat().st_size and (p.parent / "preview").exists() and produced_a_video(p.parent)
+        ]
+        if not rendered:
+            self.skipTest("no rendered projects available")
+        for scene in rendered:
+            report = manim_validate_code(scene.read_text(encoding="utf-8"))
+            self.assertTrue(report["valid"], f"false positive in {scene}: {report['problems']}")
+
+
+class RepairExtractionTests(unittest.TestCase):
+    def test_code_is_recovered_from_a_reply_containing_prose(self):
+        """A repair that explained itself first was returned verbatim and failed to parse."""
+        from proofmotion.agents.coder import _strip_fences
+
+        reply = (
+            "Here is the fix → I replaced MAGENTA with PURPLE.\n\n"
+            "```python\nfrom manim import *\n"
+            "class GeneratedScene(Scene):\n    def construct(self):\n        self.add(Dot(color=PURPLE))\n```\n"
+            "That should render now."
+        )
+        code = _strip_fences(reply)
+        self.assertTrue(code.startswith("from manim"))
+        self.assertIn("GeneratedScene", code)
+        self.assertNotIn("→", code)
+
 
 class SymbolicTests(unittest.TestCase):
     def test_derivative_is_computed_not_recalled(self):

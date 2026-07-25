@@ -9,12 +9,38 @@ the bug. An agent that can look up a signature does not need to be told.
 from __future__ import annotations
 
 import ast
+import builtins
 import functools
 import inspect
 from difflib import get_close_matches
 from typing import Any
 
 from proofmotion.runtime.registry import ToolError, tool
+
+
+def _bound_names(tree: ast.AST) -> set[str]:
+    """Every name the module binds anywhere.
+
+    Deliberately flat rather than scope-aware: over-collecting risks missing a
+    real bug, while under-collecting flags working code, and a validator that
+    cries wolf gets ignored.
+    """
+    bound: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
+            bound.add(node.id)
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            bound.add(node.name)
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            for alias in node.names:
+                bound.add(alias.asname or alias.name.split(".")[0])
+        elif isinstance(node, ast.arg):
+            bound.add(node.arg)
+        elif isinstance(node, ast.ExceptHandler) and node.name:
+            bound.add(node.name)
+        elif isinstance(node, (ast.Global, ast.Nonlocal)):
+            bound.update(node.names)
+    return bound
 
 
 @functools.lru_cache(maxsize=1)
@@ -187,6 +213,17 @@ def manim_validate_code(code: str) -> dict[str, Any]:
     index = _index()
     problems: list[dict[str, Any]] = []
 
+    # Receivers that are modules, not mobjects. np.zeros() is not a Manim method
+    # call, and checking it against Manim's method table only produces noise.
+    # `np` arrives through Manim's own star-export, so an import scan alone misses it.
+    module_names = {n for n in dir(index["module"]) if inspect.ismodule(getattr(index["module"], n, None))}
+    module_names |= {
+        alias.asname or alias.name.split(".")[0]
+        for n in ast.walk(tree)
+        if isinstance(n, ast.Import)
+        for alias in n.names
+    }
+
     # `from manim import *` does not bind the name `manim`, so `manim.Circle(...)`
     # raises NameError at render time while looking perfectly reasonable.
     imports_module = any(
@@ -205,6 +242,56 @@ def manim_validate_code(code: str) -> dict[str, Any]:
                     }
                 )
                 break  # one report is enough; the fix is the same everywhere
+
+    # Undefined names: MAGENTA is not a Manim colour, and nothing else here would
+    # notice — a hallucinated constant renders as NameError minutes later.
+    # Every `from X import *` contributes names *and* classes. Missing one
+    # (manim.opengl, say) flags its perfectly valid API as invalid.
+    star_modules = [
+        n.module
+        for n in ast.walk(tree)
+        if isinstance(n, ast.ImportFrom) and n.module and any(a.name == "*" for a in n.names)
+    ]
+    for module_name in star_modules:
+        if not (module_name == "manim" or module_name.startswith("manim.")):
+            continue
+        try:
+            extra = __import__(module_name, fromlist=["*"])
+        except ImportError:
+            continue
+        for name in dir(extra):
+            member = getattr(extra, name, None)
+            if inspect.isclass(member) and name not in index["classes"]:
+                index["classes"][name] = member
+                for method, _ in inspect.getmembers(member, inspect.isroutine):
+                    if not method.startswith("_"):
+                        index["methods"].setdefault(method, []).append(name)
+
+    if any(m == "manim" or m.startswith("manim.") for m in star_modules):
+        exported = set(dir(index["module"]))
+        for module_name in star_modules:
+            try:
+                exported |= set(dir(__import__(module_name, fromlist=["*"])))
+            except ImportError:
+                continue
+        known = exported | _bound_names(tree) | set(dir(builtins))
+        reported: set[str] = set()
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)):
+                continue
+            if node.id in known or node.id in reported:
+                continue
+            reported.add(node.id)
+            colours = sorted(n for n in exported if n.isupper() and not n.startswith("_"))
+            problems.append(
+                {
+                    "line": node.lineno,
+                    "call": node.id,
+                    "problem": f"the name {node.id!r} is not defined and Manim does not export it",
+                    "did_you_mean": get_close_matches(node.id, sorted(exported), n=4)
+                    or get_close_matches(node.id, colours, n=4),
+                }
+            )
 
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
@@ -236,6 +323,8 @@ def manim_validate_code(code: str) -> dict[str, Any]:
         # Method call:  axes.get_secant_slope_group(...). The receiver's type is
         # unknown statically, so check against every Manim class defining that name.
         if isinstance(node.func, ast.Attribute):
+            if isinstance(node.func.value, ast.Name) and node.func.value.id in module_names:
+                continue  # a module function, not a Manim method
             method = node.func.attr
             owners = index["methods"].get(method)
             if not owners:
