@@ -16,12 +16,12 @@ import unittest
 
 logging.getLogger("manim").setLevel(logging.ERROR)
 
-from manim import config, tempconfig  # noqa: E402
+from manim import config, tempconfig
 
-from proofmotion.components import COMPONENTS, build  # noqa: E402
-from proofmotion.layout.collision import bounds, text_on_ink  # noqa: E402
-from proofmotion.layout.labels import place_label  # noqa: E402
-from proofmotion.layout.regions import LAYOUT_NAMES, layout, place  # noqa: E402
+from proofmotion.components import COMPONENTS, build
+from proofmotion.layout.collision import bounds, text_on_ink
+from proofmotion.layout.labels import place_label
+from proofmotion.layout.regions import LAYOUT_NAMES, layout, place
 
 
 def overlaps(a, b) -> bool:

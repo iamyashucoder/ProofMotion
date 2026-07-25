@@ -62,3 +62,8 @@ addopts = "-q"
 [tool.ruff]
 target-version = "py311"
 line-length = 120
+
+[tool.ruff.lint.per-file-ignores]
+# Parameter tables read better as dict(...) calls than as literals, and the
+# case table is deliberately a class attribute so subTest can name it.
+"tests/*" = ["C408", "RUF012"]
