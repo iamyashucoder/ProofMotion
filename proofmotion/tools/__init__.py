@@ -6,7 +6,8 @@ measurement, which compose into gradient descent and into everything else.
 """
 
 from proofmotion.runtime.registry import REGISTRY
-from proofmotion.tools import (  # noqa: F401  (import registers)
+from proofmotion.tools import (
+    components_tool,
     inspect_scene,
     layout,
     manim_api,
@@ -14,6 +15,12 @@ from proofmotion.tools import (  # noqa: F401  (import registers)
     symbolic,
     typeset,
 )
+
+#: Referenced so the imports are genuinely used. Registration happens as an
+#: import side effect, and `ruff --fix` once deleted components_tool as unused —
+#: silently unregistering component_search and component_build, which then failed
+#: only at runtime inside an agent. A tuple a linter can see cannot be pruned.
+_REGISTERING_MODULES = (components_tool, inspect_scene, layout, manim_api, numeric, symbolic, typeset)
 
 #: Tools grouped by the job they serve, so an agent is handed only what it needs.
 TOOLSETS: dict[str, list[str]] = {

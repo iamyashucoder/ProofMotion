@@ -61,6 +61,27 @@ class RegionTests(unittest.TestCase):
         self.assertAlmostEqual(float(small.width), 0.4, places=6)
 
 
+class RegistrationTests(unittest.TestCase):
+    """Registration happens as an import side effect, which a linter once undid.
+
+    `ruff --fix` deleted components_tool from the package imports as unused,
+    silently removing component_search and component_build. Nothing failed until
+    an agent asked for the toolset mid-run.
+    """
+
+    def test_every_toolset_resolves(self):
+        from proofmotion.tools import TOOLSETS, toolset
+
+        for group in TOOLSETS:
+            self.assertTrue(toolset(group).names, f"{group} resolved to nothing")
+
+    def test_component_tools_are_registered(self):
+        from proofmotion.tools import REGISTRY
+
+        for name in ("component_search", "component_build"):
+            self.assertIn(name, REGISTRY.names, f"{name} is missing from the registry")
+
+
 class LabelPlacementTests(unittest.TestCase):
     def test_label_avoids_the_curve_it_annotates(self):
         """Placed at the anchor a label sits on the curve; scored, it does not."""
