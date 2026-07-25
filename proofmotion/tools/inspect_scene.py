@@ -130,6 +130,7 @@ def inspect_scene(code: str) -> dict[str, Any]:
 
     scene_class = _load_scene_class(code)
     beats: list[dict[str, Any]] = []
+    timing: dict[str, float] = {"waits": 0.0, "plays": 0.0}
 
     class Inspector(scene_class):  # type: ignore[valid-type,misc]
         """Skips animations to their end state and records the resulting geometry."""
@@ -139,6 +140,7 @@ def inspect_scene(code: str) -> dict[str, Any]:
             # animation's mobject before running it and cleans up afterwards. Adding
             # after clean_up resurrects everything a scene tried to remove.
             settled = []
+            timing["plays"] += float(kwargs.get("run_time") or 1.0)
             for animation in animations:
                 if not isinstance(animation, Animation):
                     continue
@@ -160,8 +162,9 @@ def inspect_scene(code: str) -> dict[str, Any]:
                     log.debug("clean_up failed for %s: %s", type(animation).__name__, error)
             self._record()
 
-        def wait(self, *args: Any, **kwargs: Any) -> None:
-            return None
+        def wait(self, duration: float = 1.0, *args: Any, **kwargs: Any) -> None:
+            # Not rendered, but counted: waits are half of why a scene runs long.
+            timing["waits"] += float(duration) if isinstance(duration, (int, float)) else 1.0
 
         def _record(self) -> None:
             items: list[dict[str, Any]] = []
@@ -244,9 +247,11 @@ def inspect_scene(code: str) -> dict[str, Any]:
     if unreadable:
         advice.append(f"Raise font_size so text is at least {MIN_TEXT_HEIGHT} units tall.")
 
+    estimated = round(timing["plays"] + timing["waits"], 1)
     return {
         "ok": problems == 0,
         "beats": len(beats),
+        "estimated_seconds": estimated,
         "text_overlaps": overlaps[:20],
         "out_of_frame": offscreen[:20],
         "unreadable_text": unreadable[:20],

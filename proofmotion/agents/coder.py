@@ -46,6 +46,13 @@ rendering and measures the real bounding boxes beat by beat, so it catches
 overlaps that planning missed. Fix everything it reports and run it again. It
 is the difference between a layout you intended and the one you wrote.
 
+Respect the runtime budget in the brief. Roughly two self.play calls per ten
+seconds of target length is the right density; thirty-six of them for a one
+minute animation is a slideshow, not an explanation. Combine related changes
+into a single play with an AnimationGroup rather than animating each object in
+turn, and keep self.wait short — 0.5s after a reveal is usually enough, and a
+wait after every single beat is what turns a tight explanation into a long one.
+
 Requirements:
   - exactly one Scene subclass, named GeneratedScene
   - start with: from manim import *
@@ -90,12 +97,18 @@ def write_scene(client: Any, context: dict[str, Any], *, max_iterations: int = 2
     Returns the source plus the validation report, so the caller can see whether
     the agent actually converged rather than assuming it did.
     """
+    target = int((context.get("intent") or {}).get("duration_seconds") or 30)
     brief = json.dumps(
         {
             "intent": context.get("intent"),
             "verified_plan": context.get("math_plan"),
             "storyboard": context.get("storyboard"),
             "computed_values": context.get("tool_results"),
+            "budget": {
+                "target_seconds": target,
+                "max_play_calls": max(6, round(target / 5)),
+                "guidance": "Total run_time plus waits should land near target_seconds.",
+            },
         },
         indent=2,
         default=str,

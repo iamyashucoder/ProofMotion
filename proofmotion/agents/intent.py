@@ -23,7 +23,12 @@ specific function or claim and you need to know what you are dealing with.
 
 Any topic is in scope, from arithmetic to research mathematics and physics. If
 the request is vague, choose one concrete example that makes it teachable and
-record that choice in `assumptions`."""
+record that choice in `assumptions`.
+
+Keep duration_seconds short unless the request asks otherwise. Around 30 seconds
+suits most explanations and 45 is generous; a viewer learns more from a tight
+explanation than a thorough one. Only go beyond 45 when the request explicitly
+asks for depth or names several things to cover."""
 
 
 def understand_request(client: Any, user_prompt: str) -> AnimationIntent:

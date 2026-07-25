@@ -91,6 +91,7 @@ def create_math_animation(
     project_root: Path = PROJECTS_DIR,
     provider: str | None = None,
     model: str | None = None,
+    duration_seconds: int | None = None,
 ) -> MathAnimationState:
     """Plan, verify, compose, code, and render an animation for any request."""
     client = get_client(provider, model)
@@ -109,6 +110,10 @@ def create_math_animation(
 
     stage("understand")
     intent = understand_request(client, user_prompt)
+    if duration_seconds:
+        # An explicit request beats the agent's guess, and every downstream
+        # budget is derived from this number.
+        intent.duration_seconds = max(5, min(90, duration_seconds))
     state.intent = intent.model_dump()
     artifact("intent", state.intent)
     headline(f"Read the request as: {intent.topic} ({intent.domain}, {intent.difficulty})")
