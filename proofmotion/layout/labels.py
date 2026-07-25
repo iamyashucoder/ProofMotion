@@ -20,14 +20,14 @@ from typing import Any
 
 import numpy as np
 
-from proofmotion.layout.collision import bounds, ink_inside, ink_of
+from proofmotion.layout.collision import CLEARANCE, bounds, ink_inside, ink_of
 
 #: Eight compass directions, clockwise from east.
 DIRECTIONS: tuple[tuple[float, float], ...] = (
     (1.0, 0.0), (0.7071, 0.7071), (0.0, 1.0), (-0.7071, 0.7071),
     (-1.0, 0.0), (-0.7071, -0.7071), (0.0, -1.0), (0.7071, -0.7071),
 )
-DISTANCES: tuple[float, ...] = (0.28, 0.5, 0.8, 1.2)
+DISTANCES: tuple[float, ...] = (0.3, 0.55, 0.85, 1.25, 1.7)
 
 INK_PENALTY = 12.0
 LABEL_PENALTY = 30.0
@@ -36,7 +36,14 @@ DISTANCE_PENALTY = 1.4
 
 
 def _box_at(label: Any, x: float, y: float) -> tuple[float, float, float, float]:
-    half_w, half_h = float(label.width) / 2, float(label.height) / 2
+    """The box the *checker* will measure, not the label's raw extent.
+
+    The two must optimise the same thing. Scoring bare bounding boxes while the
+    checker demanded clearance meant the placer could call a position optimal and
+    the gate could call the same position a collision.
+    """
+    half_w = float(label.width) / 2 + CLEARANCE
+    half_h = float(label.height) / 2 + CLEARANCE
     return (x - half_w, x + half_w, y - half_h, y + half_h)
 
 

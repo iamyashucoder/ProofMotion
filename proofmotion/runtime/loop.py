@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import logging
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -23,6 +24,19 @@ from proofmotion.runtime.registry import ToolError, ToolRegistry
 log = logging.getLogger(__name__)
 
 MAX_OBSERVATION_CHARS = 6000
+
+#: Tools that are pure computation and safe to run concurrently. Everything else
+#: is serialised: inspect_scene, component_build, typeset_check and layout_measure
+#: all build Manim objects under tempconfig, which mutates global renderer state,
+#: so running two at once corrupts both.
+PARALLEL_SAFE = frozenset({
+    "symbolic_differentiate", "symbolic_integrate", "symbolic_simplify", "symbolic_solve",
+    "symbolic_limit", "symbolic_series", "symbolic_verify_equality",
+    "numeric_evaluate", "numeric_sample", "numeric_iterate", "numeric_roots",
+    "manim_search", "manim_signature", "manim_members", "manim_validate_code",
+    "layout_frame", "layout_check", "component_search",
+})
+MAX_PARALLEL = 6
 
 
 @dataclass
@@ -97,6 +111,19 @@ def run_structured(
     raise ToolError(f"{model_cls.__name__} could not be produced after {repairs + 1} attempts. Last error: {last_error}")
 
 
+def _run_tool(registry: ToolRegistry, call: Any) -> tuple[str, bool, float]:
+    """Dispatch one call. Returns (observation, failed, seconds)."""
+    started = time.monotonic()
+    try:
+        return _observation(registry.dispatch(call.function.name, call.function.arguments)), False, time.monotonic() - started
+    except ToolError as error:
+        # A misused tool is a correctable observation, not a crash.
+        return f"ToolError: {error}", True, time.monotonic() - started
+    except Exception as error:  # noqa: BLE001 - surfaced to the model, and logged
+        log.warning("tool %s raised %s: %s", call.function.name, type(error).__name__, error)
+        return f"{type(error).__name__}: {error}", True, time.monotonic() - started
+
+
 def _observation(value: Any) -> str:
     try:
         text = json.dumps(value, default=str)
@@ -166,27 +193,36 @@ def run_agent(
             }
         )
 
-        for call in calls:
-            name, raw_args = call.function.name, call.function.arguments
-            started = time.monotonic()
-            try:
-                result = registry.dispatch(name, raw_args)
-                observation, failed = _observation(result), False
-            except ToolError as error:
-                # A misused tool is a correctable observation, not a crash.
-                observation, failed = f"ToolError: {error}", True
-            except Exception as error:  # noqa: BLE001 - surfaced to the model, and logged
-                log.warning("tool %s raised %s: %s", name, type(error).__name__, error)
-                observation, failed = f"{type(error).__name__}: {error}", True
+        # Pure tools run concurrently; anything touching Manim's global config
+        # runs one at a time. A turn asking for six signature lookups used to
+        # cost six round trips of latency for no reason.
+        parallel = [c for c in calls if c.function.name in PARALLEL_SAFE]
+        serial = [c for c in calls if c.function.name not in PARALLEL_SAFE]
+        outcomes: dict[str, tuple[str, bool, float]] = {}
 
-            performed.append({"name": name, "arguments": raw_args, "failed": failed})
+        if len(parallel) > 1:
+            with ThreadPoolExecutor(max_workers=min(MAX_PARALLEL, len(parallel))) as pool:
+                for call, outcome in zip(
+                    parallel, pool.map(lambda c: _run_tool(registry, c), parallel), strict=True
+                ):
+                    outcomes[call.id] = outcome
+        else:
+            serial = parallel + serial
+
+        for call in serial:
+            outcomes[call.id] = _run_tool(registry, call)
+
+        for call in calls:
+            name = call.function.name
+            observation, failed, elapsed = outcomes[call.id]
+            performed.append({"name": name, "arguments": call.function.arguments, "failed": failed})
             BUS.emit(
                 "tool",
                 name=name,
-                arguments=raw_args[:400],
+                arguments=call.function.arguments[:400],
                 failed=failed,
                 result=observation[:400],
-                seconds=round(time.monotonic() - started, 2),
+                seconds=round(elapsed, 2),
                 agent=agent_name,
             )
             messages.append({"role": "tool", "tool_call_id": call.id, "name": name, "content": observation})

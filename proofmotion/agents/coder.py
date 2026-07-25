@@ -42,6 +42,10 @@ Look it up:
   manim_members   — what methods a class has
 If you are unsure whether a keyword argument exists, that means you must check it.
 
+Ask for several lookups in one turn rather than one at a time. Independent
+lookups run concurrently, so six signatures in a single turn cost about what one
+costs, while six separate turns burn six round trips of your iteration budget.
+
 Before you finish, run manim_validate_code on your complete source. It compares
 every call against the installed Manim and reports invalid arguments together
 with the valid ones. Fix what it reports and validate again. Do not return code
@@ -78,6 +82,36 @@ Requirements:
   - only equations that appear in the verified plan you are given
 
 Return the finished Python source and nothing else: no prose, no code fences."""
+
+
+#: Tools the agent hands complete source to. When it runs out of iterations and
+#: emits nothing, the code it was working on is still sitting in these calls.
+CODE_BEARING_TOOLS = ("manim_validate_code", "inspect_scene")
+
+
+def recover_code(tool_calls: list[dict[str, Any]]) -> str:
+    """Salvage the last usable scene from the agent's own tool calls.
+
+    "The coding agent returned no code" was never true. The agent validated and
+    inspected real source, then hit its iteration cap and answered with nothing,
+    and the run failed holding a scene it had already written. The most recent
+    call carrying a parseable GeneratedScene is that scene.
+    """
+    for call in reversed(tool_calls):
+        if call["name"] not in CODE_BEARING_TOOLS:
+            continue
+        try:
+            candidate = json.loads(call["arguments"] or "{}").get("code", "")
+        except json.JSONDecodeError:
+            continue
+        if not candidate or "GeneratedScene" not in candidate:
+            continue
+        try:
+            ast.parse(candidate)
+        except SyntaxError:
+            continue
+        return candidate
+    return ""
 
 
 def _component_name(arguments: str) -> str | None:
@@ -156,6 +190,12 @@ def write_scene(client: Any, context: dict[str, Any], *, max_iterations: int = 2
         ),
     )
     code = _strip_fences(result.content)
+    recovered = False
+    if not code or "GeneratedScene" not in code:
+        salvaged = recover_code(result.tool_calls)
+        if salvaged:
+            code, recovered = salvaged, True
+
     report = manim_validate_code(code) if code else {"valid": False, "problems": [{"problem": "agent returned no code"}]}
     used = sorted({
         m for call in result.tool_calls if call["name"] == "component_build" and not call["failed"]
@@ -165,6 +205,7 @@ def write_scene(client: Any, context: dict[str, Any], *, max_iterations: int = 2
         "code": code,
         "validation": report,
         "components_used": used,
+        "recovered_from_tool_calls": recovered,
         "composed": bool(used) and "build(" in code,
         "tools_used": result.tools_used,
         "iterations": result.iterations,

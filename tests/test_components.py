@@ -82,6 +82,58 @@ class RegistrationTests(unittest.TestCase):
             self.assertIn(name, REGISTRY.names, f"{name} is missing from the registry")
 
 
+class CodeRecoveryTests(unittest.TestCase):
+    """A run once failed with "the coding agent returned no code" while the agent
+    had already validated a working scene. The source was in its tool calls."""
+
+    SCENE = "from manim import *\nclass GeneratedScene(Scene):\n    def construct(self):\n        self.add(Dot())\n"
+
+    def test_recovers_the_last_validated_scene(self):
+        import json as _json
+
+        from proofmotion.agents.coder import recover_code
+
+        calls = [
+            {"name": "manim_search", "arguments": '{"query": "dot"}', "failed": False},
+            {"name": "manim_validate_code", "arguments": _json.dumps({"code": self.SCENE}), "failed": False},
+        ]
+        self.assertIn("GeneratedScene", recover_code(calls))
+
+    def test_skips_unparseable_and_unrelated_calls(self):
+        import json as _json
+
+        from proofmotion.agents.coder import recover_code
+
+        calls = [
+            {"name": "inspect_scene", "arguments": _json.dumps({"code": "def broken("}), "failed": True},
+            {"name": "manim_search", "arguments": "not json at all", "failed": False},
+        ]
+        self.assertEqual(recover_code(calls), "")
+
+    def test_prefers_the_most_recent_scene(self):
+        import json as _json
+
+        from proofmotion.agents.coder import recover_code
+
+        newer = self.SCENE.replace("Dot()", "Square()")
+        calls = [
+            {"name": "manim_validate_code", "arguments": _json.dumps({"code": self.SCENE}), "failed": False},
+            {"name": "inspect_scene", "arguments": _json.dumps({"code": newer}), "failed": False},
+        ]
+        self.assertIn("Square()", recover_code(calls))
+
+
+class ParallelDispatchTests(unittest.TestCase):
+    def test_manim_config_tools_are_never_parallelised(self):
+        """tempconfig mutates global renderer state; two at once corrupt both."""
+        from proofmotion.runtime.loop import PARALLEL_SAFE
+
+        for unsafe in ("inspect_scene", "component_build", "typeset_check", "layout_measure"):
+            self.assertNotIn(unsafe, PARALLEL_SAFE)
+        for safe in ("manim_signature", "symbolic_differentiate", "numeric_sample"):
+            self.assertIn(safe, PARALLEL_SAFE)
+
+
 class LabelPlacementTests(unittest.TestCase):
     def test_label_avoids_the_curve_it_annotates(self):
         """Placed at the anchor a label sits on the curve; scored, it does not."""

@@ -20,6 +20,12 @@ import numpy as np
 #: legitimately grave a curve at its very edge; sitting on it is the defect.
 MIN_INK_POINTS = 6
 
+#: Clearance demanded around text, in scene units. Strict overlap was too
+#: forgiving: a label pressed right against a curve or an axis number reads as
+#: badly as one on top of it, and measured as clean. Text needs breathing room,
+#: not merely disjoint bounding boxes.
+CLEARANCE = 0.07
+
 
 def is_text(mobject: Any) -> bool:
     """True for mobjects that carry readable characters."""
@@ -165,13 +171,14 @@ def ink_inside(box: tuple[float, float, float, float], points: np.ndarray) -> in
 
 
 def text_on_ink(
-    roots: list[Any], *, min_points: int = MIN_INK_POINTS
+    roots: list[Any], *, min_points: int = MIN_INK_POINTS, clearance: float = CLEARANCE
 ) -> list[dict[str, Any]]:
-    """Text sitting on geometry that belongs to something else.
+    """Text sitting on, or pressed against, geometry that belongs to something else.
 
     Args:
         roots: The scene's top-level mobjects.
         min_points: Ink points inside a text box before it counts.
+        clearance: Breathing room demanded around the text.
     """
     ink = ink_of(roots)
     owners = axis_owned_text(roots)
@@ -182,7 +189,8 @@ def text_on_ink(
         for unit in text_units(root):
             if not float(getattr(unit, "width", 0)):
                 continue
-            box = bounds(unit)
+            left, right, bottom, top = bounds(unit)
+            box = (left - clearance, right + clearance, bottom - clearance, top + clearance)
             owned_by = owners.get(id(unit), set())
             for owner_id, member, points in ink:
                 if owner_id in owned_by:
