@@ -12,7 +12,7 @@ def main() -> None:
     state = create_math_animation(prompt, render_final=args.final)
     print(f"Status: {state.status}")
     print(f"Project: generated_projects/{state.project_id}")
-    print(f"Draft editor: math-manim-preview generated_projects/{state.project_id}")
+    print(f"Draft editor: proofmotion-preview generated_projects/{state.project_id}")
     if state.preview_file:
         print(f"Preview: {state.preview_file}")
     if state.video_file:
