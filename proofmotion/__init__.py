@@ -1,6 +1,6 @@
-"""ProofMotion public package."""
+"""ProofMotion: verified mathematics, animated."""
 
-from orchestrator import create_math_animation
+from proofmotion.pipeline import create_math_animation
 
 __all__ = ["create_math_animation"]
-__version__ = "0.1.0"
+__version__ = "0.2.0"

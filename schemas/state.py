@@ -27,6 +27,8 @@ class MathAnimationState:
     repair_attempt: int = 0
     llm_provider: str = ""
     llm_model: str = ""
+    api_validation: dict[str, Any] = field(default_factory=dict)
+    agent_tools_used: list[str] = field(default_factory=list)
     status: str = "created"
 
     def to_dict(self) -> dict[str, Any]:

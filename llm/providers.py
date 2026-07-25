@@ -73,6 +73,40 @@ class OpenAICompatibleClient:
     def _client(self) -> OpenAI:
         return OpenAI(base_url=self.base_url, api_key=self.api_key, timeout=self.timeout)
 
+    def chat(
+        self,
+        messages: list[dict[str, Any]],
+        *,
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 4000,
+    ) -> Any:
+        """One raw turn, returning the assistant message.
+
+        The message may carry tool_calls instead of content; the agent loop owns
+        that decision, so this deliberately returns the message rather than text.
+        """
+        if not self.available:
+            raise LLMError(f"{self.name} has no API key configured")
+        # Free/pooled tiers intermittently return an empty choices list. That is
+        # transient routing, not a bad request, so a couple of retries are honest.
+        for attempt in range(3):
+            try:
+                response = self._client().chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    temperature=self.temperature,
+                    max_tokens=max_tokens,
+                    extra_body=self.extra_body or None,
+                    **({"tools": tools, "tool_choice": "auto"} if tools else {}),
+                )
+            except Exception as error:
+                log.error("%s chat failed (model=%s): %s", self.name, self.model, error)
+                raise LLMError(f"{self.name} chat failed (model={self.model}): {error}") from error
+            if response.choices:
+                return response.choices[0].message
+            log.warning("%s returned no choices (attempt %s/3, model=%s)", self.name, attempt + 1, self.model)
+        raise LLMError(f"{self.name} returned no choices after 3 attempts (model={self.model})")
+
     def complete(self, system_prompt: str, user_prompt: str, *, max_tokens: int = 4000) -> str | None:
         """Satisfies the llm.base_client.LLMClient protocol."""
         result = self.complete_full(system_prompt, user_prompt, max_tokens=max_tokens)
@@ -157,7 +191,9 @@ class DeepSeekClient(OpenAICompatibleClient):
 
 class OpenRouterClient(OpenAICompatibleClient):
     name = "openrouter"
-    DEFAULT_MODEL = "google/gemma-3-27b-it"
+    # Free tier, 262k context, and verified to support tool calling — which the
+    # agent loop depends on. Free-tier rate limits (429) apply.
+    DEFAULT_MODEL = "google/gemma-4-26b-a4b-it:free"
 
     def __init__(self, model: str | None = None, **kwargs: Any) -> None:
         super().__init__(

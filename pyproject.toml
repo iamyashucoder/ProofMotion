@@ -50,10 +50,10 @@ proofmotion-preview = "proofmotion.preview_cli:main"
 manim = { path = "vendor/manim", editable = true }
 
 [tool.setuptools]
-py-modules = ["orchestrator", "prompts"]
+py-modules = []
 
 [tool.setuptools.packages.find]
-include = ["agents*", "llm*", "schemas*", "tools*", "proofmotion*"]
+include = ["llm*", "schemas*", "tools*", "proofmotion*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
