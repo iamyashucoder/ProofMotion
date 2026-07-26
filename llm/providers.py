@@ -13,7 +13,7 @@ import logging
 import os
 import re
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, ClassVar
 
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -130,7 +130,11 @@ class OpenAICompatibleClient:
                     **({"tools": tools, "tool_choice": "auto"} if tools else {}),
                 )
             except Exception as error:
-                log.error("%s chat failed (model=%s): %s", self.name, self.model, error)
+                # Logged at debug, not error: some callers recover from this —
+                # gpt-5.6 refuses tools here and is retried on the Responses
+                # endpoint — and an ERROR line for a handled condition makes the
+                # log untrustworthy. Genuine failures surface via the raise.
+                log.debug("%s chat failed (model=%s): %s", self.name, self.model, error)
                 raise LLMError(f"{self.name} chat failed (model={self.model}): {error}") from error
             if response.choices:
                 return response.choices[0].message
@@ -157,7 +161,7 @@ class OpenAICompatibleClient:
                 **{self.token_param: max_tokens},
             )
         except Exception as error:
-            log.error("%s request failed (model=%s): %s", self.name, self.model, error)
+            log.debug("%s request failed (model=%s): %s", self.name, self.model, error)
             raise LLMError(f"{self.name} request failed (model={self.model}): {error}") from error
 
         if not response.choices:
@@ -272,6 +276,10 @@ class OpenAIClient(OpenAICompatibleClient):
     name = "openai"
     token_param = "max_completion_tokens"
     DEFAULT_MODEL = "gpt-5.6-terra"
+    #: Models already found to need the Responses endpoint for tools. Remembered
+    #: per model rather than per client, so only the first agent in a run pays
+    #: for the discovery instead of every one of them.
+    _needs_responses: ClassVar[set[str]] = set()
 
     def __init__(self, model: str | None = None, **kwargs: Any) -> None:
         super().__init__(
@@ -296,6 +304,10 @@ class OpenAIClient(OpenAICompatibleClient):
         models need which endpoint — which would be stale within a release — the
         switch is made when the API asks for it, and remembered.
         """
+        if self._responses_delegate is None and tools and self.model in OpenAIClient._needs_responses:
+            self._responses_delegate = OpenAIResponsesClient(
+                self.model, temperature=self.temperature, timeout=self.timeout
+            )
         if self._responses_delegate is not None:
             return self._responses_delegate.chat(messages, tools=tools, max_tokens=max_tokens)
         try:
@@ -304,6 +316,7 @@ class OpenAIClient(OpenAICompatibleClient):
             if "/v1/responses" not in str(error):
                 raise
             log.info("%s requires the Responses API for tools; switching", self.model)
+            OpenAIClient._needs_responses.add(self.model)
             delegate = OpenAIResponsesClient(self.model, temperature=self.temperature, timeout=self.timeout)
             self._responses_delegate = delegate
             return delegate.chat(messages, tools=tools, max_tokens=max_tokens)
@@ -440,7 +453,7 @@ class OpenAIResponsesClient(OpenAIClient):
         try:
             response = self._client().responses.create(**request)
         except Exception as error:
-            log.error("%s responses call failed (model=%s): %s", self.name, self.model, error)
+            log.debug("%s responses call failed (model=%s): %s", self.name, self.model, error)
             raise LLMError(f"{self.name} responses call failed (model={self.model}): {error}") from error
 
         text, calls, reasoning = "", [], []

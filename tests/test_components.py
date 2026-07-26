@@ -138,6 +138,71 @@ class CodeRecoveryTests(unittest.TestCase):
         self.assertIn("Square()", recover_code(calls))
 
 
+class ResponsesFallbackTests(unittest.TestCase):
+    """gpt-5.6 refuses function tools on chat-completions and names the fix.
+
+    The switch works, but it used to announce itself with an ERROR line for a
+    condition that was immediately handled, which reads as a failed run.
+    """
+
+    def test_a_handled_switch_is_not_logged_as_an_error(self):
+        import types
+
+        from llm.providers import LLMError, OpenAIClient
+
+        client = OpenAIClient("gpt-5.6-terra")
+        refusal = (
+            "Error code: 400 - Function tools with reasoning_effort are not supported for "
+            "gpt-5.6-terra in /v1/chat/completions. To use function tools, use /v1/responses"
+        )
+
+        def refuse(*args, **kwargs):
+            raise LLMError(refusal)
+
+        switched = {}
+
+        class FakeDelegate:
+            def chat(self, messages, *, tools=None, max_tokens=4000):
+                switched["yes"] = True
+                return types.SimpleNamespace(content="ok", tool_calls=None)
+
+        from llm import providers
+
+        original_super, original_delegate = providers.OpenAICompatibleClient.chat, providers.OpenAIResponsesClient
+        providers.OpenAICompatibleClient.chat = refuse
+        providers.OpenAIResponsesClient = lambda *a, **k: FakeDelegate()
+        try:
+            with self.assertLogs("llm.providers", level="DEBUG") as captured:
+                client.chat([{"role": "user", "content": "hi"}], tools=[{"type": "function"}])
+        finally:
+            providers.OpenAICompatibleClient.chat = original_super
+            providers.OpenAIResponsesClient = original_delegate
+
+        self.assertTrue(switched.get("yes"), "should have switched to the Responses delegate")
+        self.assertFalse(
+            [line for line in captured.output if line.startswith("ERROR")],
+            f"a recovered switch must not log ERROR: {captured.output}",
+        )
+
+    def test_an_unrelated_failure_still_propagates(self):
+        from llm import providers
+        from llm.providers import LLMError, OpenAIClient
+
+        def refuse(*args, **kwargs):
+            raise LLMError("Error code: 500 - the server is on fire")
+
+        client = OpenAIClient("gpt-5.6-terra")
+        client._responses_delegate = None
+        OpenAIClient._needs_responses.discard("gpt-5.6-terra")
+        original = providers.OpenAICompatibleClient.chat
+        providers.OpenAICompatibleClient.chat = refuse
+        try:
+            with self.assertRaises(LLMError):
+                client.chat([{"role": "user", "content": "hi"}], tools=[{"type": "function"}])
+        finally:
+            providers.OpenAICompatibleClient.chat = original
+
+
 class MissingReturnTests(unittest.TestCase):
     """A helper that builds a mobject and forgets to return it.
 
