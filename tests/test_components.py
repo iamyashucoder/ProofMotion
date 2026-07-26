@@ -138,6 +138,73 @@ class CodeRecoveryTests(unittest.TestCase):
         self.assertIn("Square()", recover_code(calls))
 
 
+class MissingReturnTests(unittest.TestCase):
+    """A helper that builds a mobject and forgets to return it.
+
+    The caller gets None and the failure surfaces far away — always_redraw
+    reporting that NoneType has no add_updater, with the traceback pointing at
+    the caller rather than the helper that is actually wrong.
+    """
+
+    BROKEN = (
+        "from manim import *\n"
+        "class GeneratedScene(Scene):\n"
+        "    def construct(self):\n"
+        "        def make_letter(letter, color):\n"
+        "            txt = Text(letter, color=color)\n"
+        "            grp = VGroup(txt)\n"
+        "        P = make_letter('P', WHITE)\n"
+        "        self.play(FadeIn(P))\n"
+    )
+
+    def test_a_helper_without_a_return_is_flagged(self):
+        from proofmotion.tools.manim_api import manim_validate_code
+
+        report = manim_validate_code(self.BROKEN)
+        self.assertFalse(report["valid"])
+        self.assertIn("never returns a value", report["problems"][0]["problem"])
+
+    def test_adding_the_return_clears_it(self):
+        from proofmotion.tools.manim_api import manim_validate_code
+
+        fixed = self.BROKEN.replace("            grp = VGroup(txt)", "            grp = VGroup(txt)\n            return grp")
+        self.assertTrue(manim_validate_code(fixed)["valid"])
+
+    def test_a_procedure_that_is_meant_to_return_nothing_is_not_flagged(self):
+        """reveal() only plays; returning nothing is correct, not a defect."""
+        from proofmotion.tools.manim_api import manim_validate_code
+
+        procedure = (
+            "from manim import *\n"
+            "class GeneratedScene(Scene):\n"
+            "    def construct(self):\n"
+            "        def reveal(mob):\n"
+            "            self.play(FadeIn(mob))\n"
+            "        d = Dot()\n"
+            "        reveal(d)\n"
+        )
+        self.assertTrue(manim_validate_code(procedure)["valid"])
+
+    def test_scenes_that_rendered_are_not_flagged(self):
+        from pathlib import Path
+
+        from proofmotion.tools.manim_api import manim_validate_code
+
+        rendered = [
+            p for p in Path("generated_projects").glob("*/generated_scene.py")
+            if p.stat().st_size and (p.parent / "preview").exists()
+            and any("partial_movie_files" not in v.parts for v in (p.parent / "preview").rglob("*.mp4"))
+        ]
+        if not rendered:
+            self.skipTest("no rendered projects available")
+        for scene in rendered:
+            voids = [
+                x for x in manim_validate_code(scene.read_text(encoding="utf-8"))["problems"]
+                if "never returns a value" in x.get("problem", "")
+            ]
+            self.assertEqual(voids, [], f"false positive in {scene}")
+
+
 class DirectWriteFallbackTests(unittest.TestCase):
     """An agent can explore its whole budget and hand back nothing.
 

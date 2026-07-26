@@ -18,6 +18,37 @@ from typing import Any
 from proofmotion.runtime.registry import ToolError, tool
 
 
+def _returns_nothing(function: ast.FunctionDef) -> bool:
+    """True when a function never returns a value.
+
+    Excludes nested definitions, whose returns belong to them.
+    """
+    for node in ast.walk(function):
+        if node is not function and isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+            continue
+        if isinstance(node, ast.Return) and node.value is not None:
+            return False
+    return True
+
+
+def _void_helpers(tree: ast.AST) -> dict[str, int]:
+    """Locally defined functions that build something and forget to return it.
+
+    A recurring shape in generated scenes: a `make_letter` helper assembles a
+    VGroup, omits the return, and the caller then does `.add_updater` on None.
+    Nothing else here notices, and the failure only appears at render.
+    """
+    found: dict[str, int] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and _returns_nothing(node):
+            # Only flag helpers that clearly build something; a procedure that
+            # only calls self.play is meant to return nothing.
+            builds = any(isinstance(inner, ast.Assign) for inner in node.body)
+            if builds and not node.name.startswith(("test_", "_")):
+                found[node.name] = node.lineno
+    return found
+
+
 def _bound_names(tree: ast.AST) -> set[str]:
     """Every name the module binds anywhere.
 
@@ -222,6 +253,36 @@ def manim_validate_code(code: str) -> dict[str, Any]:
 
     index = _index()
     problems: list[dict[str, Any]] = []
+
+    # A helper that builds a mobject and forgets to return it. The caller gets
+    # None, and the failure surfaces far away — always_redraw reporting that
+    # NoneType has no add_updater, with nothing pointing back at the helper.
+    voids = _void_helpers(tree)
+    if voids:
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Name):
+                continue
+            name = node.func.id
+            if name not in voids:
+                continue
+            used = any(
+                node in ast.walk(parent)
+                for parent in ast.walk(tree)
+                if isinstance(parent, (ast.Assign, ast.Call)) and parent is not node
+            )
+            if used:
+                problems.append(
+                    {
+                        "line": node.lineno,
+                        "call": f"{name}(...)",
+                        "problem": (
+                            f"{name}() never returns a value (defined at line {voids[name]}), "
+                            "so this expression is None"
+                        ),
+                        "fix": f"add a return statement to {name}",
+                    }
+                )
+                break
 
     # Receivers that are modules, not mobjects. np.zeros() is not a Manim method
     # call, and checking it against Manim's method table only produces noise.
