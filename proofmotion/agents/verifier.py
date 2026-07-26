@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from proofmotion.runtime.registry import ToolError
+from proofmotion.tools.reasoning import counterexample_search
 from proofmotion.tools.symbolic import symbolic_verify_equality
 from proofmotion.tools.typeset import typeset_check
 from schemas.math_plan import MathematicalPlan
@@ -29,11 +30,22 @@ def _check_equation(latex: str) -> dict[str, Any]:
     if body.count("=") == 1 and not any(t in body for t in ("\\lim", "\\int", "\\sum", "\\to", "\\approx")):
         left, _, right = body.partition("=")
         try:
-            equality = symbolic_verify_equality(_to_sympy(left), _to_sympy(right))
+            # Normalise through the implicit-multiplication parser first, so
+            # "2x" reaches sympy as 2*x rather than as a syntax error.
+            lhs, rhs = str(_parse_math(_to_sympy(left))), str(_parse_math(_to_sympy(right)))
+            equality = symbolic_verify_equality(lhs, rhs)
             result["kind"] = "checked equality"
             result["equal"] = equality["equal"]
             result["counterexample"] = equality["counterexample"]
-        except (ToolError, ValueError, TypeError) as error:
+            if equality["equal"]:
+                # Sampling can refute what simplify quietly accepted, so the
+                # cheaper refutation runs as a second opinion rather than a first.
+                refutation = counterexample_search(f"{lhs} = {rhs}", samples=80)
+                if refutation["refuted"]:
+                    result["equal"] = False
+                    result["counterexample"] = refutation["counterexample"]
+                    result["kind"] = "refuted by sampling"
+        except (ToolError, ValueError, TypeError, SyntaxError) as error:
             result["kind"] = "not mechanically checkable"
             result["note"] = str(error)[:200]
     else:
@@ -42,14 +54,32 @@ def _check_equation(latex: str) -> dict[str, Any]:
 
 
 def _to_sympy(latex: str) -> str:
-    """Best-effort LaTeX to sympy text for the subset that appears in equations."""
+    """Best-effort LaTeX to sympy text for the subset that appears in equations.
+
+    Mathematics writes 2x where Python demands 2*x, so a true identity such as
+    (x+1)^2 = x^2+2x+1 previously came back "not mechanically checkable" — the
+    conversion, not the mathematics, was the obstacle. Implicit multiplication is
+    restored below by sympy's own transformation.
+    """
     text = latex.strip().strip("$ ")
     for tex, plain in (
-        ("\\left", ""), ("\\right", ""), ("\\cdot", "*"), ("^", "**"),
-        ("{", "("), ("}", ")"), ("\\", ""),
+        (r"\left", ""), (r"\right", ""), (r"\cdot", "*"), (r"\times", "*"),
+        (r"\,", " "), (r"\!", ""), (r"\;", " "),
+        ("^", "**"), ("{", "("), ("}", ")"), ("\\", ""),
     ):
         text = text.replace(tex, plain)
     return text
+
+
+def _parse_math(text: str):
+    """Parse with implicit multiplication, the way the notation is written."""
+    from sympy.parsing.sympy_parser import (
+        implicit_multiplication_application,
+        parse_expr,
+        standard_transformations,
+    )
+
+    return parse_expr(text, transformations=(*standard_transformations, implicit_multiplication_application))
 
 
 def verify_plan(plan: MathematicalPlan) -> dict[str, Any]:

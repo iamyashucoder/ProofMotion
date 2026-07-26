@@ -31,6 +31,11 @@ limits, series, roots, and equality checks are all available, and their answers
 are correct by construction. Every equation you write into the plan must be one
 a tool returned or one you have checked with symbolic_verify_equality.
 
+Refute before you assert. counterexample_search takes seconds and settles a
+false claim outright; units_check catches a wrong physical formula whatever the
+algebra says; limiting_case_check tells you whether a general result collapses to
+the known answer. Run them on anything you are about to put on screen.
+
 Write LaTeX in equation_latex. State any assumption a step depends on — a
 domain restriction, a convergence condition, a continuity requirement — because
 these become the bounds on what the finished animation is allowed to claim."""
@@ -56,7 +61,7 @@ def plan_mathematics(client: Any, intent: AnimationIntent) -> MathematicalPlan:
             f"for a {intent.duration_seconds}s animation.\n\n"
             "Produce the mathematical plan."
         ),
-        toolset("math"),
+        toolset("math", "verify"),
         MathematicalPlan,
         max_iterations=14,
         agent_name="planner",
