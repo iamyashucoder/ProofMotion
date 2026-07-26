@@ -142,6 +142,68 @@ class TestAssemblyGate(unittest.TestCase):
         self.assertGreaterEqual(pictorial_coverage(carried), MIN_ASSEMBLY_COVERAGE)
 
 
+class TestComponentSearch(unittest.TestCase):
+    """The catalogue must be visible, whatever words the question used.
+
+    Search was a substring match returning the eight best word overlaps, and it
+    hid most of the library: "simple harmonic oscillator" returned nothing while
+    spring_mass sat there, "rotating disc angular momentum" returned spring_mass
+    because both contain "mass", and thirteen physics components had never been
+    used in seventy-one runs. Agents saw noise, concluded nothing fitted, and
+    wrote text.
+    """
+
+    def search(self, query: str) -> list[str]:
+        from proofmotion.tools.components_tool import component_search
+
+        found = component_search(query)
+        return [c["name"] for c in found["components"] + found["rest_of_catalogue"]]
+
+    def test_every_component_is_returned_whatever_the_words(self):
+        for query in ("simple harmonic oscillator", "rotating disc angular momentum", "", "zzzz"):
+            with self.subTest(query=query):
+                self.assertEqual(sorted(self.search(query)), sorted(COMPONENTS))
+
+    def test_the_physics_library_is_reachable(self):
+        names = self.search("ball rolling down a ramp")
+        for expected in ("inclined_plane", "free_body_diagram", "pendulum", "spring_mass"):
+            self.assertIn(expected, names)
+
+    def test_matching_components_are_ranked_first_with_full_parameters(self):
+        from proofmotion.tools.components_tool import component_search
+
+        found = component_search("tangent secant curve")
+        self.assertEqual(found["components"][0]["name"], "tangent_secant")
+        self.assertIn("parameters", found["components"][0])
+
+    def test_the_payload_stays_affordable(self):
+        """Enumerating must not cost more than the search it replaced."""
+        import json
+
+        from proofmotion.tools.components_tool import component_search
+
+        self.assertLess(len(json.dumps(component_search("tangent"))), 12_000)
+
+    def test_a_component_that_draws_nothing_says_so(self):
+        from proofmotion.tools.components_tool import component_search
+
+        found = component_search("equation chain steps")
+        entry = next(
+            c for c in found["components"] + found["rest_of_catalogue"] if c["name"] == "equation_chain"
+        )
+        self.assertTrue(entry.get("draws_no_picture"))
+
+    def test_the_domain_filter_still_narrows(self):
+        names = self.search("physics")
+        self.assertIn("pendulum", names)
+        from proofmotion.tools.components_tool import component_search
+
+        physics = component_search("", domain="physics")
+        returned = [c["name"] for c in physics["components"] + physics["rest_of_catalogue"]]
+        self.assertTrue(returned)
+        self.assertTrue(all(COMPONENTS[n].domain == "physics" for n in returned))
+
+
 class TestEmission(unittest.TestCase):
     def scene(self) -> str:
         return assemble(

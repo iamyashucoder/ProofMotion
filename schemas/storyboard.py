@@ -1,5 +1,10 @@
 from pydantic import BaseModel, Field
 
+#: Scene ceiling, shared by the director, the storyboard and the scene plan.
+#: Raised from 8 for smaller steps: a step the viewer watches beats one they
+#: have to infer, and an unchanged figure is held rather than redrawn.
+MAX_SCENES = 12
+
 
 class StoryboardScene(BaseModel):
     scene_id: str
@@ -22,5 +27,5 @@ class StoryboardScene(BaseModel):
 
 class Storyboard(BaseModel):
     teaching_strategy: str
-    scenes: list[StoryboardScene]
+    scenes: list[StoryboardScene] = Field(min_length=1, max_length=MAX_SCENES)
     live_edit_controls: list[str] = Field(default_factory=list)

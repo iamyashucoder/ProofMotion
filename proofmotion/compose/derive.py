@@ -20,6 +20,7 @@ from typing import Any
 
 from proofmotion.components import COMPONENTS
 from proofmotion.compose.assembler import SceneAssignment, ScenePlan, check
+from schemas.storyboard import MAX_SCENES
 
 
 def _component_from(objects: list[Any]) -> tuple[str | None, dict[str, Any]] | None:
@@ -67,7 +68,7 @@ def plan_from_storyboard(storyboard: dict[str, Any]) -> ScenePlan | None:
         return None
 
     assignments: list[SceneAssignment] = []
-    for scene in scenes[:8]:  # the plan's own limit
+    for scene in scenes[:MAX_SCENES]:  # the plan's own limit
         if not isinstance(scene, dict):
             return None
         match = _component_from(scene.get("visual_objects") or [])

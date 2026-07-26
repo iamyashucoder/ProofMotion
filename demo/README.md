@@ -8,7 +8,7 @@ it came out well or badly, because the failures are the more useful record.
 hand-written Manim. `defects` counts what the layout checker measured on the
 finished scene: text over text, text over geometry, and anything off-frame.
 
-56 animations, 20.1 MB, 10 assembled.
+61 animations, 22.8 MB, 12 assembled.
 
 Rebuild with `uv run python scripts/build_demo.py`.
 
@@ -70,6 +70,11 @@ Rebuild with `uv run python scripts/build_demo.py`.
 | 54 | [A large disc of mass M and radius R can rotate freely about a vertical ax...](a-large-disc-of-mass-m-and-radius-r-can-rotate-freel__gpt-5-6-terra-3.mp4) | openai/gpt-5.6-terra | 27.2s | yes | yes | `equation_chain` | 0 |
 | 55 | [Explain me eigne vlaues of a real matrx visuallly and vector](explain-me-eigne-vlaues-of-a-real-matrx-visuallly-an__gpt-5-6-terra.mp4) | openai/gpt-5.6-terra | 28.5s | no | no | — | 0 |
 | 56 | [A large disc of mass M and radius R can rotate freely about a vertical ax...](a-large-disc-of-mass-m-and-radius-r-can-rotate-freel__gpt-5-6-terra-4.mp4) | openai/gpt-5.6-terra | 31.9s | no | no | — | 1 |
+| 57 | [A large disc of mass M and radius R can rotate freely about a vertical ax...](a-large-disc-of-mass-m-and-radius-r-can-rotate-freel__deepseek-v4-pro.mp4) | deepseek/deepseek-v4-pro | 22.0s | yes | yes | `circular_motion`, `energy_bars` | 0 |
+| 58 | [Show the tangent line to f(x)=x^2-4x+5 at x=3 and what its slope means](show-the-tangent-line-to-f-x-x-2-4x-5-at-x-3-and-wha__deepseek-v4-flash-7.mp4) | deepseek/deepseek-v4-flash | 26.1s | yes | yes | `function_plot`, `tangent_secant` | 0 |
+| 59 | [A large disc of mass M and radius R can rotate freely about a vertical ax...](a-large-disc-of-mass-m-and-radius-r-can-rotate-freel__gpt-5-6-terra-5.mp4) | openai/gpt-5.6-terra | 35.0s | no | no | — | 0 |
+| 60 | [Find the equation of a plane that passes through the point (1,1,1) and is...](find-the-equation-of-a-plane-that-passes-through-the__deepseek-v4-pro.mp4) | deepseek/deepseek-v4-pro | 5.7s | no | no | `equation_chain` | 0 |
+| 61 | [Find the equation of a plane that passes through the point (1,1,1) and is...](find-the-equation-of-a-plane-that-passes-through-the__deepseek-v4-flash.mp4) | deepseek/deepseek-v4-flash | 40.0s | no | no | — | 0 |
 
 ## Notes
 

@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field
 
 from proofmotion.components import COMPONENTS
 from proofmotion.runtime.registry import ToolError
+from schemas.storyboard import MAX_SCENES
 
 HEADER = '''from manim import *
 
@@ -52,7 +53,7 @@ class SceneAssignment(BaseModel):
 
 
 class ScenePlan(BaseModel):
-    assignments: list[SceneAssignment] = Field(min_length=1, max_length=8)
+    assignments: list[SceneAssignment] = Field(min_length=1, max_length=MAX_SCENES)
 
 
 def coverage(plan: ScenePlan) -> float:

@@ -13,15 +13,33 @@ from proofmotion.runtime.loop import run_structured
 from proofmotion.tools import toolset
 from schemas.intent import AnimationIntent
 from schemas.math_plan import MathematicalPlan
-from schemas.storyboard import Storyboard
+from schemas.storyboard import MAX_SCENES, Storyboard
 
 SYSTEM = """You design how a mathematical explanation should look and unfold.
 
-One idea per scene. Introduce an object before referring to it, and give the
-viewer time to read anything you put on screen.
+Every scene shows something. That is the rule this whole system exists to keep:
+a viewer should be able to follow the argument with the sound off, from the
+pictures alone. A scene with nothing on screen but symbols is a page of a
+textbook, and they already have one.
+
+So work out what the picture is first, and let the algebra annotate it. Not the
+other way round. If you cannot say what a scene looks like, it is not a scene
+yet — either it belongs to the scene before it, or you have not found its
+picture.
+
+One idea per scene, and take the steps small. A step the viewer can see happen
+is worth three they have to infer, so prefer more scenes each showing one
+movement to fewer scenes each carrying three. Introduce an object before
+referring to it, and give the viewer time to read anything you put on screen.
+
+Annotate everything the eye needs. Label the quantities on the figure — the
+radius, the angle, the force, the value at the point — so the picture carries
+the meaning rather than pointing at a caption. A diagram whose parts are unnamed
+makes the viewer hunt for what they are looking at.
 
 The scene budget you are given is a limit. Scenes that exist only to restate
-what was just shown should be cut.
+what was just shown should be cut — but a scene that shows the same figure
+changing is not a restatement, it is the explanation.
 
 Express each scene as one component. Call component_search to see what exists
 and component_build to check the parameters you intend, then put that single
@@ -30,6 +48,13 @@ component in visual_objects with the parameters you verified:
     "visual_objects": [{"name": "tangent_secant",
                         "parameters": {"expr": "(x-2)**2+1", "x_min": 0,
                                        "x_max": 5, "at": 3.0}}]
+
+component_search returns the whole catalogue every time, ranked by word overlap
+with your query. The ranking is a weak hint — read past the top of it. The
+component you want is often further down under a name you would not have
+searched for: a mass on a spring is spring_mass whatever the question calls it,
+a block on a slope is inclined_plane, a lens is ray_diagram, forces on a body
+are free_body_diagram. Look through the list before concluding nothing fits.
 
 Choose the component that already contains what the scene is about. A scene
 showing a tangent is tangent_secant — not function_plot with a tangent line
@@ -102,8 +127,13 @@ def direct_storyboard(
             f"Audience: {intent.audience} ({intent.difficulty})\n"
             f"Goal: {intent.educational_goal}\n"
             f"Target length: about {intent.duration_seconds} seconds\n"
-            f"Budget: at most {max(3, min(6, round(intent.duration_seconds / 8)))} scenes, "
-            f"and the scene durations must total close to {intent.duration_seconds}s\n"
+            # Roughly one scene per five seconds rather than per eight. Smaller
+            # steps are the point: a step the viewer watches happen beats one
+            # they have to infer, and the assembler holds an unchanged figure
+            # across scenes, so extra scenes cost transitions, not redraws.
+            f"Budget: aim for {max(4, min(MAX_SCENES, round(intent.duration_seconds / 5)))} scenes "
+            f"(at most {MAX_SCENES}), and the scene durations must total close to "
+            f"{intent.duration_seconds}s\n"
             f"Mathematics verified: {verification['valid']}\n\n"
             f"Verified steps:\n{steps}\n\n"
             "Design the storyboard."
