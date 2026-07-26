@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -52,8 +53,42 @@ class AgentResult:
         return [call["name"] for call in self.tool_calls]
 
 
+#: An escape JSON accepts *and* that mathematics would not have written.
+#:
+#: \b \f \n \r \t are legal JSON escapes, and they are also the opening of
+#: \beta, \frac, \nu, \rho and \theta. Left alone, those parse cleanly and
+#: silently corrupt the notation — \frac became a formfeed followed by "rac" —
+#: which is worse than failing, because the run continues and renders nonsense.
+#: A control character followed by a letter is therefore read as LaTeX, since
+#: a genuine tab or formfeed never appears mid-word in this payload.
+_GENUINE_ESCAPE = re.compile(r'\\(?:["\\/]|[bfnrt](?![A-Za-z])|u[0-9a-fA-F]{4})')
+
+
+def repair_latex_escapes(text: str) -> str:
+    r"""Double every backslash that is not a genuine JSON escape.
+
+    JSON permits only \" \\ \/ \b \f \n \r \t \uXXXX. Mathematics writes \phi,
+    \cos, \frac and \theta, so a storyboard carrying real notation either fails
+    to parse or, worse, parses with the notation mangled.
+    """
+    out, index = [], 0
+    while index < len(text):
+        if text[index] != "\\":
+            out.append(text[index])
+            index += 1
+            continue
+        match = _GENUINE_ESCAPE.match(text, index)
+        if match:
+            out.append(match.group())
+            index = match.end()
+        else:
+            out.append("\\\\")
+            index += 1
+    return "".join(out)
+
+
 def extract_json(text: str) -> Any:
-    """Pull a JSON value out of model output, tolerating fences and prose."""
+    """Pull a JSON value out of model output, tolerating fences, prose and LaTeX."""
     cleaned = text.strip()
     if "```" in cleaned:
         blocks = [b for b in cleaned.split("```") if b.strip()]
@@ -65,12 +100,20 @@ def extract_json(text: str) -> Any:
     start = min((i for i in (cleaned.find("{"), cleaned.find("[")) if i != -1), default=-1)
     if start == -1:
         raise ValueError(f"no JSON found in model output: {text[:200]!r}")
-    for end in range(len(cleaned), start, -1):
-        try:
-            return json.loads(cleaned[start:end])
-        except json.JSONDecodeError:
-            continue
-    raise ValueError(f"could not parse JSON from: {cleaned[start : start + 200]!r}")
+    # Try the text as written, then with LaTeX escapes repaired. Trimming from
+    # the end recovers a trailing-prose case; the repair recovers notation.
+    # Repaired first. A payload containing \frac parses strictly *and* comes back
+    # mangled, so preferring the strict parse is what causes the corruption.
+    for candidate in (repair_latex_escapes(cleaned), cleaned):
+        for end in range(len(candidate), start, -1):
+            try:
+                return json.loads(candidate[start:end])
+            except json.JSONDecodeError:
+                continue
+    raise ValueError(
+        "could not parse JSON from model output. First 200 characters: "
+        f"{cleaned[start : start + 200]!r}"
+    )
 
 
 def run_structured(
