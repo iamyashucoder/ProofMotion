@@ -138,6 +138,73 @@ class CodeRecoveryTests(unittest.TestCase):
         self.assertIn("Square()", recover_code(calls))
 
 
+class DirectWriteFallbackTests(unittest.TestCase):
+    """An agent can explore its whole budget and hand back nothing.
+
+    One run spent 41 tool calls without ever passing code to a tool, so there was
+    nothing to recover and the pipeline failed with "returned no code" — while
+    the model had simply never been asked plainly.
+    """
+
+    SCENE = "from manim import *\nclass GeneratedScene(Scene):\n    def construct(self):\n        self.add(Dot())\n"
+
+    def _stub(self, tool_reply, plain_reply):
+        import types
+
+        class Stub:
+            name = model = "stub"
+
+            def chat(self, messages, *, tools=None, max_tokens=4000):
+                content = tool_reply if tools else plain_reply
+                return types.SimpleNamespace(content=content, tool_calls=None)
+
+        return Stub()
+
+    def test_a_scene_is_recovered_when_the_tool_loop_yields_nothing(self):
+        from proofmotion.agents.coder import write_scene
+
+        out = write_scene(self._stub("I explored thoroughly.", self.SCENE),
+                          {"intent": {"duration_seconds": 30}}, max_iterations=3)
+        self.assertIn("GeneratedScene", out["code"])
+        self.assertTrue(out["wrote_directly"])
+        self.assertTrue(out["validation"]["valid"])
+
+    def test_a_hopeless_run_still_reports_failure(self):
+        """The fallback must not turn "no code" into a false success."""
+        from proofmotion.agents.coder import write_scene
+
+        out = write_scene(self._stub("I cannot.", "I cannot."),
+                          {"intent": {"duration_seconds": 30}}, max_iterations=2)
+        self.assertFalse(out["validation"]["valid"])
+        self.assertTrue(out["wrote_directly"])
+
+
+class PointerStackingTests(unittest.TestCase):
+    """low, mid and high on nearby cells used to overprint into one smear."""
+
+    def _text_overlaps(self, group):
+        from proofmotion.layout.collision import bounds, text_units
+
+        boxes = [bounds(u) for u in text_units(group) if float(getattr(u, "width", 0))]
+        return sum(
+            1
+            for i, a in enumerate(boxes)
+            for b in boxes[i + 1 :]
+            if min(a[1], b[1]) - max(a[0], b[0]) > 0.02 and min(a[3], b[3]) - max(a[2], b[2]) > 0.02
+        )
+
+    def test_pointers_never_overprint_however_close(self):
+        for label, params in [
+            ("distinct", dict(values=[1, 3, 5, 7, 9, 11, 13], pointers={"low": 0, "mid": 3, "high": 6})),
+            ("two share a cell", dict(values=[1, 3, 5, 7, 9, 11, 13], pointers={"low": 0, "mid": 5, "high": 5})),
+            ("all on one cell", dict(values=list(range(15)), pointers={"low": 10, "mid": 10, "high": 10})),
+            ("adjacent cells", dict(values=list(range(15)), pointers={"low": 7, "mid": 8, "high": 9})),
+            ("long names", dict(values=list(range(8)), pointers={"left": 2, "middle": 3, "right": 4})),
+        ]:
+            with self.subTest(case=label), tempconfig({"dry_run": True}):
+                self.assertEqual(self._text_overlaps(build("array_cells", params).group), 0)
+
+
 class ParallelDispatchTests(unittest.TestCase):
     def test_manim_config_tools_are_never_parallelised(self):
         """tempconfig mutates global renderer state; two at once corrupt both."""

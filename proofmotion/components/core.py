@@ -556,16 +556,34 @@ def array_cells(p: ArrayCellsParams) -> Built:
     group = VGroup(cells)
     beats = [[f"cell_{i}" for i in range(count)] + [f"value_{i}" for i in range(count)]]
 
+    # Pointers on the same or adjacent cell used to have their labels written on
+    # top of each other — low, mid and high overprinted into one smear. Each
+    # label claims a row, and a label whose span is already taken drops to the
+    # next one, which is how a hand-drawn diagram stacks them.
     pointer_row: list[str] = []
+    occupied: list[list[tuple[float, float]]] = []
     for order, (name, index) in enumerate(p.pointers.items()):
         position = int(index)
         if not 0 <= position < count:
             raise ToolError(f"pointer {name!r} points at index {position}, outside 0..{count - 1}")
         base = parts[f"cell_{position}"].get_bottom()
         colour = PALETTE[order % len(PALETTE)]
-        arrow = Arrow(base + np.array([0, -0.62, 0]), base + np.array([0, -0.1, 0]),
+        text = MathTex(name, font_size=22, color=colour)
+        half = max(float(text.width), 0.3) / 2 + 0.06
+
+        row_index = 0
+        while row_index < len(occupied) and any(
+            base[0] - half < right and left < base[0] + half for left, right in occupied[row_index]
+        ):
+            row_index += 1
+        if row_index == len(occupied):
+            occupied.append([])
+        occupied[row_index].append((base[0] - half, base[0] + half))
+
+        drop = 0.62 + row_index * 0.46
+        arrow = Arrow(base + np.array([0, -drop, 0]), base + np.array([0, -0.1, 0]),
                       buff=0, stroke_width=3.4, max_tip_length_to_length_ratio=0.4, color=colour)
-        text = MathTex(name, font_size=22, color=colour).next_to(arrow, np.array([0.0, -1.0, 0.0]), buff=0.1)
+        text.next_to(arrow, np.array([0.0, -1.0, 0.0]), buff=0.08)
         parts[f"pointer_{name}"] = arrow
         parts[f"pointer_label_{name}"] = text
         group.add(arrow, text)

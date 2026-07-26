@@ -10,11 +10,14 @@ from __future__ import annotations
 
 import ast
 import json
+import logging
 from typing import Any
 
 from proofmotion.runtime.loop import run_agent
 from proofmotion.tools import toolset
 from proofmotion.tools.manim_api import manim_validate_code
+
+log = logging.getLogger(__name__)
 
 SYSTEM = """You assemble Manim scenes, preferring verified components to hand-written layout.
 
@@ -162,6 +165,34 @@ def _strip_fences(code: str) -> str:
     return next((c for c in candidates if c), "")
 
 
+def _write_directly(client: Any, brief: str) -> str:
+    """One tool-free attempt at the scene.
+
+    The tool loop is what makes the code good; this is what makes it exist. An
+    agent that explores until its budget is gone has still read the brief, and
+    asking it plainly for the source costs one call.
+    """
+    from proofmotion.tools import toolset
+
+    try:
+        result = run_agent(
+            client,
+            SYSTEM,
+            (
+                "Write the complete Manim scene for this brief now. No tools, no explanation, "
+                f"no code fences — Python source only.\n\n{brief}"
+            ),
+            toolset("manim").subset([]),   # an empty registry: nothing to call
+            max_iterations=1,
+            max_tokens=16000,
+            agent_name="coder-direct",
+        )
+    except Exception as error:  # noqa: BLE001 - the caller reports "no code" either way
+        log.warning("direct coder attempt failed: %s", error)
+        return ""
+    return _strip_fences(result.content)
+
+
 def write_scene(client: Any, context: dict[str, Any], *, max_iterations: int = 20) -> dict[str, Any]:
     """Generate a validated Manim scene.
 
@@ -204,7 +235,7 @@ def write_scene(client: Any, context: dict[str, Any], *, max_iterations: int = 2
         final_max_tokens=16000,
     )
     code = _strip_fences(result.content)
-    recovered = False
+    recovered = retried = False
     if not _usable(code):
         # Truncation was the case this was written for and the case it missed:
         # a scene cut off mid-call still contains "GeneratedScene", so testing
@@ -212,6 +243,14 @@ def write_scene(client: Any, context: dict[str, Any], *, max_iterations: int = 2
         salvaged = recover_code(result.tool_calls)
         if salvaged:
             code, recovered = salvaged, True
+
+    if not _usable(code):
+        # Nothing to salvage. That happens when the agent explores without ever
+        # handing code to a tool — one run spent 41 calls and validated nothing,
+        # so the whole pipeline failed with "returned no code" while the model
+        # had simply never been asked plainly. Ask plainly, once, with no tools.
+        log.warning("coder produced nothing usable; retrying once with tools withheld")
+        code, retried = _write_directly(client, brief), True
 
     report = manim_validate_code(code) if code else {"valid": False, "problems": [{"problem": "agent returned no code"}]}
     used = sorted({
@@ -223,6 +262,7 @@ def write_scene(client: Any, context: dict[str, Any], *, max_iterations: int = 2
         "validation": report,
         "components_used": used,
         "recovered_from_tool_calls": recovered,
+        "wrote_directly": retried,
         "composed": bool(used) and "build(" in code,
         "tools_used": result.tools_used,
         "iterations": result.iterations,

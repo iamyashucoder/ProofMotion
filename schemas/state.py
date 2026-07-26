@@ -31,6 +31,8 @@ class MathAnimationState:
     layout_report: dict[str, Any] = field(default_factory=dict)
     components_used: list[str] = field(default_factory=list)
     composed: bool = False
+    recovered_from_tool_calls: bool = False
+    wrote_directly: bool = False
     agent_tools_used: list[str] = field(default_factory=list)
     status: str = "created"
 
