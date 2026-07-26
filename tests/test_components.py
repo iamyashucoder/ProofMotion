@@ -205,6 +205,44 @@ class ComponentTests(unittest.TestCase):
             dict(expr="x**2", a=0, b=3, rectangles=60, kind="midpoint"),
             dict(expr="sin(x)", a=0, b=3.14, rectangles=12, kind="right"),
         ],
+        "pendulum": [
+            dict(length=1.0, angle_deg=25), dict(length=0.25, angle_deg=5),
+            dict(length=4.0, angle_deg=80, show_forces=False),
+        ],
+        "spring_mass": [
+            dict(mass=1, stiffness=10, displacement=1), dict(mass=4, stiffness=1, displacement=-2),
+            dict(mass=0.5, stiffness=100, displacement=2.5),
+        ],
+        "collision": [
+            dict(mass_a=1, mass_b=1, velocity_a=3, velocity_b=-1),
+            dict(mass_a=5, mass_b=1, velocity_a=2, velocity_b=0, kind="inelastic"),
+            dict(mass_a=1, mass_b=9, velocity_a=4, velocity_b=0),
+        ],
+        "orbit": [
+            dict(eccentricity=0.0), dict(eccentricity=0.6, body_angle_deg=150),
+            dict(semi_major=3.0, eccentricity=0.9),
+        ],
+        "torque_diagram": [dict(angle_deg=90), dict(angle_deg=30, force=25), dict(angle_deg=175, lever_arm=0.5)],
+        "standing_wave": [dict(harmonic=n) for n in (1, 2, 3, 5, 8)],
+        "circuit_diagram": [
+            dict(voltage=9, resistances=[100, 220]),
+            dict(voltage=12, resistances=[10, 10, 10], arrangement="parallel"),
+            dict(voltage=5, resistances=[1000]),
+        ],
+        # object_distance inside the focal length gives a virtual image, which is
+        # drawn on the other side and must be reported as virtual.
+        "ray_diagram": [
+            dict(focal_length=1.5, object_distance=3), dict(focal_length=1.5, object_distance=1.0),
+            dict(focal_length=-2.0, object_distance=3), dict(focal_length=2.0, object_distance=6),
+        ],
+        "field_lines": [
+            dict(charges=[[-1, 0, 1], [1, 0, -1]]), dict(charges=[[0, 0, 1]]),
+            dict(charges=[[-1, 0, 1], [1, 0, 1]]),
+        ],
+        "pv_diagram": [
+            dict(states=[[3, 1], [1, 3], [1, 1]]), dict(states=[[1, 1], [3, 1], [3, 3], [1, 3]]),
+            dict(states=[[2, 1], [1, 2]], close_cycle=False),
+        ],
         "equation_chain": [
             dict(steps=["(x+1)^2", "x^2+2x+1"]),
             dict(steps=["a^2-b^2", "(a-b)(a+b)", r"\text{done}"], labels=["factor", ""]),
@@ -269,6 +307,44 @@ class ComponentTests(unittest.TestCase):
         "wave_form": [
             dict(amplitude=1, wavelength=2, cycles=2), dict(amplitude=0.4, wavelength=0.6, cycles=6),
             dict(amplitude=3, wavelength=5, cycles=1),
+        ],
+        "pendulum": [
+            dict(length=1.0, angle_deg=25), dict(length=0.25, angle_deg=5),
+            dict(length=4.0, angle_deg=80, show_forces=False),
+        ],
+        "spring_mass": [
+            dict(mass=1, stiffness=10, displacement=1), dict(mass=4, stiffness=1, displacement=-2),
+            dict(mass=0.5, stiffness=100, displacement=2.5),
+        ],
+        "collision": [
+            dict(mass_a=1, mass_b=1, velocity_a=3, velocity_b=-1),
+            dict(mass_a=5, mass_b=1, velocity_a=2, velocity_b=0, kind="inelastic"),
+            dict(mass_a=1, mass_b=9, velocity_a=4, velocity_b=0),
+        ],
+        "orbit": [
+            dict(eccentricity=0.0), dict(eccentricity=0.6, body_angle_deg=150),
+            dict(semi_major=3.0, eccentricity=0.9),
+        ],
+        "torque_diagram": [dict(angle_deg=90), dict(angle_deg=30, force=25), dict(angle_deg=175, lever_arm=0.5)],
+        "standing_wave": [dict(harmonic=n) for n in (1, 2, 3, 5, 8)],
+        "circuit_diagram": [
+            dict(voltage=9, resistances=[100, 220]),
+            dict(voltage=12, resistances=[10, 10, 10], arrangement="parallel"),
+            dict(voltage=5, resistances=[1000]),
+        ],
+        # object_distance inside the focal length gives a virtual image, which is
+        # drawn on the other side and must be reported as virtual.
+        "ray_diagram": [
+            dict(focal_length=1.5, object_distance=3), dict(focal_length=1.5, object_distance=1.0),
+            dict(focal_length=-2.0, object_distance=3), dict(focal_length=2.0, object_distance=6),
+        ],
+        "field_lines": [
+            dict(charges=[[-1, 0, 1], [1, 0, -1]]), dict(charges=[[0, 0, 1]]),
+            dict(charges=[[-1, 0, 1], [1, 0, 1]]),
+        ],
+        "pv_diagram": [
+            dict(states=[[3, 1], [1, 3], [1, 1]]), dict(states=[[1, 1], [3, 1], [3, 3], [1, 3]]),
+            dict(states=[[2, 1], [1, 2]], close_cycle=False),
         ],
         "equation_chain": [
             dict(steps=["(x+1)^2", "x^2+2x+1"]),
