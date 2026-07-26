@@ -29,6 +29,15 @@ BODY_COLOR = "#4aa3df"
 FORCE_COLORS = ("#f87171", "#4ade80", "#fbbf24", "#a78bfa", "#38bdf8", "#fb923c")
 
 
+def _latex_label(value: str) -> str:
+    """Normalise common Unicode math copied from a prompt into LaTeX source."""
+    return value.translate(str.maketrans({
+        "θ": r"\theta", "Θ": r"\Theta", "λ": r"\lambda", "Λ": r"\Lambda",
+        "π": r"\pi", "Π": r"\Pi", "φ": r"\phi", "Φ": r"\Phi",
+        "ω": r"\omega", "Ω": r"\Omega", "δ": r"\delta", "Δ": r"\Delta",
+    }))
+
+
 class Force(BaseModel):
     label: str = Field(description="LaTeX for the force, e.g. 'mg' or 'N'.")
     magnitude: float = Field(gt=0, description="Relative size; only ratios matter for the drawing.")
@@ -52,7 +61,7 @@ def _label_forces(arrows: dict[str, object], forces: list[Force], avoid: list, p
     placed = []
     for index, force in enumerate(forces):
         arrow = arrows[f"force_{index}"]
-        text = MathTex(force.label, font_size=26, color=arrow.get_color())
+        text = MathTex(_latex_label(force.label), font_size=26, color=arrow.get_color())
         result = place_label(text, arrow.get_end(), avoid=avoid, placed=placed)
         parts[f"label_{index}"] = text
         group.add(text)
@@ -91,7 +100,7 @@ def free_body_diagram(p: FreeBodyParams) -> Built:
         f"force_{i}": _arrow(origin, f, 1.0 / biggest, FORCE_COLORS[i % len(FORCE_COLORS)])
         for i, f in enumerate(p.forces)
     }
-    body_text = MathTex(p.body, font_size=26)
+    body_text = MathTex(_latex_label(p.body), font_size=26)
     if p.shape == "dot":
         # A dot has no interior to write in, so the label sits beside it.
         place_label(body_text, origin, avoid=[body, *arrows.values()])
@@ -183,7 +192,7 @@ def circular_motion(p: CircularMotionParams) -> Built:
             beats[-1].append(f"{key}_leader")
 
     if "angle_arc" in parts:
-        angle_text = MathTex(p.label_angle, font_size=26, color="#fbbf24")
+        angle_text = MathTex(_latex_label(p.label_angle), font_size=26, color="#fbbf24")
         mid = math.radians(p.angle_deg / 2)
         anchor = centre + np.array([math.cos(mid), math.sin(mid), 0.0]) * min(0.85, p.radius * 0.62)
         result = place_label(angle_text, anchor, avoid=avoid, placed=placed)

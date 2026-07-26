@@ -183,6 +183,22 @@ class VerifierIntegrationTests(unittest.TestCase):
             with self.subTest(claim=latex):
                 self.assertEqual(check.get("equal"), expected, check)
 
+    def test_unterminated_expression_is_reported_not_raised(self):
+        """A model can emit a typesettable but incomplete parenthesized claim."""
+        from proofmotion.agents.verifier import verify_plan
+        from schemas.math_plan import MathematicalPlan, MathStep
+
+        plan = MathematicalPlan(
+            topic="malformed claim",
+            concept_sequence=[
+                MathStep(index=1, concept="c", equation_latex="(x + 1 = x", explanation="")
+            ],
+        )
+        report = verify_plan(plan)
+        self.assertFalse(report["valid"])
+        self.assertEqual(report["checks"][0]["kind"], "not mechanically checkable")
+        self.assertIn("EOF", report["checks"][0]["note"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from proofmotion.agents.coder import _strip_fences
+from proofmotion.agents.coder import _strip_fences, _usable
 from proofmotion.runtime.loop import run_agent
 from proofmotion.tools import toolset
 from proofmotion.tools.manim_api import manim_validate_code
@@ -29,6 +29,22 @@ class and every equation from the original: the mathematics was verified, so a
 "fix" that alters it is a regression.
 
 Return the complete corrected Python source and nothing else."""
+
+
+def _direct_repair(client: Any, code: str, error: str) -> str:
+    """Ask once without tools when a debugger returns a traceback instead of code."""
+    result = run_agent(
+        client,
+        SYSTEM,
+        "Return the complete repaired Python scene now. No tools, no prose, and no code fences. "
+        "The previous reply was unusable.\n\n"
+        f"RENDER ERROR:\n{error[-2000:]}\n\nCURRENT SOURCE:\n{code}",
+        toolset("manim").subset([]),
+        max_iterations=1,
+        max_tokens=16000,
+        agent_name="debugger-direct",
+    )
+    return _strip_fences(result.content)
 
 
 POLISH_SYSTEM = """You fix layout defects in a Manim scene that already runs.
@@ -103,6 +119,8 @@ def repair_scene(client: Any, code: str, error: str, *, max_iterations: int = 10
         agent_name="debugger",
     )
     fixed = _strip_fences(result.content)
+    if not _usable(fixed):
+        fixed = _direct_repair(client, code, error)
     return {
         "code": fixed,
         "validation": manim_validate_code(fixed) if fixed else {"valid": False, "problems": []},

@@ -654,6 +654,16 @@ class ComponentTests(unittest.TestCase):
                     for part in beat:
                         self.assertIn(part, built.parts, f"{name}: beat names missing part {part!r}")
 
+    def test_unicode_angle_label_is_normalised_before_typesetting(self):
+        """Prompts often contain θ, but MathTex receives LaTeX, not Unicode."""
+        from proofmotion.tools.typeset import typeset_check
+
+        with tempconfig({"dry_run": True}):
+            built = build("circular_motion", {"radius": 1.6, "angle_deg": 60, "label_angle": "θ"})
+        expression = built.parts["angle_label"].tex_string
+        self.assertEqual(expression, r"\theta")
+        self.assertTrue(typeset_check(expression)["valid"])
+
     def test_invalid_parameters_raise_rather_than_defaulting(self):
         from proofmotion.runtime.registry import ToolError
 

@@ -49,8 +49,15 @@ before you see it.
     self.play(Create(built.parts["axes"]))
     self.play(Create(built.parts["curve"]))
 
-`built.parts` holds the named pieces and `built.beats` gives a sensible reveal
-order, so you animate the pieces rather than placing them.
+`built.parts` holds the named Mobjects. `built.beats` is only their reveal order:
+each beat contains *string keys*, not Mobjects. Always resolve a beat through
+`built.parts` before animating it, for example:
+
+    for beat in built.beats:
+        self.play(*[FadeIn(built.parts[name]) for name in beat])
+
+Never write `FadeIn(name)` or `FadeIn(part)` while iterating over
+`built.beats`; that passes a string to Manim and crashes at render time.
 
 Write raw Manim only where no component fits. That is expected for anything
 unusual — it is a normal outcome, not a failure — but check first, because a

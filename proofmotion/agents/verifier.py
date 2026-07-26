@@ -7,6 +7,7 @@ deterministic: no model is asked whether the mathematics is right.
 
 from __future__ import annotations
 
+from tokenize import TokenError
 from typing import Any
 
 from proofmotion.runtime.registry import ToolError
@@ -45,7 +46,7 @@ def _check_equation(latex: str) -> dict[str, Any]:
                     result["equal"] = False
                     result["counterexample"] = refutation["counterexample"]
                     result["kind"] = "refuted by sampling"
-        except (ToolError, ValueError, TypeError, SyntaxError) as error:
+        except (ToolError, ValueError, TypeError, SyntaxError, TokenError) as error:
             result["kind"] = "not mechanically checkable"
             result["note"] = str(error)[:200]
     else:
@@ -91,7 +92,13 @@ def verify_plan(plan: MathematicalPlan) -> dict[str, Any]:
             continue
         checks.append({"step": step.index, **_check_equation(step.equation_latex)})
 
-    failures = [c for c in checks if c.get("typesets") is False or c.get("equal") is False]
+    failures = [
+        check
+        for check in checks
+        if check.get("typesets") is False
+        or check.get("equal") is False
+        or check.get("kind") == "not mechanically checkable"
+    ]
     return {
         "valid": not failures,
         "checks": checks,

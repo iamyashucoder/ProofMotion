@@ -49,6 +49,50 @@ def _void_helpers(tree: ast.AST) -> dict[str, int]:
     return found
 
 
+def _component_beat_animation_errors(tree: ast.AST) -> list[dict[str, Any]]:
+    """Find `FadeIn(part) for ... in built.beats` before Manim sees a string.
+
+    Components deliberately expose beat *names* so a scene can choose how to
+    animate their Mobjects. Treating the names themselves as Mobjects produces
+    Manim's unhelpful ``Animation only works on Mobjects`` at render time.
+    """
+    problems: list[dict[str, Any]] = []
+    animations = {"FadeIn", "FadeOut", "Create", "Write", "DrawBorderThenFill"}
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.ListComp, ast.GeneratorExp)) or len(node.generators) < 2:
+            continue
+        beat_names = {
+            generator.target.id
+            for generator in node.generators
+            if isinstance(generator.target, ast.Name)
+            and isinstance(generator.iter, ast.Attribute)
+            and generator.iter.attr == "beats"
+        }
+        if not beat_names:
+            continue
+        part_names = {
+            generator.target.id
+            for generator in node.generators
+            if isinstance(generator.target, ast.Name)
+            and isinstance(generator.iter, ast.Name)
+            and generator.iter.id in beat_names
+        }
+        if not part_names or not isinstance(node.elt, ast.Call):
+            continue
+        if not (isinstance(node.elt.func, ast.Name) and node.elt.func.id in animations):
+            continue
+        if node.elt.args and isinstance(node.elt.args[0], ast.Name) and node.elt.args[0].id in part_names:
+            problems.append(
+                {
+                    "line": node.lineno,
+                    "call": f"{node.elt.func.id}(...)",
+                    "problem": "component beats contain string part names, not Mobjects",
+                    "fix": "animate built.parts[name] for each name in the beat",
+                }
+            )
+    return problems
+
+
 def _bound_names(tree: ast.AST) -> set[str]:
     """Every name the module binds anywhere.
 
@@ -253,6 +297,7 @@ def manim_validate_code(code: str) -> dict[str, Any]:
 
     index = _index()
     problems: list[dict[str, Any]] = []
+    problems.extend(_component_beat_animation_errors(tree))
 
     # A helper that builds a mobject and forgets to return it. The caller gets
     # None, and the failure surfaces far away — always_redraw reporting that

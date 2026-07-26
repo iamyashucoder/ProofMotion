@@ -102,6 +102,19 @@ class ManimApiTests(unittest.TestCase):
         )
         self.assertTrue(manim_validate_code(code)["valid"], manim_validate_code(code)["problems"])
 
+    def test_rejects_component_beat_names_passed_to_animations(self):
+        """Component beats are names; only the matching parts are Mobjects."""
+        code = (
+            "from manim import *\n"
+            "class GeneratedScene(Scene):\n"
+            "    def construct(self):\n"
+            "        built = object()\n"
+            "        self.play(*[FadeIn(part) for beat in built.beats for part in beat])\n"
+        )
+        report = manim_validate_code(code)
+        self.assertFalse(report["valid"])
+        self.assertIn("string part names", report["problems"][0]["problem"])
+
     def test_every_generated_scene_that_rendered_is_still_clean(self):
         """The validator must not flag code known to work."""
         def produced_a_video(project: Path) -> bool:
