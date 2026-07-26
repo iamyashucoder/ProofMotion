@@ -8,7 +8,7 @@ it came out well or badly, because the failures are the more useful record.
 hand-written Manim. `defects` counts what the layout checker measured on the
 finished scene: text over text, text over geometry, and anything off-frame.
 
-61 animations, 22.8 MB, 12 assembled.
+62 animations, 23.3 MB, 13 assembled.
 
 Rebuild with `uv run python scripts/build_demo.py`.
 
@@ -75,6 +75,7 @@ Rebuild with `uv run python scripts/build_demo.py`.
 | 59 | [A large disc of mass M and radius R can rotate freely about a vertical ax...](a-large-disc-of-mass-m-and-radius-r-can-rotate-freel__gpt-5-6-terra-5.mp4) | openai/gpt-5.6-terra | 35.0s | no | no | — | 0 |
 | 60 | [Find the equation of a plane that passes through the point (1,1,1) and is...](find-the-equation-of-a-plane-that-passes-through-the__deepseek-v4-pro.mp4) | deepseek/deepseek-v4-pro | 5.7s | no | no | `equation_chain` | 0 |
 | 61 | [Find the equation of a plane that passes through the point (1,1,1) and is...](find-the-equation-of-a-plane-that-passes-through-the__deepseek-v4-flash.mp4) | deepseek/deepseek-v4-flash | 40.0s | no | no | — | 0 |
+| 62 | [A block of mass 2 kg slides down a frictionless ramp inclined at 30 degre...](a-block-of-mass-2-kg-slides-down-a-frictionless-ramp__deepseek-v4-flash.mp4) | deepseek/deepseek-v4-flash | 31.5s | yes | yes | `inclined_plane` | 0 |
 
 ## Notes
 
