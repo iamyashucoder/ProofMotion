@@ -205,6 +205,45 @@ class ComponentTests(unittest.TestCase):
             dict(expr="x**2", a=0, b=3, rectangles=60, kind="midpoint"),
             dict(expr="sin(x)", a=0, b=3.14, rectangles=12, kind="right"),
         ],
+        "equation_chain": [
+            dict(steps=["(x+1)^2", "x^2+2x+1"]),
+            dict(steps=["a^2-b^2", "(a-b)(a+b)", r"\text{done}"], labels=["factor", ""]),
+        ],
+        "geometry_construction": [
+            dict(points={"A": [0, 0], "B": [3, 0], "C": [0, 4]},
+                 segments=[["A", "B"], ["B", "C"], ["C", "A"]],
+                 mark_angles=[["A", "B", "C"]], show_lengths=True),
+            dict(points={"P": [-2, -1], "Q": [2, 1]}, segments=[["P", "Q"]]),
+        ],
+        "vector_field": [
+            dict(x_component="-y", y_component="x"),
+            dict(x_component="x", y_component="y", density=6),
+            dict(x_component="1", y_component="0", normalize=False),
+        ],
+        # 0 and 180 put the radius along the baseline, where Angle has no unique
+        # intersection — the case that broke the first version.
+        "unit_circle": [dict(angle_deg=a) for a in (0, 30, 45, 90, 135, 180, 210, 300, 359)],
+        "number_line_marks": [
+            dict(start=-3, stop=5, marks={"a": -1, "b": 2}, interval=[-1, 2]),
+            dict(start=0, stop=1, marks={"x": 0.5}),
+        ],
+        "matrix_transform": [
+            dict(matrix=[[2, 0], [0, 3]], show_eigenvectors=True),
+            dict(matrix=[[0, -1], [1, 0]], show_eigenvectors=True),
+            dict(matrix=[[1, 1], [0, 1]]),
+        ],
+        "distribution_plot": [
+            dict(distribution="normal", parameters=[0, 1], shade_from=-1, shade_to=1),
+            dict(distribution="binomial", parameters=[10, 0.5]),
+            dict(distribution="exponential", parameters=[1.5]),
+            dict(distribution="poisson", parameters=[3]),
+            dict(distribution="uniform", parameters=[0, 1]),
+        ],
+        "array_cells": [
+            dict(values=[1, 3, 5, 7, 9, 11, 13], pointers={"low": 0, "mid": 3, "high": 6}, highlight=[3]),
+            dict(values=list(range(20))),
+            dict(values=[5, 2, 8], dim=[0, 1]),
+        ],
         "free_body_diagram": [
             dict(forces=[{"label": "mg", "magnitude": 9.8, "angle_deg": 270},
                          {"label": "N", "magnitude": 9.8, "angle_deg": 90},
@@ -230,6 +269,45 @@ class ComponentTests(unittest.TestCase):
         "wave_form": [
             dict(amplitude=1, wavelength=2, cycles=2), dict(amplitude=0.4, wavelength=0.6, cycles=6),
             dict(amplitude=3, wavelength=5, cycles=1),
+        ],
+        "equation_chain": [
+            dict(steps=["(x+1)^2", "x^2+2x+1"]),
+            dict(steps=["a^2-b^2", "(a-b)(a+b)", r"\text{done}"], labels=["factor", ""]),
+        ],
+        "geometry_construction": [
+            dict(points={"A": [0, 0], "B": [3, 0], "C": [0, 4]},
+                 segments=[["A", "B"], ["B", "C"], ["C", "A"]],
+                 mark_angles=[["A", "B", "C"]], show_lengths=True),
+            dict(points={"P": [-2, -1], "Q": [2, 1]}, segments=[["P", "Q"]]),
+        ],
+        "vector_field": [
+            dict(x_component="-y", y_component="x"),
+            dict(x_component="x", y_component="y", density=6),
+            dict(x_component="1", y_component="0", normalize=False),
+        ],
+        # 0 and 180 put the radius along the baseline, where Angle has no unique
+        # intersection — the case that broke the first version.
+        "unit_circle": [dict(angle_deg=a) for a in (0, 30, 45, 90, 135, 180, 210, 300, 359)],
+        "number_line_marks": [
+            dict(start=-3, stop=5, marks={"a": -1, "b": 2}, interval=[-1, 2]),
+            dict(start=0, stop=1, marks={"x": 0.5}),
+        ],
+        "matrix_transform": [
+            dict(matrix=[[2, 0], [0, 3]], show_eigenvectors=True),
+            dict(matrix=[[0, -1], [1, 0]], show_eigenvectors=True),
+            dict(matrix=[[1, 1], [0, 1]]),
+        ],
+        "distribution_plot": [
+            dict(distribution="normal", parameters=[0, 1], shade_from=-1, shade_to=1),
+            dict(distribution="binomial", parameters=[10, 0.5]),
+            dict(distribution="exponential", parameters=[1.5]),
+            dict(distribution="poisson", parameters=[3]),
+            dict(distribution="uniform", parameters=[0, 1]),
+        ],
+        "array_cells": [
+            dict(values=[1, 3, 5, 7, 9, 11, 13], pointers={"low": 0, "mid": 3, "high": 6}, highlight=[3]),
+            dict(values=list(range(20))),
+            dict(values=[5, 2, 8], dim=[0, 1]),
         ],
         "free_body_diagram": [
             dict(forces=[{"label": "mg", "magnitude": 9.8, "angle_deg": 270},

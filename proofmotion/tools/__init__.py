@@ -87,13 +87,26 @@ TOOLSETS: dict[str, list[str]] = {
 }
 
 
+#: Umbrella groups, so an agent asks for a capability rather than a list.
+UMBRELLAS: dict[str, tuple[str, ...]] = {
+    #: Everything that computes an answer, across every subject.
+    "compute": ("math", "discrete", "stats", "geometry"),
+    #: Everything that decides whether an answer is right.
+    "reason": ("verify",),
+}
+
+
 def toolset(*groups: str):
     """Return a registry containing the named groups, e.g. toolset("manim", "visual")."""
     names: list[str] = []
     for group in groups:
-        if group not in TOOLSETS:
-            raise KeyError(f"Unknown toolset {group!r}. Available: {sorted(TOOLSETS)}")
-        names.extend(TOOLSETS[group])
+        for resolved in UMBRELLAS.get(group, (group,)):
+            if resolved not in TOOLSETS:
+                raise KeyError(
+                    f"Unknown toolset {resolved!r}. Available: {sorted(TOOLSETS)} "
+                    f"or umbrellas {sorted(UMBRELLAS)}"
+                )
+            names.extend(TOOLSETS[resolved])
     return REGISTRY.subset(dict.fromkeys(names))
 
 

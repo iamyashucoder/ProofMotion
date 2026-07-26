@@ -26,7 +26,11 @@ beats an exhaustive enumeration. If you find yourself writing step 4, 5, and 6
 of the same routine calculation, collapse them into one step that shows the
 pattern.
 
-Compute with the tools; do not do algebra in your head. Derivatives, integrals,
+Compute with the tools; do not do algebra in your head. The full surface is
+available — linear algebra, differential equations, vector calculus, number
+theory, combinatorics, logic, graphs, probability, statistics and analytic
+geometry — so reach for the tool that matches the subject rather than reducing
+everything to hand algebra. Derivatives, integrals,
 limits, series, roots, and equality checks are all available, and their answers
 are correct by construction. Every equation you write into the plan must be one
 a tool returned or one you have checked with symbolic_verify_equality.
@@ -61,7 +65,7 @@ def plan_mathematics(client: Any, intent: AnimationIntent) -> MathematicalPlan:
             f"for a {intent.duration_seconds}s animation.\n\n"
             "Produce the mathematical plan."
         ),
-        toolset("math", "verify"),
+        toolset("compute", "reason"),
         MathematicalPlan,
         max_iterations=14,
         agent_name="planner",
