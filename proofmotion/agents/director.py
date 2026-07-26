@@ -20,11 +20,6 @@ SYSTEM = """You design how a mathematical explanation should look and unfold.
 One idea per scene. Introduce an object before referring to it, and give the
 viewer time to read anything you put on screen.
 
-Clear the stage. Every scene must say what leaves the screen as well as what
-arrives — a title or equation left behind gets drawn over by the next one, and
-the result reads as garbled text rather than as two things. If a scene keeps
-something from the previous one, say so explicitly; otherwise assume it goes.
-
 The scene budget you are given is a limit. Scenes that exist only to restate
 what was just shown should be cut.
 
@@ -46,13 +41,22 @@ If no single component expresses a scene, leave visual_objects empty and put the
 mathematics in equations. That is a real answer and a much better one than a
 component that nearly fits.
 
-Measure before you place. layout_measure tells you how much room a piece of
-text or maths will occupy; layout_frame tells you the usable area; layout_check
-tells you whether a planned arrangement overlaps or falls off the edge. Use
-them. Overlapping labels are the most common defect in generated animations and
-they come entirely from assuming rather than measuring.
+Several scenes may name the same component with the same parameters. That is
+expected when an explanation stays with one figure and builds on it — the figure
+is held on screen and the words change around it, so you do not need to invent
+variation to avoid repeating yourself.
+
+Do not plan placement. Where things sit, what order they appear in, and what
+leaves the screen between scenes are decided after you, by the assembler and by
+the components themselves — a component owns its own axis ranges, label
+positions and text fitting. Choosing the right component is how you control the
+picture; arranging it is not your decision to make.
 
 Confirm every equation typesets with typeset_check before putting it in a scene.
+
+Ask for everything you need in one turn rather than one call at a time. Four
+searches in a single turn cost one round trip; four separate turns cost four,
+and round trips are most of the time this stage takes.
 
 Give each scene a purpose, a duration proportional to how much there is to read,
 and narration that would make sense read aloud.
@@ -88,7 +92,11 @@ def direct_storyboard(
             f"Verified steps:\n{steps}\n\n"
             "Design the storyboard."
         ),
-        toolset("visual"),
+        # Only what the director still decides. It used to hold the layout
+        # tools and spent nine of twenty-two calls measuring hypothetical text
+        # boxes — placement it no longer owns, since the assembler places
+        # everything and components own their own internals.
+        toolset("visual").subset(["component_search", "component_build", "typeset_check"]),
         Storyboard,
         max_iterations=10,
         agent_name="director",

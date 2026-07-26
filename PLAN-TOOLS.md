@@ -233,6 +233,43 @@ Measured on one prompt, deepseek-v4-flash, identical question:
 The remaining time is the director: 69s of the 115s. That is now the bottleneck,
 and it is doing component search work the assembler could consume directly.
 
+### 5.2 The director, and what did not work
+
+The director held the layout tools and spent nine of twenty-two calls measuring
+hypothetical text boxes — placement it no longer owns, since the assembler
+places everything and components own their internals. Removing them was clearly
+right on principle. **It did not make the stage faster.**
+
+| | run 3 | run 4 | run 5 (layout tools removed) |
+|---|---|---|---|
+| storyboard | 69.3s | 119.0s | 100.3s |
+| director calls | — | 22 | 21 |
+| layout calls | — | 9 | 0 |
+
+Run-to-run variance on an identical prompt swamps the change, and the freed
+calls were simply spent elsewhere: `typeset_check` went 5 → 10, `component_build`
+3 → 6. Nine turns before, nine turns after.
+
+**Turns are the cost, not tools.** Each turn emitted 1,500–2,700 output tokens
+and took 12–22 seconds; output tokens are the wall clock. Cutting a stage means
+cutting round trips or cutting what the model must write, not trimming its
+toolbox. The remaining candidates are the unread fields in the storyboard schema
+(`narration` is the largest, and is a human-editing surface rather than dead
+weight) and merging the director into the selection step entirely.
+
+### 5.3 The regression this surfaced
+
+Told to express every scene as one component, the director returned four scenes
+naming the *identical* component with *identical* parameters. The assembler tore
+the figure down and rebuilt it between each, so the viewer watched the same
+parabola fade out and back in four times — every scene individually correct.
+
+The assembler now clears the words and the picture on different schedules. The
+title and caption change every scene; the figure is replaced only when it
+actually differs. A run of scenes about one figure keeps it on screen and lets
+the words change around it, which is what an explanation staying with a diagram
+should look like anyway.
+
 ---
 
 ## 6. Layer 4 — Harvesting one-offs into components

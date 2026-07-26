@@ -107,28 +107,42 @@ def assemble(plan: ScenePlan) -> str:
     lines: list[str] = []
     write = lines.append
     write("        regions = layout('title_stage_caption')")
-    write("        showing = []")
+    # The stage and the words around it are cleared on different schedules. The
+    # title and caption change every scene; the picture only changes when it
+    # actually differs, so a run of scenes about one figure keeps it on screen.
+    write("        chrome = []")
+    write("        stage = None")
     write("")
 
+    standing: tuple[str, str] | None = None
     for index, scene in enumerate(plan.assignments, 1):
         write(f"        # ---- scene {index} ----")
-        # Leaving the previous section on screen was the single most common
-        # defect while this was a prompt rule. Here it is unconditional.
-        write("        if showing:")
-        write("            self.play(*[FadeOut(m) for m in showing], run_time=0.4)")
-        write("            showing = []")
+        # Leaving the previous section's words on screen was the single most
+        # common defect while this was a prompt rule. Here it is unconditional.
+        write("        if chrome:")
+        write("            self.play(*[FadeOut(m) for m in chrome], run_time=0.4)")
+        write("            chrome = []")
 
         if scene.title:
             write(f"        title = Text({scene.title!r}, font_size=40)")
             write("        place(title, regions['title'])")
             write("        self.play(Write(title), run_time=0.7)")
-            write("        showing.append(title)")
+            write("        chrome.append(title)")
 
         beat_time = max(0.4, round(scene.seconds / 8, 2))
-        if scene.component:
+        key = (scene.component, repr(scene.parameters)) if scene.component else None
+        if key is not None and key == standing:
+            # Identical picture, identical parameters. Rebuilding it means the
+            # viewer watches the same figure fade out and back in for no reason
+            # — four times over, in the run that prompted this. Leave it up and
+            # let the words change around it.
+            write("        # unchanged from the previous scene; left on screen")
+        elif scene.component:
+            write("        if stage is not None:")
+            write("            self.play(FadeOut(stage), run_time=0.4)")
             write(f"        built = build({scene.component!r}, {scene.parameters!r})")
             write("        place(built.group, regions['stage'])")
-            write("        showing.append(built.group)")
+            write("        stage = built.group")
 
             # Components declare their own reveal order. Reading it at runtime
             # keeps the emitted scene correct when a component's beats change.
@@ -138,6 +152,12 @@ def assemble(plan: ScenePlan) -> str:
             write(f"                self.play(*[FadeIn(p) for p in parts], run_time={beat_time})")
             write("        if not built.beats:")
             write(f"            self.play(FadeIn(built.group), run_time={beat_time})")
+        else:
+            # An equation scene needs the stage to itself.
+            write("        if stage is not None:")
+            write("            self.play(FadeOut(stage), run_time=0.4)")
+            write("            stage = None")
+        standing = key
 
         if scene.caption:
             # Without a component the equation is the scene, so it belongs on
@@ -146,13 +166,14 @@ def assemble(plan: ScenePlan) -> str:
             write(f"        caption = MathTex({scene.caption!r}, font_size={size})")
             write(f"        place(caption, regions[{region!r}])")
             write(f"        self.play(Write(caption), run_time={max(0.6, beat_time)})")
-            write("        showing.append(caption)")
+            write("        chrome.append(caption)")
 
         write(f"        self.wait({max(0.4, round(scene.seconds * 0.2, 2))})")
         write("")
 
-    write("        if showing:")
-    write("            self.play(*[FadeOut(m) for m in showing], run_time=0.5)")
+    write("        leaving = chrome + ([stage] if stage is not None else [])")
+    write("        if leaving:")
+    write("            self.play(*[FadeOut(m) for m in leaving], run_time=0.5)")
 
     return HEADER + "\n".join(lines) + "\n"
 

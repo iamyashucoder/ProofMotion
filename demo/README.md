@@ -8,7 +8,7 @@ it came out well or badly, because the failures are the more useful record.
 hand-written Manim. `defects` counts what the layout checker measured on the
 finished scene: text over text, text over geometry, and anything off-frame.
 
-47 animations, 16.7 MB, 3 assembled.
+49 animations, 17.3 MB, 5 assembled.
 
 Rebuild with `uv run python scripts/build_demo.py`.
 
@@ -61,6 +61,8 @@ Rebuild with `uv run python scripts/build_demo.py`.
 | 45 | [Show the tangent line to f(x)=x^2-4x+5 at x=3 and what its slope means](show-the-tangent-line-to-f-x-x-2-4x-5-at-x-3-and-wha__deepseek-v4-flash-2.mp4) | deepseek/deepseek-v4-flash | 22.8s | yes | yes | `equation_chain`, `function_plot`, `tangent_secant` | 1 |
 | 46 | [Show the tangent line to f(x)=x^2-4x+5 at x=3 and what its slope means](show-the-tangent-line-to-f-x-x-2-4x-5-at-x-3-and-wha__deepseek-v4-flash-3.mp4) | deepseek/deepseek-v4-flash | 19.3s | yes | yes | `tangent_secant` | 0 |
 | 47 | [Show the tangent line to f(x)=x^2-4x+5 at x=3 and what its slope means](show-the-tangent-line-to-f-x-x-2-4x-5-at-x-3-and-wha__deepseek-v4-flash-4.mp4) | deepseek/deepseek-v4-flash | 21.3s | yes | yes | `function_plot`, `tangent_secant` | 0 |
+| 48 | [Show the tangent line to f(x)=x^2-4x+5 at x=3 and what its slope means](show-the-tangent-line-to-f-x-x-2-4x-5-at-x-3-and-wha__deepseek-v4-flash-5.mp4) | deepseek/deepseek-v4-flash | 30.3s | yes | yes | `tangent_secant` | 0 |
+| 49 | [Show the tangent line to f(x)=x^2-4x+5 at x=3 and what its slope means](show-the-tangent-line-to-f-x-x-2-4x-5-at-x-3-and-wha__deepseek-v4-flash-6.mp4) | deepseek/deepseek-v4-flash | 21.3s | yes | yes | `function_plot`, `tangent_secant` | 0 |
 
 ## Notes
 

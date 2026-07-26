@@ -94,10 +94,54 @@ class TestEmission(unittest.TestCase):
         self.assertIn("class GeneratedScene(Scene):", code)
         self.assertEqual(manim_validate_code(code), {"valid": True, "problems": []})
 
-    def test_the_stage_is_cleared_between_scenes(self):
+    def test_the_words_are_cleared_between_scenes(self):
         """The defect this path exists to remove: two sections drawn over each other."""
         code = self.scene()
-        self.assertEqual(code.count("FadeOut(m) for m in showing"), 3)  # two scenes plus the close
+        self.assertEqual(code.count("FadeOut(m) for m in chrome"), 2)  # once per scene
+        self.assertIn("FadeOut(m) for m in leaving", code)  # and everything at the end
+
+    def test_a_changed_picture_is_replaced(self):
+        code = self.scene()
+        self.assertEqual(code.count("self.play(FadeOut(stage), run_time=0.4)"), 2)
+
+    def test_an_unchanged_picture_stays_on_screen(self):
+        """Rebuilding an identical figure made the viewer watch it flicker.
+
+        Four scenes about one tangent line produced four teardown/rebuild
+        cycles of the same parabola, each individually correct.
+        """
+        repeated = plan(
+            SceneAssignment(title="The tangent", component="tangent_secant", parameters={**PLOT, "at": 3.0}, caption="f'(3)=2"),
+            SceneAssignment(title="Rise over run", component="tangent_secant", parameters={**PLOT, "at": 3.0}, caption="m=2"),
+            SceneAssignment(title="Derivative", component="tangent_secant", parameters={**PLOT, "at": 3.0}),
+        )
+        code = assemble(repeated)
+        ast.parse(code)
+        self.assertEqual(manim_validate_code(code)["valid"], True)
+        self.assertEqual(code.count("built = build("), 1)  # built once, not three times
+        self.assertEqual(code.count("unchanged from the previous scene"), 2)
+        # The words still change on every scene.
+        self.assertEqual(code.count("FadeOut(m) for m in chrome"), 3)
+        self.assertIn("Rise over run", code)
+
+    def test_a_different_parameter_rebuilds_the_picture(self):
+        """Same component, different `at` — that is a new picture, not a repeat."""
+        moving = plan(
+            SceneAssignment(component="tangent_secant", parameters={**PLOT, "at": 2.0}),
+            SceneAssignment(component="tangent_secant", parameters={**PLOT, "at": 3.0}),
+        )
+        code = assemble(moving)
+        self.assertEqual(code.count("built = build("), 2)
+        self.assertNotIn("unchanged from the previous scene", code)
+
+    def test_an_equation_scene_clears_the_picture(self):
+        mixed = plan(
+            SceneAssignment(component="function_plot", parameters=PLOT),
+            SceneAssignment(title="Differentiate", component=None, caption="f'(x)=2x-4"),
+        )
+        code = assemble(mixed)
+        self.assertIn("stage = None", code)
+        self.assertEqual(manim_validate_code(code)["valid"], True)
 
     def test_titles_and_captions_are_placed_in_regions_not_by_hand(self):
         code = self.scene()
