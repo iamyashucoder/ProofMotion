@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 class StoryboardScene(BaseModel):
     scene_id: str
     purpose: str
-    duration_seconds: float = Field(gt=0, le=60)
+    duration_seconds: float = Field(gt=0)
     narration: str | None = None
     visual_objects: list[dict] = Field(default_factory=list)
     equations: list[str] = Field(default_factory=list)

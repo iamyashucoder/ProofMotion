@@ -13,6 +13,7 @@ from proofmotion.tools import (
     discrete,
     geometry,
     inspect_scene,
+    grounding,
     layout,
     manim_api,
     numeric,

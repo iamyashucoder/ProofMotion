@@ -28,6 +28,7 @@ class MathAnimationState:
     llm_provider: str = ""
     llm_model: str = ""
     api_validation: dict[str, Any] = field(default_factory=dict)
+    grounding_report: dict[str, Any] = field(default_factory=dict)
     layout_report: dict[str, Any] = field(default_factory=dict)
     typeset_report: dict[str, Any] = field(default_factory=dict)
     components_used: list[str] = field(default_factory=list)

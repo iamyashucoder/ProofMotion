@@ -225,15 +225,20 @@ class SceneInspectionTests(unittest.TestCase):
         self.assertTrue(inspect_scene(tiny)["unreadable_text"])
 
 
-class PacingTests(unittest.TestCase):
-    def test_step_budget_scales_with_duration_and_stays_bounded(self):
-        from proofmotion.agents.planner import _step_budget
+class RenderCompletenessTests(unittest.TestCase):
+    def test_static_scene_is_rejected_before_rendering(self):
+        from proofmotion.pipeline import _is_renderable_scene
 
-        self.assertEqual(_step_budget(20), 3)
-        self.assertEqual(_step_budget(30), 5)
-        # An 11-step plan for a 30s animation is what made runs feel endless.
-        self.assertLessEqual(_step_budget(600), 8)
-        self.assertGreaterEqual(_step_budget(1), 3)
+        static = "from manim import *\nclass GeneratedScene(Scene):\n    def construct(self):\n        self.add(Dot())\n"
+        ok, reason = _is_renderable_scene(static)
+        self.assertFalse(ok)
+        self.assertIn("self.play", reason)
+
+    def test_animated_scene_is_renderable(self):
+        from proofmotion.pipeline import _is_renderable_scene
+
+        animated = "from manim import *\nclass GeneratedScene(Scene):\n    def construct(self):\n        self.play(FadeIn(Dot()))\n"
+        self.assertTrue(_is_renderable_scene(animated)[0])
 
 
 class RepairExtractionTests(unittest.TestCase):
@@ -252,6 +257,41 @@ class RepairExtractionTests(unittest.TestCase):
         self.assertIn("GeneratedScene", code)
         self.assertNotIn("→", code)
 
+    def test_source_completeness_rejects_empty_and_unterminated_replies(self):
+        from proofmotion.agents.coder import _usable_source
+
+        self.assertFalse(_usable_source(""))
+        self.assertFalse(_usable_source("from manim import *\nclass GeneratedScene(Scene):\n    x = '"))
+        self.assertTrue(_usable_source("from manim import *\nclass GeneratedScene(Scene):\n    def construct(self):\n        pass\n"))
+
+    def test_bright_background_is_added_to_generated_scenes(self):
+        from proofmotion.agents.coder import ensure_bright_background
+
+        source = "from manim import *\nclass GeneratedScene(Scene):\n    def construct(self):\n        self.play(FadeIn(Dot()))\n"
+        bright = ensure_bright_background(source)
+        self.assertIn('self.camera.background_color = "#1E293B"', bright)
+
+
+class VisualContractTests(unittest.TestCase):
+    """The requested teaching style is part of generation, not a UI suggestion."""
+
+    def test_coder_requires_turtle_question_card_and_final_answer(self):
+        from proofmotion.agents.coder import SYSTEM
+
+        self.assertIn("turtle carrying", SYSTEM)
+        self.assertIn("FINAL ANSWER", SYSTEM)
+        self.assertIn("original user question", SYSTEM)
+        self.assertIn("MathTex", SYSTEM)
+
+    def test_coding_brief_keeps_the_original_question(self):
+        from proofmotion.agents.coder import write_scene
+
+        # The implementation builds its brief internally; assert the source
+        # continues to include the state field rather than silently dropping it.
+        import inspect
+
+        self.assertIn('"user_question": context.get("user_prompt")', inspect.getsource(write_scene))
+
 
 class SymbolicTests(unittest.TestCase):
     def test_derivative_is_computed_not_recalled(self):
@@ -265,6 +305,61 @@ class SymbolicTests(unittest.TestCase):
 
     def test_true_identities_are_confirmed(self):
         self.assertTrue(symbolic_verify_equality("(x+1)**2", "x**2 + 2*x + 1")["equal"])
+
+
+class GroundingTests(unittest.TestCase):
+    def test_unrelated_but_valid_manim_scene_is_rejected(self):
+        from proofmotion.tools.grounding import validate_scene_grounding
+
+        unrelated = (
+            "from manim import *\nclass GeneratedScene(Scene):\n    def construct(self):\n"
+            "        self.play(Write(MathTex(r'e^{i\\pi}+1=0')))\n"
+        )
+        report = validate_scene_grounding(unrelated, [r"a = \frac{1}{x^3}", r"a \propto x^{-n} \Rightarrow n = 3"])
+        self.assertFalse(report["valid"])
+        self.assertTrue(report["missing_equations"])
+
+    def test_scene_with_verified_final_answer_is_accepted(self):
+        from proofmotion.tools.grounding import validate_scene_grounding
+
+        grounded = (
+            "from manim import *\nclass GeneratedScene(Scene):\n    def construct(self):\n"
+            "        self.play(Write(Text('FINAL ANSWER')))\n"
+            "        self.play(Write(MathTex(r'a = \\frac{1}{x^3}')))\n"
+        )
+        report = validate_scene_grounding(grounded, [r"a = \frac{1}{x^3}"])
+        self.assertTrue(report["valid"], report)
+
+    def test_beginner_detail_requirements_reject_an_answer_only_scene(self):
+        from proofmotion.tools.grounding import validate_scene_grounding
+
+        answer_only = (
+            "from manim import *\nclass GeneratedScene(Scene):\n    def construct(self):\n"
+            "        self.play(Write(Text('FINAL ANSWER')))\n"
+            "        self.play(Write(MathTex(r'n = 3')))\n"
+        )
+        report = validate_scene_grounding(
+            answer_only,
+            [r"n = 3"],
+            minimum_math_objects=4,
+            minimum_captions=3,
+            minimum_play_calls=5,
+        )
+        self.assertFalse(report["valid"])
+        self.assertIn("only 1 typeset math objects; need at least 4 for the explanation", report["problems"])
+
+
+class AudienceTests(unittest.TestCase):
+    def test_beginner_in_prompt_overrides_an_overly_advanced_model_guess(self):
+        from proofmotion.agents.intent import _honour_requested_level
+        from schemas.intent import AnimationIntent
+
+        intent = AnimationIntent(
+            topic="kinematics", domain="physics", audience="undergraduate", educational_goal="derive acceleration", difficulty="intermediate"
+        )
+        result = _honour_requested_level(intent, "Explain this for a beginner")
+        self.assertEqual(result.audience, "beginner")
+        self.assertEqual(result.difficulty, "introductory")
 
 
 class NumericTests(unittest.TestCase):

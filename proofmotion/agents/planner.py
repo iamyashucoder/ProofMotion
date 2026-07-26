@@ -19,12 +19,9 @@ SYSTEM = """You lay out the mathematical steps of an explanation, in teaching or
 Each step should carry one idea and connect to the one before it. Move from a
 concrete instance to the general statement unless the audience is advanced.
 
-Be brief. A step costs roughly six seconds of finished animation, so the budget
-you are given is a real limit, not a target to fill. Prefer the shortest route
-that actually explains the idea: a worked instance plus the general statement
-beats an exhaustive enumeration. If you find yourself writing step 4, 5, and 6
-of the same routine calculation, collapse them into one step that shows the
-pattern.
+Use as many focused steps as are needed to explain the idea. Prefer a worked
+instance plus the general statement over exhaustive enumeration, but never
+collapse essential reasoning merely to make the animation shorter.
 
 Compute with the tools; do not do algebra in your head. The full surface is
 available — linear algebra, differential equations, vector calculus, number
@@ -44,27 +41,37 @@ Write LaTeX in equation_latex. State any assumption a step depends on — a
 domain restriction, a convergence condition, a continuity requirement — because
 these become the bounds on what the finished animation is allowed to claim."""
 
-
-def _step_budget(duration_seconds: int) -> int:
-    """Steps a duration can actually carry, at roughly six seconds each."""
-    return max(3, min(8, round(duration_seconds / 6)))
+BEGINNER_ADDENDUM = """
+Beginner mode is active. Use enough small steps to teach, not merely to finish.
+Before a symbol is used
+in an equation, explain it in ordinary words: for example, x is position, v is
+velocity (how position changes), and a is acceleration (how velocity changes).
+Show one algebra move at a time; do not place a long quotient-rule derivation
+on one line. Each explanation must be one or two short sentences with no
+unintroduced jargon. Include: (1) the physical/intuitive picture, (2) symbol
+definitions, (3) each derivation move, (4) why that move is allowed, and only
+then (5) the final answer. The aim is understanding, not a compressed exam
+solution.
+"""
 
 
 def plan_mathematics(client: Any, intent: AnimationIntent) -> MathematicalPlan:
     """Derive a verified sequence of mathematical steps for the intent."""
+    prompt = (
+        f"Topic: {intent.topic}\n"
+        f"Field: {intent.domain}\n"
+        f"Audience: {intent.audience} ({intent.difficulty})\n"
+        f"Goal: {intent.educational_goal}\n"
+        f"Assumptions so far: {intent.assumptions or 'none'}\n"
+        "Use as many steps as are needed for a clear explanation. Do not reduce "
+        "the derivation merely to fit an arbitrary video duration.\n\n"
+        + (BEGINNER_ADDENDUM if intent.audience == "beginner" or intent.difficulty == "introductory" else "")
+        + "Produce the mathematical plan."
+    )
     return run_structured(
         client,
         SYSTEM,
-        (
-            f"Topic: {intent.topic}\n"
-            f"Field: {intent.domain}\n"
-            f"Audience: {intent.audience} ({intent.difficulty})\n"
-            f"Goal: {intent.educational_goal}\n"
-            f"Assumptions so far: {intent.assumptions or 'none'}\n"
-            f"Budget: at most {_step_budget(intent.duration_seconds)} steps "
-            f"for a {intent.duration_seconds}s animation.\n\n"
-            "Produce the mathematical plan."
-        ),
+        prompt,
         toolset("compute", "reason"),
         MathematicalPlan,
         max_iterations=10,

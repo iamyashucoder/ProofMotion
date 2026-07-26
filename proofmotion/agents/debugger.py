@@ -8,9 +8,10 @@ that wrote the code, and the validator's report naming the valid alternatives.
 from __future__ import annotations
 
 import json
+import ast
 from typing import Any
 
-from proofmotion.agents.coder import _strip_fences
+from proofmotion.agents.coder import _strip_fences, ensure_bright_background
 from proofmotion.runtime.loop import run_agent
 from proofmotion.tools import toolset
 from proofmotion.tools.manim_api import manim_validate_code
@@ -28,7 +29,33 @@ Change what is broken and leave the rest alone. Keep the single GeneratedScene
 class and every equation from the original: the mathematics was verified, so a
 "fix" that alters it is a regression.
 
+If the error says the scene is incomplete or produced only a still image,
+complete the scene with real self.play(...) animation beats. `self.add(...)`
+alone is not a video. Preserve the existing objects and equations, animate them
+into view, and include a readable final answer beat.
+
+If the failure says the scene is not grounded in the verified result, the
+current source answered the wrong problem. Replace unrelated mathematics with
+the required verified equations named in the failure. Do not preserve irrelevant
+expressions just because they appear in the broken source.
+
 Return the complete corrected Python source and nothing else."""
+
+COMPACT_SOURCE_RULE = """
+The animation may be as long as necessary, but keep the repaired source under
+350 lines. Use helpers, data lists, and loops for repeated teaching beats. Never
+return an incomplete file because the response ran out of space.
+"""
+
+
+def _usable_source(code: str) -> bool:
+    if not code.strip() or "GeneratedScene" not in code:
+        return False
+    try:
+        ast.parse(code)
+    except SyntaxError:
+        return False
+    return True
 
 
 POLISH_SYSTEM = """You fix layout defects in a Manim scene that already runs.
@@ -95,14 +122,27 @@ def repair_scene(client: Any, code: str, error: str, *, max_iterations: int = 10
     )
     result = run_agent(
         client,
-        SYSTEM,
+        SYSTEM + COMPACT_SOURCE_RULE,
         f"This scene failed to render.\n\nRENDER ERROR:\n{error[-3000:]}{static}\n\nCURRENT SOURCE:\n{code}",
         toolset("manim", "visual"),
         max_iterations=max_iterations,
-        max_tokens=8000,
+        max_tokens=10000,
         agent_name="debugger",
     )
     fixed = _strip_fences(result.content)
+    if not _usable_source(fixed):
+        # A short direct request avoids returning an empty/prose reply after a
+        # repair agent used all of its API lookup turns.
+        direct = client.complete(
+            SYSTEM
+            + COMPACT_SOURCE_RULE
+            + "\n\nTool use is unavailable. Output the entire corrected source now, including "
+            "self.play(...) animation beats. Keep it compact and complete. Code only.",
+            f"Failure: {error[-2000:]}\n\nCURRENT SOURCE:\n{code}",
+            max_tokens=16000,
+        )
+        fixed = _strip_fences(direct or "")
+    fixed = ensure_bright_background(fixed)
     return {
         "code": fixed,
         "validation": manim_validate_code(fixed) if fixed else {"valid": False, "problems": []},

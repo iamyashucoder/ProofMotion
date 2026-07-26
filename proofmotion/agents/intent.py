@@ -25,15 +25,22 @@ Any topic is in scope, from arithmetic to research mathematics and physics. If
 the request is vague, choose one concrete example that makes it teachable and
 record that choice in `assumptions`.
 
-Keep duration_seconds short unless the request asks otherwise. Around 30 seconds
-suits most explanations and 45 is generous; a viewer learns more from a tight
-explanation than a thorough one. Only go beyond 45 when the request explicitly
-asks for depth or names several things to cover."""
+Do not choose an arbitrary video length. The downstream planner will use as
+many teaching beats as the concept needs."""
+
+
+def _honour_requested_level(intent: AnimationIntent, user_prompt: str) -> AnimationIntent:
+    """A user-specified level outranks a model's guess about the audience."""
+    lowered = user_prompt.lower()
+    if any(word in lowered for word in ("beginner", "beginners", "beginer", "simple", "easily understand", "easy to understand")):
+        intent.audience = "beginner"
+        intent.difficulty = "introductory"
+    return intent
 
 
 def understand_request(client: Any, user_prompt: str) -> AnimationIntent:
     """Turn a free-form request into a structured intent."""
-    return run_structured(
+    intent = run_structured(
         client,
         SYSTEM,
         f"Animation request:\n{user_prompt}",
@@ -42,3 +49,4 @@ def understand_request(client: Any, user_prompt: str) -> AnimationIntent:
         max_iterations=6,
         agent_name="intent",
     )
+    return _honour_requested_level(intent, user_prompt)

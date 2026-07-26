@@ -65,22 +65,68 @@ equations and body text; axis tick labels may be smaller. Never go below 16 —
 that is unreadable in the final video. If something does not fit, shorten the
 string or give it its own beat, rather than shrinking it until it does.
 
+Use a bright, high-contrast visual palette. Set
+`self.camera.background_color = "#1E293B"` at the start of construct, then use
+white/light text and vivid accent colours such as YELLOW, TEAL, BLUE, GREEN, or
+GOLD. Do not use Manim's default near-black background or low-opacity objects
+that disappear into it.
+
 Use layout_measure, layout_frame, and layout_check to place things, then run
 inspect_scene on your finished source. inspect_scene executes the scene without
 rendering and measures the real bounding boxes beat by beat, so it catches
 overlaps that planning missed. Fix everything it reports and run it again. It
 is the difference between a layout you intended and the one you wrote.
 
-Respect the runtime budget in the brief. Roughly two self.play calls per ten
-seconds of target length is the right density; thirty-six of them for a one
-minute animation is a slideshow, not an explanation. Combine related changes
-into a single play with an AnimationGroup rather than animating each object in
-turn, and keep self.wait short — 0.5s after a reveal is usually enough, and a
-wait after every single beat is what turns a tight explanation into a long one.
+Non-negotiable ProofMotion visual contract:
+  - Keep the original user question visible in a small, high-contrast question
+    card in one corner (normally upper-left). Use a concise faithful wrap when
+    it is long; never cover the main mathematics with it.
+  - Reserve the final beat for a clear heading `FINAL ANSWER` and the verified
+    answer below it. The answer must follow from the supplied verified plan;
+    do not invent a result to make the ending look complete.
+  - Render mathematical notation as MathTex, Tex, or TypstMath, never as plain
+    Text. This is especially important for roots, logarithms, fractions,
+    powers, vectors, and modular arithmetic. Text is for natural-language
+    narration only.
+  - When a graph, coordinate axes, vector diagram, geometric construction, or
+    other line-based mathematical object is introduced, a small turtle carrying
+    a visible marker must draw its main stroke. Construct the turtle from basic
+    Manim shapes when no asset is supplied; attach the marker tip to the turtle;
+    animate it with MoveAlongPath and leave the ink with TracedPath or an
+    equivalent progressive path. The turtle must draw the object, not merely
+    sit beside a completed graph.
+  - Fit every existing text or maths object to the safe frame before displaying
+    it. If width or height exceeds the safe area, scale the existing mobject
+    down with scale_to_fit_width/scale_to_fit_height. If that would make it
+    unreadable, split it across beats rather than allowing overlap or clipping.
+  - When the brief's audience is beginner or difficulty is introductory, show a
+    short plain-language Text caption for every new idea (maximum 12 words).
+    Define symbols on first use, such as `x: position`, `v: how position
+    changes`, and `a: how velocity changes`. Keep captions visible long enough
+    to read, then clear them before the next idea. Do not replace explanation
+    with a dense chain of algebraic equalities.
+  - For beginner scenes, this is an explanation, not an answer reveal. Show
+    the setup and intuition first, then definitions, then one justified move
+    per beat. Keep `FINAL ANSWER` for the last 15% of the timeline. Use at
+    least one explanatory caption for every mathematical-plan step, in
+    addition to the persistent question card and final answer heading.
+
+Use however many well-paced animation beats are needed to teach the concept.
+Combine only changes that the viewer can understand together; never collapse
+important reasoning merely to make the video shorter.
+
+Video duration and source-code size are independent. A long explanation is
+welcome, but the source must remain compact and complete: aim for fewer than
+350 lines. Use small helper functions, VGroups, and data lists with loops for
+repeated equation/caption beats. Never expand a long explanation into hundreds
+of nearly identical self.play calls. A complete concise scene is essential;
+never return a partial file because the response became too long.
 
 Requirements:
   - exactly one Scene subclass, named GeneratedScene
   - start with: from manim import *
+  - animate visible objects with self.play(...). A scene that only uses
+    self.add(...) produces a still PNG instead of the requested MP4.
   - no filesystem, network, or subprocess use
   - only equations that appear in the verified plan you are given
 
@@ -101,6 +147,11 @@ def _usable(code: str) -> bool:
     except SyntaxError:
         return False
     return True
+
+
+def _usable_source(code: str) -> bool:
+    """Backward-compatible name for the complete-source predicate."""
+    return _usable(code)
 
 
 def recover_code(tool_calls: list[dict[str, Any]]) -> str:
@@ -180,7 +231,8 @@ def _write_directly(client: Any, brief: str) -> str:
             SYSTEM,
             (
                 "Write the complete Manim scene for this brief now. No tools, no explanation, "
-                f"no code fences — Python source only.\n\n{brief}"
+                "no code fences — Python source only. Keep it under 350 lines by using "
+                f"helpers, data lists, and loops. Do not return a partial file.\n\n{brief}"
             ),
             toolset("manim").subset([]),   # an empty registry: nothing to call
             max_iterations=1,
@@ -193,24 +245,32 @@ def _write_directly(client: Any, brief: str) -> str:
     return _strip_fences(result.content)
 
 
-def write_scene(client: Any, context: dict[str, Any], *, max_iterations: int = 12) -> dict[str, Any]:
+def ensure_bright_background(code: str) -> str:
+    """Inject the project background default into otherwise valid scene code."""
+    if not _usable(code) or "self.camera.background_color" in code:
+        return code
+    lines = code.splitlines()
+    for index, line in enumerate(lines):
+        if line.lstrip().startswith("def construct(self)"):
+            indent = line[: len(line) - len(line.lstrip())] + "    "
+            lines.insert(index + 1, f'{indent}self.camera.background_color = "#1E293B"')
+            return "\n".join(lines) + ("\n" if code.endswith("\n") else "")
+    return code
+
+
+def write_scene(client: Any, context: dict[str, Any], *, max_iterations: int = 8) -> dict[str, Any]:
     """Generate a validated Manim scene.
 
     Returns the source plus the validation report, so the caller can see whether
     the agent actually converged rather than assuming it did.
     """
-    target = int((context.get("intent") or {}).get("duration_seconds") or 30)
     brief = json.dumps(
         {
+            "user_question": context.get("user_prompt"),
             "intent": context.get("intent"),
             "verified_plan": context.get("math_plan"),
             "storyboard": context.get("storyboard"),
             "computed_values": context.get("tool_results"),
-            "budget": {
-                "target_seconds": target,
-                "max_play_calls": max(6, round(target / 5)),
-                "guidance": "Total run_time plus waits should land near target_seconds.",
-            },
         },
         indent=2,
         default=str,
@@ -221,14 +281,15 @@ def write_scene(client: Any, context: dict[str, Any], *, max_iterations: int = 1
         f"Write the scene for this brief.\n\n{brief}",
         toolset("manim", "visual"),
         max_iterations=max_iterations,
-        max_tokens=8000,
+        max_tokens=10000,
         agent_name="coder",
         # A coder that runs out of iterations must still emit code. The generic
         # "answer now" produced an empty response, which then sailed through
         # ast.parse (the empty string is valid Python) and rendered nothing.
         final_instruction=(
             "Stop calling tools. Output the complete Manim source now, exactly as it should "
-            "be saved: from manim import * followed by one GeneratedScene class. Code only."
+            "be saved: from manim import * followed by one GeneratedScene class. Keep it compact "
+            "with helpers and loops, under 350 lines. Code only."
         ),
         # A whole scene does not fit in a tool turn's budget. The last run was cut
         # off mid-AnimationGroup at 3716 characters and failed to parse.
@@ -251,7 +312,7 @@ def write_scene(client: Any, context: dict[str, Any], *, max_iterations: int = 1
         # had simply never been asked plainly. Ask plainly, once, with no tools.
         log.warning("coder produced nothing usable; retrying once with tools withheld")
         code, retried = _write_directly(client, brief), True
-
+    code = ensure_bright_background(code)
     report = manim_validate_code(code) if code else {"valid": False, "problems": [{"problem": "agent returned no code"}]}
     used = sorted({
         m for call in result.tool_calls if call["name"] == "component_build" and not call["failed"]

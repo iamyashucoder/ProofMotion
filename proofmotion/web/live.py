@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import queue
+import sys
 import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -15,6 +16,16 @@ from pathlib import Path
 from typing import Any
 
 from proofmotion.runtime.events import BUS
+
+
+class QuietThreadingHTTPServer(ThreadingHTTPServer):
+    """Ignore ordinary browser disconnects from the transient live viewer."""
+
+    def handle_error(self, request: Any, client_address: Any) -> None:
+        error_type, error, _ = sys.exc_info()
+        if error_type and issubclass(error_type, (BrokenPipeError, ConnectionResetError)):
+            return
+        super().handle_error(request, client_address)
 
 PAGE = """<!doctype html>
 <meta charset="utf-8"><title>ProofMotion — live</title>
@@ -177,7 +188,7 @@ def serve_live(port: int = 8770, host: str = "127.0.0.1", open_browser: bool = F
                 return
             self.send_error(404)
 
-    server = ThreadingHTTPServer((host, port), Handler)
+    server = QuietThreadingHTTPServer((host, port), Handler)
     threading.Thread(target=server.serve_forever, daemon=True, name="live-server").start()
 
     shown = _lan_ip() if host == "0.0.0.0" else host

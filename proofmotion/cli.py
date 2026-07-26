@@ -12,9 +12,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Plan, verify, preview, and render mathematical Manim animations.")
     parser.add_argument("prompt", nargs="?", help="Mathematical animation request")
     parser.add_argument("--final", action="store_true", help="Render a final high-quality MP4 after the preview succeeds.")
-    parser.add_argument("--provider", help="LLM provider: deepseek, openrouter, or vllm.")
+    parser.add_argument("--provider", help="LLM provider: deepseek, openai, openrouter, or vllm.")
     parser.add_argument("--model", help="Override the provider's default model.")
-    parser.add_argument("--duration", type=int, help="Target length in seconds (default: the agent decides, ~30).")
     parser.add_argument("--verbose", "-v", action="store_true", help="Show each pipeline stage as it runs.")
     parser.add_argument("--live", action="store_true", help="Watch the run in a browser as it happens.")
     parser.add_argument("--live-port", type=int, default=8770)
@@ -39,7 +38,7 @@ def main() -> None:
     try:
         state = create_math_animation(
             prompt, render_final=args.final, provider=args.provider,
-            model=args.model, duration_seconds=args.duration,
+            model=args.model,
         )
     except Exception as error:
         if bus:

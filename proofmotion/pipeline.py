@@ -27,6 +27,7 @@ from proofmotion.runtime.events import BUS, artifact, headline, stage
 from proofmotion.runtime.registry import ToolError
 from proofmotion.runtime.watcher import watch_render
 from proofmotion.tools.inspect_scene import inspect_scene
+from proofmotion.tools.grounding import final_equations, validate_scene_grounding
 from proofmotion.tools.manim_api import manim_validate_code
 from proofmotion.tools.typeset import typeset_scene
 from schemas.state import MathAnimationState
@@ -81,6 +82,8 @@ def _render_failure(result: Any, output_dir: Path) -> str:
     if result.returncode != 0:
         return result.stderr or f"manim exited {result.returncode}"
     if not _find_video(output_dir):
+        if any(output_dir.rglob("*.png")):
+            return "manim produced only a still PNG: the scene needs an animated self.play(...) timeline to create an MP4"
         return "manim exited 0 but produced no video file"
     return ""
 
@@ -101,6 +104,16 @@ def _is_renderable_scene(code: str) -> tuple[bool, str]:
     classes = [n.name for n in ast.walk(tree) if isinstance(n, ast.ClassDef)]
     if "GeneratedScene" not in classes:
         return False, f"no GeneratedScene class (found: {classes or 'none'})"
+    has_play = any(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id == "self"
+        and node.func.attr == "play"
+        for node in ast.walk(tree)
+    )
+    if not has_play:
+        return False, "scene has no self.play(...) animation call; Manim would create only a still image, not an MP4"
     return True, ""
 
 
@@ -111,7 +124,6 @@ def create_math_animation(
     project_root: Path = PROJECTS_DIR,
     provider: str | None = None,
     model: str | None = None,
-    duration_seconds: int | None = None,
 ) -> MathAnimationState:
     """Plan, verify, compose, code, and render an animation for any request."""
     client = get_client(provider, model)
@@ -131,10 +143,6 @@ def create_math_animation(
 
     stage("understand")
     intent = understand_request(client, user_prompt)
-    if duration_seconds:
-        # An explicit request beats the agent's guess, and every downstream
-        # budget is derived from this number.
-        intent.duration_seconds = max(5, min(90, duration_seconds))
     state.intent = intent.model_dump()
     artifact("intent", state.intent)
     headline(f"Read the request as: {intent.topic} ({intent.domain}, {intent.difficulty})")
@@ -164,7 +172,7 @@ def create_math_animation(
     state.save(project_dir)
 
     stage("storyboard")
-    storyboard = direct_storyboard(client, intent, plan, state.verified_math)
+    storyboard = direct_storyboard(client, intent, plan, state.verified_math, user_question=user_prompt)
     state.storyboard = storyboard.model_dump()
     state.selected_tools = ["symbolic", "numeric", "manim_api", "layout", "typeset"]
     artifact("storyboard", state.storyboard)
@@ -203,12 +211,26 @@ def create_math_animation(
 
     renderable, why = _is_renderable_scene(state.generated_code)
     if not renderable:
-        state.status = "code_validation_failed"
-        state.render_errors.append(why)
-        headline(f"Stopped: {why}", "warned")
-        stage("code", "failed", reason=why)
-        state.save(project_dir)
-        return state
+        # Valid Python can still be an unusable Manim scene. In particular,
+        # `self.add(...)` alone renders a PNG and exits 0, which previously
+        # looked like a mysterious missing-video failure after a costly render.
+        stage("repair")
+        headline(f"Completeness repair: {why}", "warned")
+        repaired = repair_scene(client, state.generated_code, f"Scene completeness failure: {why}")
+        repaired_ok, repaired_why = _is_renderable_scene(repaired["code"])
+        if not repaired_ok:
+            state.status = "code_validation_failed"
+            state.render_errors.extend([why, f"completeness repair unusable: {repaired_why}"])
+            headline(f"Stopped: {repaired_why}", "warned")
+            stage("repair", "failed", reason=repaired_why)
+            state.save(project_dir)
+            return state
+        state.repair_attempt += 1
+        state.generated_code = repaired["code"]
+        state.api_validation = repaired["validation"]
+        artifact("code", state.generated_code)
+        headline("Completeness repair added an animation timeline", "fixed")
+        stage("repair", "done")
 
     valid, error = validate_generated_code(state.generated_code)
     if not valid:
@@ -243,6 +265,46 @@ def create_math_animation(
     else:
         headline(f"All {tex['checked']} LaTeX strings compile", "improved")
     stage("typeset", "done")
+
+    # API-valid code can still animate an entirely different problem. Ground
+    # source in the final verified equations before we spend time rendering it.
+    expected_final = final_equations(state.to_dict())
+    step_count = len(state.math_plan.get("concept_sequence") or [])
+    beginner = intent.audience == "beginner" or intent.difficulty == "introductory"
+    detail_requirements = {
+        "minimum_math_objects": step_count * 2 if beginner else max(1, step_count),
+        "minimum_captions": step_count + 2 if beginner else 0,
+        "minimum_play_calls": step_count + 3 if beginner else 1,
+    }
+    grounding = validate_scene_grounding(state.generated_code, expected_final, **detail_requirements)
+    state.grounding_report = grounding
+    if not grounding["valid"]:
+        reason = (
+            "Semantic grounding failure. The rendered source must include a FINAL ANSWER heading and at least one "
+            f"of these verified final equations: {expected_final}. Problems: {grounding['problems']}"
+        )
+        headline("Generated code drifted from the verified result; requesting a grounded rewrite", "warned")
+        stage("repair")
+        repaired = repair_scene(client, state.generated_code, reason)
+        repaired_ok, repaired_why = _is_renderable_scene(repaired["code"])
+        repaired_grounding = validate_scene_grounding(repaired["code"], expected_final, **detail_requirements)
+        if not repaired_ok or not repaired_grounding["valid"]:
+            state.status = "code_validation_failed"
+            state.render_errors.append(
+                f"grounded rewrite unusable: {repaired_why if not repaired_ok else repaired_grounding['problems']}"
+            )
+            state.grounding_report = repaired_grounding
+            headline("Stopped: code did not answer the verified problem", "warned")
+            stage("repair", "failed")
+            state.save(project_dir)
+            return state
+        state.repair_attempt += 1
+        state.generated_code = repaired["code"]
+        state.api_validation = repaired["validation"]
+        state.grounding_report = repaired_grounding
+        artifact("code", state.generated_code)
+        headline("Grounded rewrite now contains the verified final answer", "fixed")
+        stage("repair", "done")
 
     # Measure what the code actually puts on screen. The director checked a plan;
     # this checks the scene that was written, which is where overlaps came from.
