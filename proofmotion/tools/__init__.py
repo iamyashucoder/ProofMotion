@@ -14,6 +14,7 @@ from proofmotion.tools import (
     geometry,
     inspect_scene,
     layout,
+    learned_tool,
     manim_api,
     numeric,
     reasoning,
@@ -28,7 +29,8 @@ from proofmotion.tools import (
 #: only at runtime inside an agent. A tuple a linter can see cannot be pruned.
 _REGISTERING_MODULES = (
     algebra, analysis, components_tool, discrete, geometry, inspect_scene,
-    layout, manim_api, numeric, reasoning, statistics, symbolic, typeset,
+    layout, learned_tool, manim_api, numeric, reasoning, statistics, symbolic,
+    typeset,
 )
 
 #: Tools grouped by the job they serve, so an agent is handed only what it needs.
@@ -84,6 +86,8 @@ TOOLSETS: dict[str, list[str]] = {
         "inspect_scene",
         "component_search",
         "component_build",
+        "component_source",
+        "component_learn",
     ],
 }
 

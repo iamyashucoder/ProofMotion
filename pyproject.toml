@@ -42,6 +42,7 @@ Repository = "https://github.com/MAXNORM8650/ProofMotion"
 [project.scripts]
 proofmotion = "proofmotion.cli:main"
 proofmotion-preview = "proofmotion.preview_cli:main"
+proofmotion-learned = "proofmotion.learned_cli:main"
 
 # Manim is vendored so Phase 4/5 improvements (layout solver, scene
 # introspection, geometry serializer) land as tracked patches, not a fork.

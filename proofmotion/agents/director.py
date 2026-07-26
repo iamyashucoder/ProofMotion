@@ -37,9 +37,14 @@ listed beside it. Loose shapes alongside a component mean the component is the
 wrong one, and a scene assembled from it would leave out the very thing the
 scene is for.
 
-If no single component expresses a scene, leave visual_objects empty and put the
-mathematics in equations. That is a real answer and a much better one than a
-component that nearly fits.
+If no single component expresses a scene, you have two choices. Leave
+visual_objects empty and put the mathematics in equations — a real answer, and a
+much better one than a component that nearly fits. Or, when a component is close
+and you can say exactly what is missing, write the one you need: component_source
+shows how the closest one works, and component_learn keeps your rewrite under a
+new name once it has been built and measured. A component kept that way is found
+by every question after this one, so it is worth doing when the gap is general
+and not worth it when it is peculiar to this scene.
 
 Several scenes may name the same component with the same parameters. That is
 expected when an explanation stays with one figure and builds on it — the figure

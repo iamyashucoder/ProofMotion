@@ -37,10 +37,24 @@ def component_search(query: str = "", domain: str = "") -> dict[str, Any]:
         if score or not words:
             matches.append((score, spec))
     matches.sort(key=lambda pair: -pair[0])
+    found = []
+    for _, spec in matches[:8]:
+        described = spec.describe()
+        if getattr(spec, "learned", False):
+            # Say so. A learned component passed admission on one example; a
+            # built-in one is tested at its parameter extremes, and a model
+            # choosing between them should know which is which.
+            described["learned"] = True
+            described["rewritten_from"] = getattr(spec, "parent", None)
+        found.append(described)
     return {
         "query": query,
-        "components": [spec.describe() for _, spec in matches[:8]],
-        "note": "Call component_build with a name and parameters. Write Manim code only if nothing fits.",
+        "components": found,
+        "note": (
+            "Call component_build with a name and parameters. If one is close but not right, "
+            "component_source shows how it works and component_learn keeps your rewrite for "
+            "future questions. Write raw Manim only if nothing fits."
+        ),
     }
 
 

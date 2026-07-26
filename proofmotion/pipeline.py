@@ -24,6 +24,7 @@ from proofmotion.agents.intent import understand_request
 from proofmotion.agents.planner import plan_mathematics
 from proofmotion.agents.verifier import verify_plan
 from proofmotion.compose import assemble, coverage, plan_from_storyboard, select_components
+from proofmotion.learned import load_all as load_learned
 from proofmotion.runtime.events import BUS, artifact, headline, stage
 from proofmotion.runtime.registry import ToolError
 from proofmotion.runtime.watcher import watch_render
@@ -192,6 +193,12 @@ def _run(
     project_dir.mkdir(parents=True, exist_ok=False)
     BUS.reset()
     BUS.emit("run", prompt=user_prompt, project=state.project_id, model=f"{client.name}/{client.model}")
+
+    # Components the system wrote on earlier questions. Registered before
+    # anything searches, so they are found the same way built-in ones are.
+    remembered = load_learned()
+    if remembered:
+        headline(f"Loaded {len(remembered)} learned component(s): {', '.join(remembered)}")
 
     stage("understand")
     intent = understand_request(client, user_prompt)

@@ -70,8 +70,33 @@ def component(*, version: int, domain: str, params: type[BaseModel]) -> Callable
     return register
 
 
+_LEARNED_LOADED = False
+
+
+def _load_learned_once() -> bool:
+    """Register learned components on first miss. Returns whether anything loaded.
+
+    A rendered scene runs in its own manim process, which imports this module
+    but never ran the pipeline — so a scene built from a learned component
+    failed with "unknown component" at render time while the same name resolved
+    fine everywhere else. Resolving lazily means a scene is self-contained
+    whoever wrote it, and costs nothing until a name is actually missing.
+    """
+    global _LEARNED_LOADED
+    if _LEARNED_LOADED:
+        return False
+    _LEARNED_LOADED = True
+    try:
+        from proofmotion.learned.store import load_all
+    except ImportError:  # pragma: no cover - the package is always present
+        return False
+    return bool(load_all())
+
+
 def build(name: str, parameters: dict[str, Any]) -> Built:
     """Validate parameters and build. Invalid parameters raise, never default."""
+    if name not in COMPONENTS:
+        _load_learned_once()
     if name not in COMPONENTS:
         raise ToolError(f"unknown component {name!r}; available: {sorted(COMPONENTS)}")
     spec = COMPONENTS[name]
