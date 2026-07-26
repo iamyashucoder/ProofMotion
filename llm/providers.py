@@ -247,6 +247,13 @@ class DeepSeekClient(OpenAICompatibleClient):
             effort = reasoning_effort or os.getenv("DEEPSEEK_REASONING_EFFORT", "high")
             if effort:
                 extra["reasoning_effort"] = effort
+        else:
+            # Disabling has to be said. Both v4 models reason when the key is
+            # absent, so omitting it left thinking on for every run this setting
+            # claimed to have turned off — measured on "what is 17*23": 61
+            # completion tokens and a 154-character trace with the key omitted,
+            # 1 token and no trace with it disabled.
+            extra["thinking"] = {"type": "disabled"}
         super().__init__(
             base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
             api_key=os.getenv("DEEPSEEK_API_KEY"),

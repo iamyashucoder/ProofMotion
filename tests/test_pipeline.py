@@ -135,6 +135,25 @@ class ProviderTests(unittest.TestCase):
         self.assertEqual(DeepSeekClient.token_param, "max_tokens")
         self.assertEqual(OpenRouterClient.token_param, "max_tokens")
 
+    def test_disabling_deepseek_thinking_is_sent_rather_than_omitted(self):
+        """Both v4 models reason when the key is absent, so silence meant on.
+
+        DEEPSEEK_THINKING=0 only stopped the code adding "enabled" — it never
+        said "disabled" — so every run this setting claimed to have turned off
+        was still reasoning. Measured on "what is 17*23": 61 completion tokens
+        and a 154-character trace with the key omitted, 1 token with it
+        explicitly disabled.
+        """
+        from llm.providers import DeepSeekClient
+
+        self.assertEqual(
+            DeepSeekClient(model="deepseek-v4-pro", thinking=False).extra_body,
+            {"thinking": {"type": "disabled"}},
+        )
+        enabled = DeepSeekClient(model="deepseek-v4-pro", thinking=True, reasoning_effort="high").extra_body
+        self.assertEqual(enabled["thinking"], {"type": "enabled"})
+        self.assertEqual(enabled["reasoning_effort"], "high")
+
     def test_unsupported_parameters_are_read_from_the_api_error(self):
         from llm.providers import _unsupported_parameter
 
