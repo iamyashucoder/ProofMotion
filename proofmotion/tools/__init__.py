@@ -7,12 +7,17 @@ measurement, which compose into gradient descent and into everything else.
 
 from proofmotion.runtime.registry import REGISTRY
 from proofmotion.tools import (
+    algebra,
+    analysis,
     components_tool,
+    discrete,
+    geometry,
     inspect_scene,
     layout,
     manim_api,
     numeric,
     reasoning,
+    statistics,
     symbolic,
     typeset,
 )
@@ -22,7 +27,8 @@ from proofmotion.tools import (
 #: silently unregistering component_search and component_build, which then failed
 #: only at runtime inside an agent. A tuple a linter can see cannot be pruned.
 _REGISTERING_MODULES = (
-    components_tool, inspect_scene, layout, manim_api, numeric, reasoning, symbolic, typeset,
+    algebra, analysis, components_tool, discrete, geometry, inspect_scene,
+    layout, manim_api, numeric, reasoning, statistics, symbolic, typeset,
 )
 
 #: Tools grouped by the job they serve, so an agent is handed only what it needs.
@@ -39,7 +45,20 @@ TOOLSETS: dict[str, list[str]] = {
         "numeric_sample",
         "numeric_iterate",
         "numeric_roots",
+        "symbolic_algebra",
+        "symbolic_matrix",
+        "symbolic_vector_calculus",
+        "symbolic_ode",
+        "numeric_ode",
+        "numeric_optimize",
+        "numeric_interpolate",
     ],
+    #: Discrete structures, counting, and exact integer arithmetic.
+    "discrete": ["number_theory", "combinatorics", "logic_table", "graph_algorithm"],
+    #: Chance and data.
+    "stats": ["probability", "statistics_summary", "linear_regression", "monte_carlo"],
+    #: Analytic geometry.
+    "geometry": ["geometry_solve", "conic_properties"],
     #: Checking that a result is right, as distinct from producing one.
     "verify": [
         "units_check",
