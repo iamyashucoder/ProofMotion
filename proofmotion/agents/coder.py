@@ -193,7 +193,7 @@ def _write_directly(client: Any, brief: str) -> str:
     return _strip_fences(result.content)
 
 
-def write_scene(client: Any, context: dict[str, Any], *, max_iterations: int = 20) -> dict[str, Any]:
+def write_scene(client: Any, context: dict[str, Any], *, max_iterations: int = 12) -> dict[str, Any]:
     """Generate a validated Manim scene.
 
     Returns the source plus the validation report, so the caller can see whether

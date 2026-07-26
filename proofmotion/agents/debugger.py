@@ -52,7 +52,7 @@ mathematics was verified, so altering it is a regression, not a fix.
 Return the complete corrected Python source and nothing else."""
 
 
-def polish_scene(client: Any, code: str, report: dict[str, Any], *, max_iterations: int = 12) -> dict[str, Any]:
+def polish_scene(client: Any, code: str, report: dict[str, Any], *, max_iterations: int = 8) -> dict[str, Any]:
     """Fix measured layout defects in a scene that renders but reads badly."""
     summary = json.dumps(
         {
@@ -80,7 +80,7 @@ def polish_scene(client: Any, code: str, report: dict[str, Any], *, max_iteratio
     return {"code": fixed, "tools_used": result.tools_used}
 
 
-def repair_scene(client: Any, code: str, error: str, *, max_iterations: int = 14) -> dict[str, Any]:
+def repair_scene(client: Any, code: str, error: str, *, max_iterations: int = 10) -> dict[str, Any]:
     """Attempt a repair, returning the new source and its validation report."""
     report = manim_validate_code(code)
     static = (

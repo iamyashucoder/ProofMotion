@@ -24,7 +24,17 @@ from proofmotion.runtime.registry import ToolError, ToolRegistry
 
 log = logging.getLogger(__name__)
 
-MAX_OBSERVATION_CHARS = 6000
+#: Cap on a single tool result. Every observation stays in the conversation and
+#: is resent on every subsequent turn, so this number is multiplied by the number
+#: of remaining turns, not paid once. At 6000 a 79-call run accumulated 474,000
+#: characters — about 118,000 tokens — resent each turn.
+MAX_OBSERVATION_CHARS = 2000
+
+#: Tool results kept verbatim. Older ones are compacted: a signature looked up
+#: twenty turns ago has already been used, while the last few are what the agent
+#: is actually working from.
+KEEP_VERBATIM = 8
+COMPACTED_CHARS = 220
 
 #: Tools that are pure computation and safe to run concurrently. Everything else
 #: is serialised: inspect_scene, component_build, typeset_check and layout_measure
@@ -154,6 +164,31 @@ def run_structured(
     raise ToolError(f"{model_cls.__name__} could not be produced after {repairs + 1} attempts. Last error: {last_error}")
 
 
+def compact_history(messages: list[dict[str, Any]], keep: int = KEEP_VERBATIM) -> int:
+    """Shorten tool results the agent has already moved past.
+
+    The conversation is resent in full on every turn, so an observation costs its
+    length multiplied by the turns that follow it. Keeping the recent ones intact
+    preserves what the agent is working from; compacting the rest keeps a long
+    run from quadratic growth.
+
+    Returns the number of characters reclaimed.
+    """
+    tool_positions = [i for i, m in enumerate(messages) if m.get("role") == "tool"]
+    reclaimed = 0
+    for index in tool_positions[:-keep] if len(tool_positions) > keep else []:
+        message = messages[index]
+        if message.get("_compacted"):
+            continue
+        body = message.get("content") or ""
+        if len(body) <= COMPACTED_CHARS:
+            continue
+        reclaimed += len(body) - COMPACTED_CHARS
+        message["content"] = body[:COMPACTED_CHARS] + f"... [earlier result, {len(body)} chars, trimmed]"
+        message["_compacted"] = True
+    return reclaimed
+
+
 def _run_tool(registry: ToolRegistry, call: Any) -> tuple[str, bool, float]:
     """Dispatch one call. Returns (observation, failed, seconds)."""
     started = time.monotonic()
@@ -223,7 +258,13 @@ def run_agent(
                     ),
                 }
             )
-        message = client.chat(messages, tools=schemas, max_tokens=max_tokens)
+        reclaimed = compact_history(messages)
+        if reclaimed:
+            log.debug("compacted %s chars of older tool results", reclaimed)
+        message = client.chat(
+            [{k: v for k, v in m.items() if k != "_compacted"} for m in messages],
+            tools=schemas, max_tokens=max_tokens,
+        )
         calls = getattr(message, "tool_calls", None)
 
         if not calls:
@@ -291,7 +332,10 @@ def run_agent(
     log.warning("agent hit max_iterations=%s; forcing a final answer", max_iterations)
     BUS.emit("retry", agent=agent_name, attempt=max_iterations, reason="hit iteration cap; forcing final answer")
     messages.append({"role": "user", "content": final_instruction})
-    final = client.chat(messages, tools=None, max_tokens=final_max_tokens or max_tokens)
+    final = client.chat(
+        [{k: v for k, v in m.items() if k != "_compacted"} for m in messages],
+        tools=None, max_tokens=final_max_tokens or max_tokens,
+    )
     return AgentResult(
         content=final.content or "",
         messages=messages,
