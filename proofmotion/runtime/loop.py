@@ -143,6 +143,7 @@ def run_agent(
     max_iterations: int = 12,
     max_tokens: int = 4000,
     agent_name: str = "agent",
+    final_max_tokens: int | None = None,
     final_instruction: str = "Stop calling tools. Answer now using only what you have already gathered.",
 ) -> AgentResult:
     """Run a tool-using agent until it answers or runs out of iterations.
@@ -163,8 +164,22 @@ def run_agent(
     schemas = registry.schemas()
     performed: list[dict[str, Any]] = []
 
+    warned = False
     for iteration in range(1, max_iterations + 1):
         BUS.emit("turn", agent=agent_name, iteration=iteration, of=max_iterations)
+        # Warn before the cap rather than at it. An agent that discovers its
+        # budget is gone has no turn left to produce anything with.
+        if not warned and iteration > max_iterations * 0.7:
+            warned = True
+            messages.append(
+                {
+                    "role": "user",
+                    "content": (
+                        f"You have {max_iterations - iteration + 1} turns left. Stop exploring and "
+                        "produce your answer in full within them."
+                    ),
+                }
+            )
         message = client.chat(messages, tools=schemas, max_tokens=max_tokens)
         calls = getattr(message, "tool_calls", None)
 
@@ -233,7 +248,7 @@ def run_agent(
     log.warning("agent hit max_iterations=%s; forcing a final answer", max_iterations)
     BUS.emit("retry", agent=agent_name, attempt=max_iterations, reason="hit iteration cap; forcing final answer")
     messages.append({"role": "user", "content": final_instruction})
-    final = client.chat(messages, tools=None, max_tokens=max_tokens)
+    final = client.chat(messages, tools=None, max_tokens=final_max_tokens or max_tokens)
     return AgentResult(
         content=final.content or "",
         messages=messages,

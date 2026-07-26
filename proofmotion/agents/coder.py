@@ -89,6 +89,17 @@ Return the finished Python source and nothing else: no prose, no code fences."""
 CODE_BEARING_TOOLS = ("manim_validate_code", "inspect_scene")
 
 
+def _usable(code: str) -> bool:
+    """Complete, parseable source defining the scene. Anything else is not code."""
+    if not code or "GeneratedScene" not in code:
+        return False
+    try:
+        ast.parse(code)
+    except SyntaxError:
+        return False
+    return True
+
+
 def recover_code(tool_calls: list[dict[str, Any]]) -> str:
     """Salvage the last usable scene from the agent's own tool calls.
 
@@ -188,10 +199,16 @@ def write_scene(client: Any, context: dict[str, Any], *, max_iterations: int = 2
             "Stop calling tools. Output the complete Manim source now, exactly as it should "
             "be saved: from manim import * followed by one GeneratedScene class. Code only."
         ),
+        # A whole scene does not fit in a tool turn's budget. The last run was cut
+        # off mid-AnimationGroup at 3716 characters and failed to parse.
+        final_max_tokens=16000,
     )
     code = _strip_fences(result.content)
     recovered = False
-    if not code or "GeneratedScene" not in code:
+    if not _usable(code):
+        # Truncation was the case this was written for and the case it missed:
+        # a scene cut off mid-call still contains "GeneratedScene", so testing
+        # for the class name alone let unparseable source through untouched.
         salvaged = recover_code(result.tool_calls)
         if salvaged:
             code, recovered = salvaged, True

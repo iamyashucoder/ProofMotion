@@ -110,6 +110,21 @@ class CodeRecoveryTests(unittest.TestCase):
         ]
         self.assertEqual(recover_code(calls), "")
 
+    def test_truncated_source_is_not_treated_as_usable(self):
+        """The failure this was written for, and the one it originally missed.
+
+        A scene cut off mid-call still contains "GeneratedScene", so checking for
+        the class name alone let unparseable source straight through.
+        """
+        from proofmotion.agents.coder import _usable
+
+        truncated = (
+            "from manim import *\nclass GeneratedScene(Scene):\n"
+            "    def construct(self):\n        self.play(AnimationGroup("
+        )
+        self.assertFalse(_usable(truncated))
+        self.assertTrue(_usable(self.SCENE))
+
     def test_prefers_the_most_recent_scene(self):
         import json as _json
 
