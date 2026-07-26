@@ -72,6 +72,8 @@ class OpenAICompatibleClient:
         self.timeout = timeout
         #: Parameters this model has already rejected, learned at runtime.
         self._unsupported: set[str] = set()
+        #: Cumulative token usage, so cost is measured rather than guessed.
+        self.usage: dict[str, int] = {"prompt": 0, "completion": 0, "calls": 0}
 
     @property
     def available(self) -> bool:
@@ -137,9 +139,27 @@ class OpenAICompatibleClient:
                 log.debug("%s chat failed (model=%s): %s", self.name, self.model, error)
                 raise LLMError(f"{self.name} chat failed (model={self.model}): {error}") from error
             if response.choices:
+                self._record_usage(response)
                 return response.choices[0].message
             log.warning("%s returned no choices (attempt %s/3, model=%s)", self.name, attempt + 1, self.model)
         raise LLMError(f"{self.name} returned no choices after 3 attempts (model={self.model})")
+
+    def _record_usage(self, response: Any) -> None:
+        """Accumulate token counts and publish them for the live view."""
+        used = getattr(response, "usage", None)
+        if used is None:
+            return
+        prompt = int(getattr(used, "prompt_tokens", 0) or getattr(used, "input_tokens", 0) or 0)
+        completion = int(getattr(used, "completion_tokens", 0) or getattr(used, "output_tokens", 0) or 0)
+        self.usage["prompt"] += prompt
+        self.usage["completion"] += completion
+        self.usage["calls"] += 1
+        try:
+            from proofmotion.runtime.events import BUS
+
+            BUS.emit("usage", model=self.model, prompt=prompt, completion=completion)
+        except ImportError:
+            pass
 
     def complete(self, system_prompt: str, user_prompt: str, *, max_tokens: int = 4000) -> str | None:
         """Satisfies the llm.base_client.LLMClient protocol."""
@@ -309,7 +329,13 @@ class OpenAIClient(OpenAICompatibleClient):
                 self.model, temperature=self.temperature, timeout=self.timeout
             )
         if self._responses_delegate is not None:
-            return self._responses_delegate.chat(messages, tools=tools, max_tokens=max_tokens)
+            message = self._responses_delegate.chat(messages, tools=tools, max_tokens=max_tokens)
+            # The delegate is a separate client, so its tokens land on its own
+            # counter. Without folding them back, every gpt-5.6 run reported
+            # zero usage and therefore zero cost.
+            for key in ("prompt", "completion", "calls"):
+                self.usage[key] = self._responses_delegate.usage[key]
+            return message
         try:
             return super().chat(messages, tools=tools, max_tokens=max_tokens)
         except LLMError as error:
@@ -456,6 +482,7 @@ class OpenAIResponsesClient(OpenAIClient):
             log.debug("%s responses call failed (model=%s): %s", self.name, self.model, error)
             raise LLMError(f"{self.name} responses call failed (model={self.model}): {error}") from error
 
+        self._record_usage(response)
         text, calls, reasoning = "", [], []
         for item in response.output:
             kind = getattr(item, "type", "")

@@ -34,7 +34,8 @@ class MathAnimationState:
     composed: bool = False
     recovered_from_tool_calls: bool = False
     wrote_directly: bool = False
-    agent_tools_used: list[str] = field(default_factory=list)
+    agent_tools_used: dict[str, Any] = field(default_factory=dict)
+    token_usage: dict[str, int] = field(default_factory=dict)
     status: str = "created"
 
     def to_dict(self) -> dict[str, Any]:

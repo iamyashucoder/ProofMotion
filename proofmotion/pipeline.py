@@ -38,6 +38,25 @@ log = logging.getLogger(__name__)
 PROJECTS_DIR = Path("generated_projects")
 
 
+def _tools_by_agent() -> dict[str, list[str]]:
+    """Tool calls so far this run, grouped by the agent that made them."""
+    grouped: dict[str, list[str]] = {}
+    for event in BUS.history:
+        if event.kind == "tool":
+            grouped.setdefault(event.data.get("agent", "?"), []).append(event.data["name"])
+    return grouped
+
+
+def _token_usage() -> dict[str, int]:
+    total = {"prompt": 0, "completion": 0, "calls": 0}
+    for event in BUS.history:
+        if event.kind == "usage":
+            total["prompt"] += event.data.get("prompt", 0)
+            total["completion"] += event.data.get("completion", 0)
+            total["calls"] += 1
+    return total
+
+
 def _project_id() -> str:
     return f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}-{uuid4().hex[:8]}"
 
@@ -107,6 +126,7 @@ def create_math_animation(
     state.llm_provider, state.llm_model = client.name, client.model
     project_dir = project_root / state.project_id
     project_dir.mkdir(parents=True, exist_ok=False)
+    BUS.reset()
     BUS.emit("run", prompt=user_prompt, project=state.project_id, model=f"{client.name}/{client.model}")
 
     stage("understand")
@@ -156,7 +176,10 @@ def create_math_animation(
     written = write_scene(client, state.to_dict())
     state.generated_code = written["code"]
     state.api_validation = written["validation"]
-    state.agent_tools_used = written["tools_used"]
+    # Every agent's calls, not only the coder's. Recording just write_scene
+    # made it look as though no mathematical tool was ever used, when in
+    # truth the planner's calls were simply never written down.
+    state.agent_tools_used = _tools_by_agent()
     state.components_used = written.get("components_used", [])
     state.composed = written.get("composed", False)
     state.recovered_from_tool_calls = written.get("recovered_from_tool_calls", False)
@@ -306,6 +329,8 @@ def create_math_animation(
 
     state.preview_file = _find_video(preview_dir)
     state.status = "preview_ready"
+    state.agent_tools_used = _tools_by_agent()
+    state.token_usage = _token_usage()
     headline("Preview rendered", "improved")
     stage("render", "done")
     BUS.emit("video", path=state.preview_file)
