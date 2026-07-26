@@ -43,7 +43,7 @@ class EquationChainParams(BaseModel):
     region: str = "stage"
 
 
-@component(version=1, domain="general", params=EquationChainParams)
+@component(version=1, domain="general", params=EquationChainParams, pictorial=False)
 def equation_chain(p: EquationChainParams) -> Built:
     """A sequence of expressions, each morphing into the next.
 

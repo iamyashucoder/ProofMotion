@@ -8,7 +8,7 @@ it came out well or badly, because the failures are the more useful record.
 hand-written Manim. `defects` counts what the layout checker measured on the
 finished scene: text over text, text over geometry, and anything off-frame.
 
-49 animations, 17.3 MB, 5 assembled.
+56 animations, 20.1 MB, 10 assembled.
 
 Rebuild with `uv run python scripts/build_demo.py`.
 
@@ -63,6 +63,13 @@ Rebuild with `uv run python scripts/build_demo.py`.
 | 47 | [Show the tangent line to f(x)=x^2-4x+5 at x=3 and what its slope means](show-the-tangent-line-to-f-x-x-2-4x-5-at-x-3-and-wha__deepseek-v4-flash-4.mp4) | deepseek/deepseek-v4-flash | 21.3s | yes | yes | `function_plot`, `tangent_secant` | 0 |
 | 48 | [Show the tangent line to f(x)=x^2-4x+5 at x=3 and what its slope means](show-the-tangent-line-to-f-x-x-2-4x-5-at-x-3-and-wha__deepseek-v4-flash-5.mp4) | deepseek/deepseek-v4-flash | 30.3s | yes | yes | `tangent_secant` | 0 |
 | 49 | [Show the tangent line to f(x)=x^2-4x+5 at x=3 and what its slope means](show-the-tangent-line-to-f-x-x-2-4x-5-at-x-3-and-wha__deepseek-v4-flash-6.mp4) | deepseek/deepseek-v4-flash | 21.3s | yes | yes | `function_plot`, `tangent_secant` | 0 |
+| 50 | [A particle moves along the (x)-axis under the action of a variable force....](a-particle-moves-along-the-x-axis-under-the-action-o__gpt-5-6-terra.mp4) | openai/gpt-5.6-terra | 29.9s | yes | yes | `equation_chain`, `function_plot` | 1 |
+| 51 | [A large disc of mass M and radius R can rotate freely about a vertical ax...](a-large-disc-of-mass-m-and-radius-r-can-rotate-freel__deepseek-v4-flash.mp4) | deepseek/deepseek-v4-flash | 27.2s | yes | yes | `equation_chain` | 0 |
+| 52 | [A large disc of mass M and radius R can rotate freely about a vertical ax...](a-large-disc-of-mass-m-and-radius-r-can-rotate-freel__gpt-5-6-terra.mp4) | openai/gpt-5.6-terra | 32.3s | yes | yes | `equation_chain` | 0 |
+| 53 | [A large disc of mass M and radius R can rotate freely about a vertical ax...](a-large-disc-of-mass-m-and-radius-r-can-rotate-freel__gpt-5-6-terra-2.mp4) | openai/gpt-5.6-terra | 16.1s | yes | yes | — | 0 |
+| 54 | [A large disc of mass M and radius R can rotate freely about a vertical ax...](a-large-disc-of-mass-m-and-radius-r-can-rotate-freel__gpt-5-6-terra-3.mp4) | openai/gpt-5.6-terra | 27.2s | yes | yes | `equation_chain` | 0 |
+| 55 | [Explain me eigne vlaues of a real matrx visuallly and vector](explain-me-eigne-vlaues-of-a-real-matrx-visuallly-an__gpt-5-6-terra.mp4) | openai/gpt-5.6-terra | 28.5s | no | no | — | 0 |
+| 56 | [A large disc of mass M and radius R can rotate freely about a vertical ax...](a-large-disc-of-mass-m-and-radius-r-can-rotate-freel__gpt-5-6-terra-4.mp4) | openai/gpt-5.6-terra | 31.9s | no | no | — | 1 |
 
 ## Notes
 

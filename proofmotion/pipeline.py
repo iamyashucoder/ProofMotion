@@ -23,7 +23,13 @@ from proofmotion.agents.director import direct_storyboard
 from proofmotion.agents.intent import understand_request
 from proofmotion.agents.planner import plan_mathematics
 from proofmotion.agents.verifier import verify_plan
-from proofmotion.compose import assemble, coverage, plan_from_storyboard, select_components
+from proofmotion.compose import (
+    assemble,
+    coverage,
+    pictorial_coverage,
+    plan_from_storyboard,
+    select_components,
+)
 from proofmotion.learned import load_all as load_learned
 from proofmotion.runtime.events import BUS, artifact, headline, stage
 from proofmotion.runtime.registry import ToolError
@@ -38,6 +44,12 @@ from tools.manim_renderer import render_manim_scene
 
 log = logging.getLogger(__name__)
 PROJECTS_DIR = Path("generated_projects")
+
+#: How much of a storyboard must actually draw something before assembling it.
+#: Measured in pictures, not components: equation_chain is a component, so the
+#: first version of this gate passed a run at 0.75 coverage that was four
+#: screens of algebra answering a question which asked for full diagrams.
+MIN_ASSEMBLY_COVERAGE = 0.5
 
 
 def _tools_by_agent() -> dict[str, list[str]]:
@@ -269,7 +281,20 @@ def _run(
         scenes = selection["plan"].assignments
         state.scene_plan = [a.model_dump() for a in scenes]
         chosen = selection["components"]
-        if selection["problems"]:
+        drawn = pictorial_coverage(selection["plan"])
+        state.pictorial_coverage = drawn
+        if drawn < MIN_ASSEMBLY_COVERAGE:
+            # Assembly is for composing verified pictures. A plan that draws
+            # almost nothing is not an assembly job, and accepting one produced
+            # exactly the failure it looks like: a question asking for full
+            # diagrams answered with screens of algebra, because assembly
+            # "succeeded" and the coder — which can draw what no component
+            # covers — was never asked.
+            headline(
+                f"Only {drawn:.0%} of scenes draw anything; the coder will draw this one",
+                "warned",
+            )
+        elif selection["problems"]:
             headline(
                 f"Components cover {selection['coverage']:.0%} of scenes; "
                 f"{selection['problems'][0][:120]}",
@@ -308,8 +333,11 @@ def _run(
     if assembled_code:
         state.generated_code = assembled_code
         state.assembled = True
-        state.composed = True
         state.components_used = sorted(set(selection["components"]))
+        # Composed means components carried it. Recording True for an assembly
+        # of nothing but equation slides made the demo gallery report success
+        # on the runs that most needed looking at.
+        state.composed = bool(state.components_used)
         artifact("code", state.generated_code)
     else:
         stage("code")

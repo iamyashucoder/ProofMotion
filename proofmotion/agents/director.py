@@ -37,14 +37,25 @@ listed beside it. Loose shapes alongside a component mean the component is the
 wrong one, and a scene assembled from it would leave out the very thing the
 scene is for.
 
-If no single component expresses a scene, you have two choices. Leave
-visual_objects empty and put the mathematics in equations — a real answer, and a
-much better one than a component that nearly fits. Or, when a component is close
-and you can say exactly what is missing, write the one you need: component_source
-shows how the closest one works, and component_learn keeps your rewrite under a
-new name once it has been built and measured. A component kept that way is found
-by every question after this one, so it is worth doing when the gap is general
-and not worth it when it is peculiar to this scene.
+When no component expresses a scene, leaving visual_objects empty does not mean
+the scene has no picture — it means the picture gets drawn by hand afterwards.
+So describe it. Say in the purpose exactly what should be on screen: the bodies,
+the axes, the arrows, what is labelled. A purpose that says "show the two discs,
+the small one mounted at the rim of the large one, with opposite angular
+velocity arrows" gets drawn. One that says "explain angular momentum" gets an
+equation on a black background, which is not an explanation of a physical setup.
+
+Never answer a question that asks for a diagram with equations alone.
+equation_chain is not a picture — it sets mathematics beautifully and draws
+nothing. A storyboard whose every scene is equation_chain has not illustrated
+anything, whatever the question was.
+
+When a component is close and you can say exactly what is missing, write the one
+you need instead: component_source shows how the closest one works, and
+component_learn keeps your rewrite under a new name once it has been built and
+measured. A component kept that way is found by every question after this one,
+so it is worth doing when the gap is general, and not worth it when it is
+peculiar to this scene.
 
 Several scenes may name the same component with the same parameters. That is
 expected when an explanation stays with one figure and builds on it — the figure

@@ -36,6 +36,9 @@ class MathAnimationState:
     assembled: bool = False
     #: Fraction of storyboard scenes a component could express.
     component_coverage: float = 0.0
+    #: Fraction that actually draw a picture. equation_chain is a component but
+    #: not a picture, so this is the number that says whether a run was visual.
+    pictorial_coverage: float = 0.0
     #: What the selector chose, so a fallback to the coder is diagnosable.
     scene_plan: list[dict[str, Any]] = field(default_factory=list)
     recovered_from_tool_calls: bool = False

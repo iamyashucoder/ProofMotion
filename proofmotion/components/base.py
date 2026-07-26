@@ -41,6 +41,11 @@ class Component:
     summary: str
     params: type[BaseModel]
     build: Callable[..., Built]
+    #: Whether this draws a picture, as opposed to setting mathematics.
+    #: A question asking for diagrams was answered with equation_chain in every
+    #: scene — technically composed, and still four screens of algebra. What
+    #: makes a visual explanation visual is not "used a component".
+    pictorial: bool = True
 
     def describe(self) -> dict[str, Any]:
         schema = self.params.model_json_schema()
@@ -57,13 +62,20 @@ class Component:
 COMPONENTS: dict[str, Component] = {}
 
 
-def component(*, version: int, domain: str, params: type[BaseModel]) -> Callable[[Callable[..., Built]], Callable[..., Built]]:
-    """Register a builder. The summary comes from the docstring's first line."""
+def component(
+    *, version: int, domain: str, params: type[BaseModel], pictorial: bool = True
+) -> Callable[[Callable[..., Built]], Callable[..., Built]]:
+    """Register a builder. The summary comes from the docstring's first line.
+
+    Pass pictorial=False for a component that sets mathematics rather than
+    drawing something, so a run can tell whether it actually produced pictures.
+    """
 
     def register(fn: Callable[..., Built]) -> Callable[..., Built]:
         summary = (fn.__doc__ or "").strip().splitlines()[0] if fn.__doc__ else fn.__name__
         COMPONENTS[fn.__name__] = Component(
-            name=fn.__name__, version=version, domain=domain, summary=summary, params=params, build=fn
+            name=fn.__name__, version=version, domain=domain, summary=summary,
+            params=params, build=fn, pictorial=pictorial,
         )
         return fn
 

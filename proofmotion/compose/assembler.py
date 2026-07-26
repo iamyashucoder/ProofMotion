@@ -62,6 +62,24 @@ def coverage(plan: ScenePlan) -> float:
     return sum(1 for a in plan.assignments if a.component) / len(plan.assignments)
 
 
+def pictorial_coverage(plan: ScenePlan) -> float:
+    """Fraction of scenes that actually draw something.
+
+    `coverage` counts any component, and equation_chain is a component — so a
+    question asking for full diagrams came back as four screens of algebra with
+    a coverage of 0.75. What makes an explanation visual is pictures, and this
+    is the number that says whether there are any.
+    """
+    if not plan.assignments:
+        return 0.0
+    drawn = sum(
+        1
+        for a in plan.assignments
+        if a.component and getattr(COMPONENTS.get(a.component), "pictorial", True)
+    )
+    return drawn / len(plan.assignments)
+
+
 def check(plan: ScenePlan) -> list[str]:
     """Everything wrong with the plan, before a line of code is emitted.
 

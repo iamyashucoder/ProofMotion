@@ -25,6 +25,7 @@ from proofmotion.compose import (
     check,
     coverage,
     estimated_seconds,
+    pictorial_coverage,
     plan_from_storyboard,
 )
 from proofmotion.runtime.registry import ToolError
@@ -77,6 +78,68 @@ class TestValidation(unittest.TestCase):
             SceneAssignment(component=None),
         )
         self.assertEqual(coverage(mixed), 0.5)
+
+
+class TestAssemblyGate(unittest.TestCase):
+    """When a plan is mostly words, the coder must get it instead.
+
+    A question asking for full diagrams came back as four equation slides on a
+    black background. Both agents had searched and correctly found that nothing
+    covered the setup — but assembly accepted a plan with zero components and
+    reported success, so the coder, which draws what no component covers, was
+    never asked.
+    """
+
+    def test_the_threshold_rejects_a_plan_with_no_components(self):
+        from proofmotion.pipeline import MIN_ASSEMBLY_COVERAGE
+
+        words_only = plan(
+            SceneAssignment(title="Zero angular momentum", caption="L=0"),
+            SceneAssignment(title="Balance", caption="I_1=I_2"),
+        )
+        self.assertEqual(coverage(words_only), 0.0)
+        self.assertLess(pictorial_coverage(words_only), MIN_ASSEMBLY_COVERAGE)
+
+    def test_equation_chain_does_not_count_as_a_picture(self):
+        """The gate's first version passed this run at 0.75 coverage.
+
+        Every scene used equation_chain, which is a component and draws no
+        picture, so a question asking for full diagrams came back as four
+        screens of algebra and the coder was never asked.
+        """
+        algebra = plan(
+            SceneAssignment(title="Conservation", component="equation_chain",
+                            parameters={"steps": ["L=0", "I_1 w_1 = I_2 w_2"]}),
+            SceneAssignment(title="Substitute", component="equation_chain",
+                            parameters={"steps": ["I=MR^2/2", "n=13"]}),
+        )
+        self.assertEqual(coverage(algebra), 1.0)        # every scene has a component
+        self.assertEqual(pictorial_coverage(algebra), 0.0)  # and none of them draws
+
+    def test_a_drawing_component_counts_as_a_picture(self):
+        drawn = plan(SceneAssignment(component="function_plot", parameters=PLOT))
+        self.assertEqual(pictorial_coverage(drawn), 1.0)
+
+    def test_the_threshold_rejects_a_plan_that_is_mostly_words(self):
+        from proofmotion.pipeline import MIN_ASSEMBLY_COVERAGE
+
+        mostly_words = plan(
+            SceneAssignment(component="function_plot", parameters=PLOT),
+            SceneAssignment(title="a", caption="x=1"),
+            SceneAssignment(title="b", caption="y=2"),
+            SceneAssignment(title="c", caption="z=3"),
+        )
+        self.assertLess(pictorial_coverage(mostly_words), MIN_ASSEMBLY_COVERAGE)
+
+    def test_the_threshold_accepts_a_plan_components_carry(self):
+        from proofmotion.pipeline import MIN_ASSEMBLY_COVERAGE
+
+        carried = plan(
+            SceneAssignment(component="function_plot", parameters=PLOT),
+            SceneAssignment(component="tangent_secant", parameters={**PLOT, "at": 3.0}),
+            SceneAssignment(title="Result", caption="f'(3)=2"),
+        )
+        self.assertGreaterEqual(pictorial_coverage(carried), MIN_ASSEMBLY_COVERAGE)
 
 
 class TestEmission(unittest.TestCase):
