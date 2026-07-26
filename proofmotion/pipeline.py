@@ -23,6 +23,7 @@ from proofmotion.agents.director import direct_storyboard
 from proofmotion.agents.intent import understand_request
 from proofmotion.agents.planner import plan_mathematics
 from proofmotion.agents.verifier import verify_plan
+from proofmotion.compose import assemble, coverage, plan_from_storyboard, select_components
 from proofmotion.runtime.events import BUS, artifact, headline, stage
 from proofmotion.runtime.registry import ToolError
 from proofmotion.runtime.watcher import watch_render
@@ -55,6 +56,36 @@ def _token_usage() -> dict[str, int]:
             total["completion"] += event.data.get("completion", 0)
             total["calls"] += 1
     return total
+
+
+def _stage_seconds() -> dict[str, float]:
+    """Wall-clock per stage, from the stage boundaries on the bus.
+
+    Runs were known to take ten minutes with no way to say where the time went;
+    every event already carried a timestamp, and nothing ever read them.
+    """
+    opened: dict[str, float] = {}
+    elapsed: dict[str, float] = {}
+    for event in BUS.history:
+        if event.kind != "stage":
+            continue
+        name = event.data.get("name", "?")
+        if event.data.get("status") == "start":
+            opened[name] = event.at
+        elif name in opened:
+            elapsed[name] = round(elapsed.get(name, 0.0) + event.at - opened.pop(name), 1)
+    return elapsed
+
+
+def _save_events(project_dir: Path) -> Path:
+    """Persist the run timeline so a slow or surprising run can be read back."""
+    import json
+
+    path = project_dir / "events.jsonl"
+    with path.open("w", encoding="utf-8") as handle:
+        for event in BUS.history:
+            handle.write(json.dumps(event.as_dict(), default=str) + "\n")
+    return path
 
 
 def _project_id() -> str:
@@ -113,7 +144,40 @@ def create_math_animation(
     model: str | None = None,
     duration_seconds: int | None = None,
 ) -> MathAnimationState:
-    """Plan, verify, compose, code, and render an animation for any request."""
+    """Plan, verify, compose, code, and render an animation for any request.
+
+    Wraps the run so its timeline is written out however it ends. The pipeline
+    has several exits, and the one worth diagnosing is usually a failure.
+    """
+    state = _run(
+        user_prompt,
+        render_final=render_final,
+        project_root=project_root,
+        provider=provider,
+        model=model,
+        duration_seconds=duration_seconds,
+    )
+    try:
+        state.stage_seconds = _stage_seconds()
+        state.token_usage = state.token_usage or _token_usage()
+        directory = project_root / state.project_id
+        if directory.is_dir():
+            _save_events(directory)
+            state.save(directory)
+    except OSError as error:  # instrumentation must never fail the run
+        log.warning("could not write the run timeline: %s", error)
+    return state
+
+
+def _run(
+    user_prompt: str,
+    *,
+    render_final: bool = False,
+    project_root: Path = PROJECTS_DIR,
+    provider: str | None = None,
+    model: str | None = None,
+    duration_seconds: int | None = None,
+) -> MathAnimationState:
     client = get_client(provider, model)
     if client is None:
         raise LLMError(
@@ -172,34 +236,104 @@ def create_math_animation(
     stage("storyboard", "done")
     state.save(project_dir)
 
-    stage("code")
-    written = write_scene(client, state.to_dict())
-    state.generated_code = written["code"]
-    state.api_validation = written["validation"]
+    # Try to assemble the scene from components before asking anyone to write
+    # it. When every scene maps onto a component the coder loop is skipped
+    # entirely, which is both the reliable path and by far the fast one.
+    stage("assemble")
+    # The director has already searched for components and built them to check
+    # the geometry. When its storyboard names ones that validate, the plan is
+    # written and assembly costs nothing; the selector is only for when it does
+    # not.
+    derived = plan_from_storyboard(state.storyboard)
+    if derived is not None:
+        selection = {
+            "plan": derived,
+            "coverage": coverage(derived),
+            "problems": [],
+            "components": [a.component for a in derived.assignments if a.component],
+        }
+        headline("Read the scene plan from the storyboard; no extra model call", "improved")
+    else:
+        selection = select_components(client, state.to_dict())
+
+    state.component_coverage = selection["coverage"]
+    assembled_code = ""
+    if selection["plan"] is not None:
+        scenes = selection["plan"].assignments
+        state.scene_plan = [a.model_dump() for a in scenes]
+        chosen = selection["components"]
+        if selection["problems"]:
+            headline(
+                f"Components cover {selection['coverage']:.0%} of scenes; "
+                f"{selection['problems'][0][:120]}",
+                "warned",
+            )
+        else:
+            try:
+                candidate = assemble(selection["plan"])
+            except ToolError as error:
+                headline(f"Assembly rejected the plan: {error}", "warned")
+            else:
+                renderable, why = _is_renderable_scene(candidate)
+                report = manim_validate_code(candidate) if renderable else {"valid": False}
+                if renderable and report["valid"]:
+                    assembled_code = candidate
+                    state.api_validation = report
+                    text_only = len(scenes) - len(chosen)
+                    detail = f" and {text_only} equation scene(s)" if text_only else ""
+                    headline(
+                        f"Assembled {len(scenes)} scenes from verified components"
+                        f"{detail}: {', '.join(sorted(set(chosen)))}",
+                        "improved",
+                    )
+                else:
+                    # The assembler emitted something the API rejects. That is a
+                    # bug here, not the model's, so say so rather than hiding it.
+                    headline(
+                        f"Assembler output failed validation ({why or 'invalid API call'}); "
+                        "falling back to the coder",
+                        "warned",
+                    )
+    else:
+        headline("No component plan; the scene will be written by hand", "warned")
+    stage("assemble", "done")
+
+    if assembled_code:
+        state.generated_code = assembled_code
+        state.assembled = True
+        state.composed = True
+        state.components_used = sorted(set(selection["components"]))
+        artifact("code", state.generated_code)
+    else:
+        stage("code")
+        written = write_scene(client, state.to_dict())
+        state.generated_code = written["code"]
+        state.api_validation = written["validation"]
+        state.components_used = written.get("components_used", [])
+        state.composed = written.get("composed", False)
+        state.recovered_from_tool_calls = written.get("recovered_from_tool_calls", False)
+        state.wrote_directly = written.get("wrote_directly", False)
+        artifact("code", state.generated_code)
+        lookups = sum(1 for t in written["tools_used"] if t.startswith("manim_"))
+        if state.components_used:
+            headline(f"Composed from verified components: {', '.join(state.components_used)}", "improved")
+        else:
+            headline("No component fitted; the scene was written by hand", "warned")
+        if state.wrote_directly:
+            headline("The tool loop produced nothing usable; the scene was written on a direct retry", "warned")
+        elif state.recovered_from_tool_calls:
+            headline("Recovered the scene from the agent's own tool calls", "fixed")
+        if written["validation"]["valid"]:
+            headline(f"Scene passed API validation after {lookups} Manim lookups", "improved")
+        else:
+            problems = written["validation"]["problems"]
+            headline(f"Scene still has {len(problems)} invalid API call(s): {problems[0].get('problem', '')}", "warned")
+        stage("code", "done")
+
     # Every agent's calls, not only the coder's. Recording just write_scene
     # made it look as though no mathematical tool was ever used, when in
     # truth the planner's calls were simply never written down.
     state.agent_tools_used = _tools_by_agent()
-    state.components_used = written.get("components_used", [])
-    state.composed = written.get("composed", False)
-    state.recovered_from_tool_calls = written.get("recovered_from_tool_calls", False)
-    state.wrote_directly = written.get("wrote_directly", False)
-    artifact("code", state.generated_code)
-    lookups = sum(1 for t in written["tools_used"] if t.startswith("manim_"))
-    if state.components_used:
-        headline(f"Composed from verified components: {', '.join(state.components_used)}", "improved")
-    else:
-        headline("No component fitted; the scene was written by hand", "warned")
-    if state.wrote_directly:
-        headline("The tool loop produced nothing usable; the scene was written on a direct retry", "warned")
-    elif state.recovered_from_tool_calls:
-        headline("Recovered the scene from the agent's own tool calls", "fixed")
-    if written["validation"]["valid"]:
-        headline(f"Scene passed API validation after {lookups} Manim lookups", "improved")
-    else:
-        problems = written["validation"]["problems"]
-        headline(f"Scene still has {len(problems)} invalid API call(s): {problems[0].get('problem', '')}", "warned")
-    stage("code", "done")
 
     renderable, why = _is_renderable_scene(state.generated_code)
     if not renderable:

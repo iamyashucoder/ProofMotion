@@ -28,6 +28,24 @@ something from the previous one, say so explicitly; otherwise assume it goes.
 The scene budget you are given is a limit. Scenes that exist only to restate
 what was just shown should be cut.
 
+Express each scene as one component. Call component_search to see what exists
+and component_build to check the parameters you intend, then put that single
+component in visual_objects with the parameters you verified:
+
+    "visual_objects": [{"name": "tangent_secant",
+                        "parameters": {"expr": "(x-2)**2+1", "x_min": 0,
+                                       "x_max": 5, "at": 3.0}}]
+
+Choose the component that already contains what the scene is about. A scene
+showing a tangent is tangent_secant — not function_plot with a tangent line
+listed beside it. Loose shapes alongside a component mean the component is the
+wrong one, and a scene assembled from it would leave out the very thing the
+scene is for.
+
+If no single component expresses a scene, leave visual_objects empty and put the
+mathematics in equations. That is a real answer and a much better one than a
+component that nearly fits.
+
 Measure before you place. layout_measure tells you how much room a piece of
 text or maths will occupy; layout_frame tells you the usable area; layout_check
 tells you whether a planned arrangement overlaps or falls off the edge. Use
@@ -37,7 +55,12 @@ they come entirely from assuming rather than measuring.
 Confirm every equation typesets with typeset_check before putting it in a scene.
 
 Give each scene a purpose, a duration proportional to how much there is to read,
-and narration that would make sense read aloud."""
+and narration that would make sense read aloud.
+
+Give each scene a title too: the few words that go on screen above it, like
+"Slope of the tangent". That is not the purpose restated — the purpose is a
+sentence for the pipeline, and a sentence rendered as a heading gets shrunk
+until it reads as a caption in the wrong place."""
 
 
 def direct_storyboard(

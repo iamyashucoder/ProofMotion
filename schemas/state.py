@@ -32,10 +32,18 @@ class MathAnimationState:
     typeset_report: dict[str, Any] = field(default_factory=dict)
     components_used: list[str] = field(default_factory=list)
     composed: bool = False
+    #: The scene was emitted by the assembler rather than written by the coder.
+    assembled: bool = False
+    #: Fraction of storyboard scenes a component could express.
+    component_coverage: float = 0.0
+    #: What the selector chose, so a fallback to the coder is diagnosable.
+    scene_plan: list[dict[str, Any]] = field(default_factory=list)
     recovered_from_tool_calls: bool = False
     wrote_directly: bool = False
     agent_tools_used: dict[str, Any] = field(default_factory=dict)
     token_usage: dict[str, int] = field(default_factory=dict)
+    #: Wall-clock seconds per pipeline stage.
+    stage_seconds: dict[str, float] = field(default_factory=dict)
     status: str = "created"
 
     def to_dict(self) -> dict[str, Any]:

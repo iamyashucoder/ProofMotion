@@ -190,6 +190,49 @@ should fall over time, and every fallback is a candidate for Layer 4.
 **Exit:** on a representative prompt set, a majority of beats are built from
 components, and component-built beats have zero layout defects.
 
+### 5.1 Why this became an assembler — measured, 2026-07-26
+
+As written above, composition was advice in the coder's prompt, and the numbers
+said advice was not enough: 29% of runs across the whole history, and none of
+the last ten. A model asked to prefer components will sometimes prefer them.
+
+So the decision moved out of the prompt. The model still chooses *which*
+component expresses a scene and with what parameters — that is judgement, and it
+is good at it. Everything after that is emitted by `proofmotion/compose`:
+
+```
+storyboard --> plan_from_storyboard()   the director already named components
+                     |                   -> derived, no model call at all
+                     +-- can't read it?
+                     |
+               select_components()      one structured call, verified by
+                     |                  component_build before it commits
+               assemble()               emits the scene: placement, reveal
+                     |                  order, and clearing the stage
+               coder loop               only when neither path produced a plan
+```
+
+Rules that used to be prose the coder could ignore — clear the stage between
+sections, place titles in regions, keep text above the readable floor — are now
+emitted code, held by tests rather than by hope.
+
+A scene with no component is still assembled, as a titled equation slide. The
+first version refused any plan with a gap, and a single algebra scene among four
+sent the whole run down the slow path.
+
+Measured on one prompt, deepseek-v4-flash, identical question:
+
+| | before | selector | derived |
+|---|---|---|---|
+| wall clock | 603s | 398s | 115s |
+| prompt tokens | 396k | 264k | 122k |
+| API calls | 50 | 42 | 20 |
+| composed | no | yes | yes |
+| coder turns | 39 | 0 | 0 |
+
+The remaining time is the director: 69s of the 115s. That is now the bottleneck,
+and it is doing component search work the assembler could consume directly.
+
 ---
 
 ## 6. Layer 4 — Harvesting one-offs into components
