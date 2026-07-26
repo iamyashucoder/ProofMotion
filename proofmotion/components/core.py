@@ -19,6 +19,19 @@ from proofmotion.layout.regions import layout, place
 from proofmotion.runtime.registry import ToolError
 
 AXIS_COLOR = "#9aa7bd"
+#: Ticks are labelled with whatever the step happens to be, so a step of
+#: (high-low)/6 prints "1.3333333333333" across the axis. Rounding the step to a
+#: 1/2/2.5/5 multiple is what makes the labels readable.
+DECIMALS = {"num_decimal_places": 2}
+
+
+def _round_step(span: float, divisions: int = 6) -> float:
+    """A tick step that produces short labels."""
+    if span <= 0:
+        return 1.0
+    rough = span / divisions
+    magnitude = 10 ** math.floor(math.log10(rough))
+    return next((m * magnitude for m in (1, 2, 2.5, 5, 10) if m * magnitude >= rough), magnitude * 10)
 ACCENT = "#4aa3df"
 HIGHLIGHT = "#fbbf24"
 PALETTE = ("#4aa3df", "#f87171", "#4ade80", "#fbbf24", "#a78bfa", "#fb923c")
@@ -434,9 +447,10 @@ def distribution_plot(p: DistributionPlotParams) -> Built:
             masses = [float(sstats.poisson.pmf(k, rate)) for k in support]
         axes = Axes(
             x_range=[-0.5, support[-1] + 0.5, max(1, len(support) // 8)],
-            y_range=[0, max(masses) * 1.25, max(masses) / 3],
+            y_range=[0, max(masses) * 1.25, _round_step(max(masses) * 1.25, 4)],
             x_length=8.2, y_length=3.8, tips=False,
-            axis_config={"include_numbers": True, "color": AXIS_COLOR, "font_size": 20},
+            axis_config={"include_numbers": True, "color": AXIS_COLOR, "font_size": 20,
+                         "decimal_number_config": DECIMALS},
         )
         bars = VGroup()
         width = 0.7 * (axes.c2p(1, 0)[0] - axes.c2p(0, 0)[0])
@@ -470,9 +484,11 @@ def distribution_plot(p: DistributionPlotParams) -> Built:
 
         peak = max(density(low + (high - low) * t / 200) for t in range(201))
         axes = Axes(
-            x_range=[low, high, (high - low) / 6], y_range=[0, peak * 1.25, peak / 3],
+            x_range=[low, high, _round_step(high - low)],
+            y_range=[0, peak * 1.25, _round_step(peak * 1.25, 4)],
             x_length=8.2, y_length=3.8, tips=False,
-            axis_config={"include_numbers": True, "color": AXIS_COLOR, "font_size": 20},
+            axis_config={"include_numbers": True, "color": AXIS_COLOR, "font_size": 20,
+                         "decimal_number_config": DECIMALS},
         )
         curve = axes.plot(density, x_range=[low, high], color=ACCENT)
         parts = {"axes": axes, "curve": curve}
