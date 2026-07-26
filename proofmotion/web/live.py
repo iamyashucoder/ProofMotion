@@ -73,7 +73,7 @@ PAGE = """<!doctype html>
 </div>
 <script>
 const $=s=>document.querySelector(s);
-const ORDER=["understand","plan","verify","storyboard","code","render","repair"];
+const ORDER=["understand","plan","verify","storyboard","code","typeset","layout","render","repair"];
 const chips={};
 ORDER.forEach(n=>{const d=document.createElement("div");d.className="stage";d.textContent=n;
   $("#stages").appendChild(d);chips[n]=d;});

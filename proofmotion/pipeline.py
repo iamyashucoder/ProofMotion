@@ -28,6 +28,7 @@ from proofmotion.runtime.registry import ToolError
 from proofmotion.runtime.watcher import watch_render
 from proofmotion.tools.inspect_scene import inspect_scene
 from proofmotion.tools.manim_api import manim_validate_code
+from proofmotion.tools.typeset import typeset_scene
 from schemas.state import MathAnimationState
 from tools.code_validator import validate_generated_code
 from tools.live_preview import write_preview_manifest
@@ -193,6 +194,32 @@ def create_math_animation(
         headline(f"Stopped: {error}", "warned")
         state.save(project_dir)
         return state
+
+    # Compile the notation before rendering. One bad control sequence aborts the
+    # whole render minutes in, and adjacent string literals are joined without a
+    # space, so a line ending in \quad runs into the next line's first letter.
+    stage("typeset")
+    tex = typeset_scene(state.generated_code)
+    state.typeset_report = tex
+    if not tex["ok"]:
+        first = tex["problems"][0]
+        headline(f"{len(tex['problems'])} LaTeX string(s) do not compile, first at line {first['line']}", "warned")
+        repaired = repair_scene(
+            client, state.generated_code,
+            "The scene does not render because this notation fails to compile:\n"
+            + "\n".join(f"  line {q['line']}: {q['expression']} -> {q['error'][:160]}" for q in tex["problems"][:4]),
+        )
+        renderable, _ = _is_renderable_scene(repaired["code"])
+        if renderable and typeset_scene(repaired["code"])["ok"]:
+            state.generated_code = repaired["code"]
+            state.repair_attempt += 1
+            state.typeset_report = typeset_scene(state.generated_code)
+            headline("Notation repaired; every string now compiles", "fixed")
+        else:
+            headline("Could not repair the notation; rendering will likely fail", "warned")
+    else:
+        headline(f"All {tex['checked']} LaTeX strings compile", "improved")
+    stage("typeset", "done")
 
     # Measure what the code actually puts on screen. The director checked a plan;
     # this checks the scene that was written, which is where overlaps came from.

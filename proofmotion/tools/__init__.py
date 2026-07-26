@@ -80,6 +80,7 @@ TOOLSETS: dict[str, list[str]] = {
         "layout_measure",
         "layout_check",
         "typeset_check",
+        "typeset_scene",
         "inspect_scene",
         "component_search",
         "component_build",

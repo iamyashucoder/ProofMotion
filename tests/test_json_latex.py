@@ -79,3 +79,58 @@ class LatexThroughJsonTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SceneTypesetTests(unittest.TestCase):
+    r"""Notation reaching the renderer unverified aborts the whole render.
+
+    The concatenation trap is the specific case: Python joins adjacent string
+    literals, so a line ending in \quad runs into the next line's first letter
+    and becomes \quadK, an undefined control sequence.
+    """
+
+    def test_the_concatenation_trap_is_caught(self):
+        from proofmotion.tools.typeset import typeset_scene
+
+        broken = (
+            "from manim import *\n"
+            "class GeneratedScene(Scene):\n"
+            "    def construct(self):\n"
+            "        e = MathTex(\n"
+            '            r"Q=\\begin{bmatrix}1&0\\end{bmatrix},\\quad"\n'
+            '            r"K=\\begin{bmatrix}1&0\\end{bmatrix}"\n'
+            "        )\n"
+            "        self.play(Write(e))\n"
+        )
+        report = typeset_scene(broken)
+        self.assertFalse(report["ok"])
+        self.assertIn("quadK", report["problems"][0]["expression"])
+
+    def test_valid_notation_passes(self):
+        from proofmotion.tools.typeset import typeset_scene
+
+        good = (
+            "from manim import *\n"
+            "class GeneratedScene(Scene):\n"
+            "    def construct(self):\n"
+            '        self.play(Write(MathTex(r"\\int_a^b f(x)\\,dx = F(b)-F(a)")))\n'
+        )
+        report = typeset_scene(good)
+        self.assertTrue(report["ok"], report["problems"])
+        self.assertEqual(report["checked"], 1)
+
+    def test_scenes_that_rendered_still_typeset(self):
+        from pathlib import Path
+
+        from proofmotion.tools.typeset import typeset_scene
+
+        rendered = [
+            p for p in Path("generated_projects").glob("*/generated_scene.py")
+            if p.stat().st_size and (p.parent / "preview").exists()
+            and any("partial_movie_files" not in v.parts for v in (p.parent / "preview").rglob("*.mp4"))
+        ][:6]
+        if not rendered:
+            self.skipTest("no rendered projects available")
+        for scene in rendered:
+            with self.subTest(scene=scene.parent.name):
+                self.assertTrue(typeset_scene(scene.read_text(encoding="utf-8"))["ok"])
