@@ -205,6 +205,58 @@ class ComponentTests(unittest.TestCase):
             dict(expr="x**2", a=0, b=3, rectangles=60, kind="midpoint"),
             dict(expr="sin(x)", a=0, b=3.14, rectangles=12, kind="right"),
         ],
+        "free_body_diagram": [
+            dict(forces=[{"label": "mg", "magnitude": 9.8, "angle_deg": 270},
+                         {"label": "N", "magnitude": 9.8, "angle_deg": 90},
+                         {"label": "F", "magnitude": 4, "angle_deg": 0}]),
+            dict(shape="dot", forces=[{"label": "T", "magnitude": 5, "angle_deg": 120},
+                                      {"label": "W", "magnitude": 5, "angle_deg": 270}]),
+            dict(shape="circle", forces=[{"label": f"F_{i}", "magnitude": 3 + i, "angle_deg": 60 * i}
+                                         for i in range(6)]),
+        ],
+        # Every quadrant: the normal points inward, so at some angles it ends on
+        # the angle arc, which is how that collision was found.
+        "circular_motion": [dict(radius=1.6, angle_deg=a) for a in (0, 45, 90, 135, 180, 225, 270, 330)]
+        + [dict(radius=2.6, angle_deg=60), dict(radius=0.6, angle_deg=60)],
+        "projectile_motion": [
+            dict(speed=20, angle_deg=45), dict(speed=8, angle_deg=70),
+            dict(speed=30, angle_deg=20), dict(speed=5, angle_deg=85), dict(speed=50, angle_deg=10),
+        ],
+        "inclined_plane": [dict(angle_deg=a, show_friction=f) for a in (10, 30, 45, 70) for f in (False, True)],
+        "energy_bars": [
+            dict(entries={"KE": 12.0, "PE": 8.0}), dict(entries={"KE": 0.0, "PE": 20.0}),
+            dict(entries={"A": 1, "B": 2, "C": 3, "D": 4}),
+        ],
+        "wave_form": [
+            dict(amplitude=1, wavelength=2, cycles=2), dict(amplitude=0.4, wavelength=0.6, cycles=6),
+            dict(amplitude=3, wavelength=5, cycles=1),
+        ],
+        "free_body_diagram": [
+            dict(forces=[{"label": "mg", "magnitude": 9.8, "angle_deg": 270},
+                         {"label": "N", "magnitude": 9.8, "angle_deg": 90},
+                         {"label": "F", "magnitude": 4, "angle_deg": 0}]),
+            dict(shape="dot", forces=[{"label": "T", "magnitude": 5, "angle_deg": 120},
+                                      {"label": "W", "magnitude": 5, "angle_deg": 270}]),
+            dict(shape="circle", forces=[{"label": f"F_{i}", "magnitude": 3 + i, "angle_deg": 60 * i}
+                                         for i in range(6)]),
+        ],
+        # Every quadrant. The inward normal ends near the centre, which is where
+        # the angle arc lives, and that is how the N-on-arc collision was found.
+        "circular_motion": [dict(radius=1.6, angle_deg=a) for a in (0, 45, 90, 135, 180, 225, 270, 330)]
+        + [dict(radius=2.6, angle_deg=60), dict(radius=0.6, angle_deg=60)],
+        "projectile_motion": [
+            dict(speed=20, angle_deg=45), dict(speed=8, angle_deg=70),
+            dict(speed=30, angle_deg=20), dict(speed=5, angle_deg=85), dict(speed=50, angle_deg=10),
+        ],
+        "inclined_plane": [dict(angle_deg=a, show_friction=f) for a in (10, 30, 45, 70) for f in (False, True)],
+        "energy_bars": [
+            dict(entries={"KE": 12.0, "PE": 8.0}), dict(entries={"KE": 0.0, "PE": 20.0}),
+            dict(entries={"A": 1, "B": 2, "C": 3, "D": 4}),
+        ],
+        "wave_form": [
+            dict(amplitude=1, wavelength=2, cycles=2), dict(amplitude=0.4, wavelength=0.6, cycles=6),
+            dict(amplitude=3, wavelength=5, cycles=1),
+        ],
         "iteration_trace": [
             dict(expr="(x-2)**2+1", update_rule="x - 0.2*2*(x-2)", start=-2, steps=10, x_min=-3, x_max=6),
             dict(expr="(x-2)**2+1", update_rule="x - 0.05*2*(x-2)", start=5.5, steps=40, x_min=-3, x_max=6),
