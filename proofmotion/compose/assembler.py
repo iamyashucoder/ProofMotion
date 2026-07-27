@@ -21,7 +21,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from proofmotion.components import COMPONENTS
-from proofmotion.layout.notation import to_latex
+from proofmotion.layout.notation import looks_like_maths, to_latex
 from proofmotion.runtime.registry import ToolError
 from schemas.storyboard import MAX_SCENES
 
@@ -195,12 +195,17 @@ def assemble(plan: ScenePlan) -> str:
             # Without a component the equation is the scene, so it belongs on
             # the stage at full size rather than shrunk into the caption strip.
             region, size = ("caption", 30) if scene.component else ("stage", 44)
-            # MathTex cannot compile Unicode, and a model writing a caption
-            # writes what it would write anywhere — "sum ≈ 9.86", "∫₀³ x² dx".
-            # Three clips in a row died on the approximately-equal sign alone,
-            # and the error named a file in vendored Manim rather than the
-            # caption. The notation is right; only the encoding is wrong.
-            write(f"        caption = MathTex({to_latex(scene.caption)!r}, font_size={size})")
+            # A caption is either an equation or a sentence, and they need
+            # different mobjects. MathTex sets an English sentence in italic
+            # maths with the spaces stripped out — unreadable when it compiles,
+            # and a LaTeX error when it does not, which is how a caption about
+            # a projectile took a render down. Text has no LaTeX to fail in and
+            # renders Unicode natively, so prose goes there untouched.
+            if looks_like_maths(scene.caption):
+                write(f"        caption = MathTex({to_latex(scene.caption)!r}, font_size={size})")
+            else:
+                write(f"        caption = Text({scene.caption!r}, font_size={min(size, 30)})")
+                write("        caption.scale_to_fit_width(min(caption.width, regions['caption'].width))")
             write(f"        place(caption, regions[{region!r}])")
             if read_equation:
                 write("        if equation_memory is not None:")

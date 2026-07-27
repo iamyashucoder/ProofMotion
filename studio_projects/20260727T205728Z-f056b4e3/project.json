@@ -1,0 +1,58 @@
+{
+  "project_id": "20260727T205728Z-f056b4e3",
+  "question": "x^2 grph",
+  "revision": 12,
+  "created_at": "2026-07-27T20:58:01Z",
+  "slides": [
+    {
+      "id": "s1",
+      "title": "Graph of x\u00b2",
+      "component": "function_plot",
+      "parameters": {
+        "expr": "x**2",
+        "x_min": -100,
+        "x_max": 100,
+        "label": "f(x)=x^2"
+      },
+      "caption": "The parabola f(x) = x\u00b2, symmetric about the y-axis.",
+      "seconds": 6.0,
+      "overrides": {},
+      "origin": "agent",
+      "locked": true
+    },
+    {
+      "id": "s2",
+      "title": "Sign function on x\u00b2",
+      "component": "function_plot",
+      "parameters": {
+        "expr": "sign(x)",
+        "x_min": -5,
+        "x_max": 5,
+        "label": "\\operatorname{sgn}(x)",
+        "y_min": -1.5,
+        "y_max": 1.5
+      },
+      "caption": "The sign function sgn(x) is -1 for x<0, 0 at x=0, and +1 for x>0.",
+      "seconds": 6.0,
+      "overrides": {},
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s3",
+      "title": "Projectile motion",
+      "component": "projectile_motion",
+      "parameters": {
+        "speed": 20,
+        "angle_deg": 76.5,
+        "gravity": 9.81,
+        "show_components": true
+      },
+      "caption": "A projectile launched at 76.5\u00b0 with speed 20\u202fm/s follows a parabolic arc.",
+      "seconds": 8.0,
+      "overrides": {},
+      "origin": "agent",
+      "locked": false
+    }
+  ]
+}

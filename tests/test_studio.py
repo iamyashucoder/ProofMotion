@@ -194,6 +194,47 @@ class TestNotation(unittest.TestCase):
         self.assertEqual(to_latex("R_6 = 11.375"), "R_6 = 11.375")
         self.assertEqual(to_latex(""), "")
 
+    def test_invisible_spaces_are_translated(self):
+        """U+202F between a number and its unit took a render down.
+
+        The character is invisible in every log and error message it appears
+        in, so the failure named a file in vendored Manim instead.
+        """
+        from proofmotion.layout.notation import unsupported
+
+        self.assertEqual(unsupported("speed 20\u202fm/s at 76.5\u00b0"), [])
+        self.assertEqual(unsupported("a\u2009b\u00a0c\u200bd"), [])
+
+    def test_prose_and_maths_are_told_apart(self):
+        """MathTex sets an English sentence in italic maths with no spaces."""
+        from proofmotion.layout.notation import looks_like_maths
+
+        for maths in ("R_6 = 11.375", r"\int_0^3 x^2 dx = 9", "f(x)=x^2", "n=13", "x^{12}"):
+            with self.subTest(maths=maths):
+                self.assertTrue(looks_like_maths(maths))
+        for prose in (
+            "The parabola f(x) = x\u00b2, symmetric about the y-axis.",
+            "A projectile launched at 76.5\u00b0 with speed 20 m/s follows a parabolic arc.",
+            "Right Riemann sum with 8 rectangles",
+        ):
+            with self.subTest(prose=prose):
+                self.assertFalse(looks_like_maths(prose))
+        self.assertFalse(looks_like_maths(""))
+
+    def test_a_prose_caption_is_set_as_text_not_maths(self):
+        from proofmotion.compose import SceneAssignment, ScenePlan, assemble
+        from proofmotion.tools.manim_api import manim_validate_code
+
+        code = assemble(ScenePlan(assignments=[
+            SceneAssignment(
+                title="x", component="function_plot", parameters=PLOT,
+                caption="A projectile launched at 76.5\u00b0 with speed 20 m/s follows a parabolic arc.",
+            ),
+        ]))
+        self.assertIn("caption = Text(", code)
+        self.assertNotIn("caption = MathTex(", code)
+        self.assertEqual(manim_validate_code(code)["valid"], True)
+
     def test_the_assembler_translates_captions(self):
         """The caption reaches MathTex, which cannot compile any of this."""
         from proofmotion.compose import SceneAssignment, ScenePlan, assemble

@@ -144,20 +144,36 @@ def _render_one(unit: Unit, work: Path, clips: Path) -> Unit:
 def render_project(project: Project, directory: Path, *, only: list[str] | None = None) -> dict:
     """Render every unit that is not already cached, and report what happened.
 
+    Progress is published per unit. A turn takes tens of seconds and used to
+    show nothing at all while it ran, which reads as a hang rather than as work
+    — and the one number a person actually wants during the wait is how many
+    clips are left.
+
     Args:
         project: The document to project.
         directory: The project directory; clips live under `clips/`.
         only: Slide ids to force a re-render of, ignoring the cache.
     """
+    from proofmotion.runtime.events import headline
+
     directory = Path(directory)
     clips, work = directory / "clips", directory / "work"
     forced = set(only or [])
 
+    pending = units_of(project)
     rendered = []
-    for unit in units_of(project):
+    for position, unit in enumerate(pending, 1):
         if forced.intersection(unit.ids):
             (clips / f"{unit.digest}.mp4").unlink(missing_ok=True)
-        rendered.append(_render_one(unit, work, clips))
+        titles = ", ".join(s.title or s.id for s in unit.slides)[:60]
+        if (clips / f"{unit.digest}.mp4").is_file():
+            headline(f"Clip {position}/{len(pending)} reused — {titles}")
+        else:
+            headline(f"Rendering clip {position}/{len(pending)} — {titles}")
+        done = _render_one(unit, work, clips)
+        if done.error:
+            headline(f"Clip {position}/{len(pending)} failed — {done.error.splitlines()[-1][:90]}", "warned")
+        rendered.append(done)
 
     failures = [u for u in rendered if u.error]
     return {

@@ -46,9 +46,20 @@ SYMBOLS = {
     "ℝ": r"\mathbb{R}", "ℕ": r"\mathbb{N}", "ℤ": r"\mathbb{Z}",
     "ℚ": r"\mathbb{Q}", "ℂ": r"\mathbb{C}",
     # Punctuation a model reaches for that LaTeX does not know.
-    "—": "--", "–": "-", "…": r"\ldots", " ": " ",
+    "—": "--", "–": "-", "…": r"\ldots",
     "“": "``", "”": "''", "‘": "`", "’": "'",
 }
+
+#: Spaces that are not the space character. A model writing "20 m/s" reaches
+#: for a narrow no-break space between the number and its unit, and the
+#: character is invisible in every log and error message it later appears in:
+#: the render died on U+202F and the message named a file in vendored Manim.
+SPACES = {
+    " ": " ", " ": " ", " ": " ", " ": " ",
+    " ": " ", " ": " ", " ": " ", " ": " ",
+    "\u200b": "", "﻿": "",
+}
+SYMBOLS.update(SPACES)
 
 #: Superscript and subscript digits, which arrive as ``x²`` and ``∫₀³``.
 SUPERSCRIPTS = {"⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4",
@@ -93,6 +104,32 @@ def to_latex(text: str) -> str:
     result = _SUPER.sub(lambda m: "^{" + "".join(SUPERSCRIPTS[c] for c in m.group()) + "}", text)
     result = _SUB.sub(lambda m: "_{" + "".join(SUBSCRIPTS[c] for c in m.group()) + "}", result)
     return _SYMBOL.sub(lambda m: _spell(m, result), result)
+
+
+#: A LaTeX command, or the notation that only means something in math mode.
+_MATHS = re.compile(r"\\[A-Za-z]+|[\^_]|\\\\|[=<>≤≥≈]")
+#: Three or more ordinary words in a row reads as a sentence.
+_PROSE = re.compile(r"(?:\b[A-Za-z]{2,}\b[ ,]+){3,}")
+
+
+def looks_like_maths(text: str) -> bool:
+    """Whether this caption should be set as mathematics rather than as text.
+
+    Captions arrive as either — ``R_6 = 11.375`` or "A projectile launched at
+    76.5 degrees follows a parabolic arc" — and putting the second through
+    MathTex sets an English sentence in italic maths with the spaces stripped
+    out. It is unreadable when it compiles and it is a LaTeX error when it does
+    not, which is how a caption about a projectile took a render down.
+
+    Prose wins ties. Text sets mathematics passably; MathTex sets prose
+    terribly, and Text has no LaTeX to fail in.
+    """
+    stripped = (text or "").strip()
+    if not stripped:
+        return False
+    if _PROSE.search(stripped):
+        return False
+    return bool(_MATHS.search(stripped)) or " " not in stripped
 
 
 def unsupported(text: str) -> list[str]:

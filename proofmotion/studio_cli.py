@@ -12,16 +12,14 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
-from datetime import UTC, datetime
 from pathlib import Path
-from uuid import uuid4
 
 PROJECTS = Path("studio_projects")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(prog="proofmotion-studio", description=__doc__)
-    parser.add_argument("project", nargs="?", help="Existing project directory. Omit for a new one.")
+    parser.add_argument("root", nargs="?", help="Directory of projects. Defaults to studio_projects/.")
     parser.add_argument("--port", type=int, default=8780)
     parser.add_argument("--host", default="127.0.0.1", help="Use 0.0.0.0 to reach it from another machine.")
     parser.add_argument("--provider", help="LLM provider: deepseek, openai, ollama, openrouter, vllm.")
@@ -52,11 +50,7 @@ def main() -> int:
     if learned:
         print(f"Loaded {len(learned)} learned component(s).")
 
-    directory = (
-        Path(args.project)
-        if args.project
-        else PROJECTS / f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}-{uuid4().hex[:8]}"
-    )
+    directory = Path(args.root) if args.root else PROJECTS
     directory.mkdir(parents=True, exist_ok=True)
 
     try:
@@ -66,7 +60,7 @@ def main() -> int:
         return 1
 
     print(f"\n  Studio   http://{args.host}:{args.port}")
-    print(f"  Project  {directory}")
+    print(f"  Projects {directory}")
     print(f"  Model    {client.name}/{client.model}\n")
     print("  Ask a question, then keep asking. Ctrl-C to stop.\n")
     try:
