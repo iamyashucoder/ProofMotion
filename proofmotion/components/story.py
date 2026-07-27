@@ -11,7 +11,7 @@ from proofmotion.layout.regions import layout, place
 
 
 def _bus(colour: str):
-    from manim import Circle, DOWN, LEFT, Rectangle, RIGHT, RoundedRectangle, UP, VGroup
+    from manim import DOWN, LEFT, RIGHT, UP, Circle, Rectangle, RoundedRectangle, VGroup
 
     body = RoundedRectangle(width=2.75, height=0.88, corner_radius=0.14, color=colour, fill_opacity=1)
     roof = RoundedRectangle(width=1.5, height=0.5, corner_radius=0.12, color=colour, fill_opacity=1)
@@ -25,7 +25,7 @@ def _bus(colour: str):
 
 
 def _car(colour: str):
-    from manim import Circle, DOWN, LEFT, Polygon, RIGHT, RoundedRectangle, UP, VGroup
+    from manim import DOWN, LEFT, RIGHT, UP, Circle, Polygon, RoundedRectangle, VGroup
 
     body = RoundedRectangle(width=2.35, height=0.63, corner_radius=0.14, color=colour, fill_opacity=1)
     cabin = Polygon([-0.65, 0.31, 0], [-0.25, 0.8, 0], [0.65, 0.8, 0], [1.0, 0.31, 0],
@@ -37,7 +37,7 @@ def _car(colour: str):
 
 
 def _bicycle(colour: str, rider_colour: str = "#f97316"):
-    from manim import Circle, Dot, LEFT, Line, RIGHT, UP, VGroup
+    from manim import LEFT, RIGHT, UP, Circle, Dot, Line, VGroup
 
     rear, front = LEFT * 0.62, RIGHT * 0.62
     wheels = VGroup(Circle(radius=0.31, color="#111827"), Circle(radius=0.31, color="#111827"))
@@ -53,7 +53,7 @@ def _bicycle(colour: str, rider_colour: str = "#f97316"):
 
 
 def _runner(colour: str, label: str = ""):
-    from manim import Circle, DOWN, LEFT, Line, RIGHT, Text, UP, VGroup
+    from manim import DOWN, LEFT, RIGHT, UP, Circle, Line, Text, VGroup
 
     head = Circle(radius=0.15, color="#f5c2a8", fill_opacity=1).shift(UP * 0.85)
     body = Line(UP * 0.67, UP * 0.15, color=colour, stroke_width=6)
@@ -81,7 +81,7 @@ def _city():
 
 
 def _straight_road():
-    from manim import Line, Rectangle, VGroup, WHITE
+    from manim import WHITE, Line, Rectangle, VGroup
 
     asphalt = Rectangle(width=11, height=2.0, color="#64748b", fill_opacity=0.7, stroke_width=2)
     marks = VGroup(*[Line([x, 0, 0], [x + 0.7, 0, 0], color=WHITE, stroke_width=5) for x in (-5, -3.2, -1.4, 0.4, 2.2, 4.0)])
@@ -89,7 +89,7 @@ def _straight_road():
 
 
 def _train(colour: str):
-    from manim import Circle, DOWN, LEFT, Line, Rectangle, RIGHT, RoundedRectangle, UP, VGroup
+    from manim import DOWN, LEFT, RIGHT, Circle, Line, Rectangle, RoundedRectangle, VGroup
 
     engine = RoundedRectangle(width=1.65, height=0.82, corner_radius=0.12, color=colour, fill_opacity=1)
     cabin = Rectangle(width=0.42, height=0.4, color="#38bdf8", fill_opacity=0.9).move_to(engine.get_center() + RIGHT * 0.42 + DOWN * 0.02)
@@ -105,7 +105,9 @@ def _train(colour: str):
 
 
 def _airplane(colour: str):
-    from manim import DOWN, Line, Polygon, UP, VGroup
+    # LEFT and RIGHT were missing, so transport_story(vehicle="airplane")
+    # raised NameError at build time — the only vehicle of the four that did.
+    from manim import DOWN, LEFT, RIGHT, UP, Line, Polygon, VGroup
 
     fuselage = Line(LEFT * 1.5, RIGHT * 1.55, color=colour, stroke_width=12)
     nose = Polygon([1.55, 0, 0], [1.15, 0.25, 0], [1.15, -0.25, 0], color=colour, fill_opacity=1)
@@ -127,7 +129,7 @@ def _boat(colour: str):
 
 
 def _rocket(colour: str):
-    from manim import DOWN, Polygon, RIGHT, Triangle, UP, VGroup
+    from manim import DOWN, RIGHT, UP, Polygon, Triangle, VGroup
 
     body = Polygon([-0.42, -0.8, 0], [0.42, -0.8, 0], [0.42, 0.55, 0], [0, 1.15, 0], [-0.42, 0.55, 0], color=colour, fill_opacity=1)
     window = Triangle(color="#38bdf8", fill_opacity=0.9).scale(0.22).move_to(UP * 0.35)
@@ -138,7 +140,7 @@ def _rocket(colour: str):
 
 
 def _tree():
-    from manim import Circle, DOWN, Rectangle, UP, VGroup
+    from manim import DOWN, UP, Circle, Rectangle, VGroup
 
     trunk = Rectangle(width=0.18, height=0.7, color="#92400e", fill_opacity=1).shift(DOWN * 0.35)
     leaves = VGroup(Circle(radius=0.35, color="#22c55e", fill_opacity=1).shift(UP * 0.3),
@@ -147,7 +149,7 @@ def _tree():
 
 
 def _house():
-    from manim import Polygon, Rectangle, UP, VGroup
+    from manim import UP, Polygon, Rectangle, VGroup
 
     base = Rectangle(width=1.25, height=0.9, color="#fbbf24", fill_opacity=0.9)
     roof = Polygon([-0.78, 0.45, 0], [0, 1.08, 0], [0.78, 0.45, 0], color="#ef4444", fill_opacity=1)
@@ -217,7 +219,7 @@ class RoadSafetyParams(BaseModel):
 @component(version=1, domain="story", params=RoadSafetyParams)
 def road_safety_scene(p: RoadSafetyParams) -> Built:
     """A 2D road crossing with traffic light, car, pedestrian, trees and house."""
-    from manim import Circle, DOWN, LEFT, Rectangle, RIGHT, UP, VGroup, WHITE
+    from manim import DOWN, LEFT, RIGHT, UP, WHITE, Circle, Rectangle, VGroup
 
     road = _straight_road().shift(DOWN * 1.25)
     crossing = VGroup(*[Rectangle(width=0.28, height=1.35, color=WHITE, fill_opacity=0.9, stroke_width=0)

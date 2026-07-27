@@ -11,7 +11,7 @@ from __future__ import annotations
 import math
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from proofmotion.components.base import Built, component
 from proofmotion.layout.labels import place_label
@@ -422,10 +422,52 @@ def matrix_transform(p: MatrixTransformParams) -> Built:
 
 class DistributionPlotParams(BaseModel):
     distribution: Literal["normal", "uniform", "exponential", "binomial", "poisson"] = "normal"
-    parameters: list = Field(description="normal [mean, sigma]; binomial [n, p]; exponential [rate].")
+    parameters: list = Field(
+        description=(
+            "normal [mean, sigma>0]; uniform [low, high>low]; exponential [rate>0]; "
+            "binomial [n>=1, 0<=p<=1]; poisson [lambda>0]."
+        )
+    )
     shade_from: float | None = None
     shade_to: float | None = None
     region: str = "stage"
+
+    @model_validator(mode="after")
+    def _parameters_suit_the_distribution(self) -> DistributionPlotParams:
+        """`parameters` means something different for each distribution.
+
+        Nothing checked that, so switching distribution while leaving the
+        parameters alone reached the builder and died there: the normal
+        default [0, 1] read as exponential gives rate 0, and 5.0 / rate raised
+        ZeroDivisionError from inside the render. A component owns its own
+        correctness, so this fails as a sentence the caller can act on.
+        """
+        needed = {"normal": 2, "uniform": 2, "exponential": 1, "binomial": 2, "poisson": 1}
+        want = needed[self.distribution]
+        if len(self.parameters) < want:
+            raise ValueError(
+                f"{self.distribution} needs {want} parameter(s), got {len(self.parameters)}: "
+                f"{self.parameters}"
+            )
+        try:
+            values = [float(v) for v in self.parameters[:want]]
+        except (TypeError, ValueError) as error:
+            raise ValueError(f"{self.distribution} parameters must be numbers: {self.parameters}") from error
+
+        if self.distribution == "normal" and values[1] <= 0:
+            raise ValueError(f"normal needs sigma > 0, got {values[1]}")
+        if self.distribution == "uniform" and values[1] <= values[0]:
+            raise ValueError(f"uniform needs high > low, got low={values[0]}, high={values[1]}")
+        if self.distribution == "exponential" and values[0] <= 0:
+            raise ValueError(f"exponential needs rate > 0, got {values[0]}")
+        if self.distribution == "poisson" and values[0] <= 0:
+            raise ValueError(f"poisson needs lambda > 0, got {values[0]}")
+        if self.distribution == "binomial":
+            if values[0] < 1:
+                raise ValueError(f"binomial needs n >= 1, got {values[0]}")
+            if not 0.0 <= values[1] <= 1.0:
+                raise ValueError(f"binomial needs 0 <= p <= 1, got {values[1]}")
+        return self
 
 
 @component(version=1, domain="probability", params=DistributionPlotParams)

@@ -17,6 +17,7 @@ import unittest
 logging.getLogger("manim").setLevel(logging.ERROR)
 
 from manim import config, tempconfig
+from pydantic import ValidationError
 
 from proofmotion.components import COMPONENTS, build
 from proofmotion.layout.collision import bounds, major_collisions, text_on_ink
@@ -497,109 +498,6 @@ class ComponentTests(unittest.TestCase):
             dict(shape="circle", forces=[{"label": f"F_{i}", "magnitude": 3 + i, "angle_deg": 60 * i}
                                          for i in range(6)]),
         ],
-        # Every quadrant: the normal points inward, so at some angles it ends on
-        # the angle arc, which is how that collision was found.
-        "circular_motion": [dict(radius=1.6, angle_deg=a) for a in (0, 45, 90, 135, 180, 225, 270, 330)]
-        + [dict(radius=2.6, angle_deg=60), dict(radius=0.6, angle_deg=60)],
-        "projectile_motion": [
-            dict(speed=20, angle_deg=45), dict(speed=8, angle_deg=70),
-            dict(speed=30, angle_deg=20), dict(speed=5, angle_deg=85), dict(speed=50, angle_deg=10),
-        ],
-        "inclined_plane": [dict(angle_deg=a, show_friction=f) for a in (10, 30, 45, 70) for f in (False, True)],
-        "energy_bars": [
-            dict(entries={"KE": 12.0, "PE": 8.0}), dict(entries={"KE": 0.0, "PE": 20.0}),
-            dict(entries={"A": 1, "B": 2, "C": 3, "D": 4}),
-        ],
-        "wave_form": [
-            dict(amplitude=1, wavelength=2, cycles=2), dict(amplitude=0.4, wavelength=0.6, cycles=6),
-            dict(amplitude=3, wavelength=5, cycles=1),
-        ],
-        "pendulum": [
-            dict(length=1.0, angle_deg=25), dict(length=0.25, angle_deg=5),
-            dict(length=4.0, angle_deg=80, show_forces=False),
-        ],
-        "spring_mass": [
-            dict(mass=1, stiffness=10, displacement=1), dict(mass=4, stiffness=1, displacement=-2),
-            dict(mass=0.5, stiffness=100, displacement=2.5),
-        ],
-        "collision": [
-            dict(mass_a=1, mass_b=1, velocity_a=3, velocity_b=-1),
-            dict(mass_a=5, mass_b=1, velocity_a=2, velocity_b=0, kind="inelastic"),
-            dict(mass_a=1, mass_b=9, velocity_a=4, velocity_b=0),
-        ],
-        "orbit": [
-            dict(eccentricity=0.0), dict(eccentricity=0.6, body_angle_deg=150),
-            dict(semi_major=3.0, eccentricity=0.9),
-        ],
-        "torque_diagram": [dict(angle_deg=90), dict(angle_deg=30, force=25), dict(angle_deg=175, lever_arm=0.5)],
-        "standing_wave": [dict(harmonic=n) for n in (1, 2, 3, 5, 8)],
-        "circuit_diagram": [
-            dict(voltage=9, resistances=[100, 220]),
-            dict(voltage=12, resistances=[10, 10, 10], arrangement="parallel"),
-            dict(voltage=5, resistances=[1000]),
-        ],
-        # object_distance inside the focal length gives a virtual image, which is
-        # drawn on the other side and must be reported as virtual.
-        "ray_diagram": [
-            dict(focal_length=1.5, object_distance=3), dict(focal_length=1.5, object_distance=1.0),
-            dict(focal_length=-2.0, object_distance=3), dict(focal_length=2.0, object_distance=6),
-        ],
-        "field_lines": [
-            dict(charges=[[-1, 0, 1], [1, 0, -1]]), dict(charges=[[0, 0, 1]]),
-            dict(charges=[[-1, 0, 1], [1, 0, 1]]),
-        ],
-        "pv_diagram": [
-            dict(states=[[3, 1], [1, 3], [1, 1]]), dict(states=[[1, 1], [3, 1], [3, 3], [1, 3]]),
-            dict(states=[[2, 1], [1, 2]], close_cycle=False),
-        ],
-        "equation_chain": [
-            dict(steps=["(x+1)^2", "x^2+2x+1"]),
-            dict(steps=["a^2-b^2", "(a-b)(a+b)", r"\text{done}"], labels=["factor", ""]),
-        ],
-        "geometry_construction": [
-            dict(points={"A": [0, 0], "B": [3, 0], "C": [0, 4]},
-                 segments=[["A", "B"], ["B", "C"], ["C", "A"]],
-                 mark_angles=[["A", "B", "C"]], show_lengths=True),
-            dict(points={"P": [-2, -1], "Q": [2, 1]}, segments=[["P", "Q"]]),
-        ],
-        "vector_field": [
-            dict(x_component="-y", y_component="x"),
-            dict(x_component="x", y_component="y", density=6),
-            dict(x_component="1", y_component="0", normalize=False),
-        ],
-        # 0 and 180 put the radius along the baseline, where Angle has no unique
-        # intersection — the case that broke the first version.
-        "unit_circle": [dict(angle_deg=a) for a in (0, 30, 45, 90, 135, 180, 210, 300, 359)],
-        "number_line_marks": [
-            dict(start=-3, stop=5, marks={"a": -1, "b": 2}, interval=[-1, 2]),
-            dict(start=0, stop=1, marks={"x": 0.5}),
-        ],
-        "matrix_transform": [
-            dict(matrix=[[2, 0], [0, 3]], show_eigenvectors=True),
-            dict(matrix=[[0, -1], [1, 0]], show_eigenvectors=True),
-            dict(matrix=[[1, 1], [0, 1]]),
-        ],
-        "distribution_plot": [
-            dict(distribution="normal", parameters=[0, 1], shade_from=-1, shade_to=1),
-            dict(distribution="binomial", parameters=[10, 0.5]),
-            dict(distribution="exponential", parameters=[1.5]),
-            dict(distribution="poisson", parameters=[3]),
-            dict(distribution="uniform", parameters=[0, 1]),
-        ],
-        "array_cells": [
-            dict(values=[1, 3, 5, 7, 9, 11, 13], pointers={"low": 0, "mid": 3, "high": 6}, highlight=[3]),
-            dict(values=list(range(20))),
-            dict(values=[5, 2, 8], dim=[0, 1]),
-        ],
-        "free_body_diagram": [
-            dict(forces=[{"label": "mg", "magnitude": 9.8, "angle_deg": 270},
-                         {"label": "N", "magnitude": 9.8, "angle_deg": 90},
-                         {"label": "F", "magnitude": 4, "angle_deg": 0}]),
-            dict(shape="dot", forces=[{"label": "T", "magnitude": 5, "angle_deg": 120},
-                                      {"label": "W", "magnitude": 5, "angle_deg": 270}]),
-            dict(shape="circle", forces=[{"label": f"F_{i}", "magnitude": 3 + i, "angle_deg": 60 * i}
-                                         for i in range(6)]),
-        ],
         # Every quadrant. The inward normal ends near the centre, which is where
         # the angle arc lives, and that is how the N-on-arc collision was found.
         "circular_motion": [dict(radius=1.6, angle_deg=a) for a in (0, 45, 90, 135, 180, 225, 270, 330)]
@@ -691,6 +589,56 @@ class ComponentTests(unittest.TestCase):
             safety = build("road_safety_scene", {"show_pedestrian": True})
         self.assertIn("vehicle", transport.parts)
         self.assertTrue({"car", "traffic_light", "pedestrian", "crossing"} <= safety.parts.keys())
+
+    def test_every_choice_of_every_enum_parameter_builds(self):
+        """A Literal tested at one value is a Literal that is not tested.
+
+        transport_story was built with vehicle="rocket" and passed, while
+        vehicle="airplane" raised NameError — the helper used LEFT and RIGHT
+        without importing them. One of four options was covered, and the broken
+        one shipped. There are eleven of these enums across the library, so the
+        cheapest guard is to walk all of them.
+        """
+        import typing
+
+        checked = 0
+        for name, spec in sorted(COMPONENTS.items()):
+            choices = {
+                field: list(typing.get_args(info.annotation))
+                for field, info in spec.params.model_fields.items()
+                if typing.get_origin(info.annotation) is typing.Literal
+            }
+            if not choices:
+                continue
+            example = self.CASES.get(name, [{}])[0]
+            required = {
+                field: example[field]
+                for field, info in spec.params.model_fields.items()
+                if info.is_required() and field in example
+            }
+            if any(
+                info.is_required() and field not in required
+                for field, info in spec.params.model_fields.items()
+            ):
+                continue  # no example to borrow required parameters from
+            for field, options in choices.items():
+                for option in options:
+                    with self.subTest(component=name, **{field: option}):
+                        arguments = {**required, field: option}
+                        try:
+                            spec.params.model_validate(arguments)
+                        except ValidationError:
+                            # The component refused the combination. That is it
+                            # working: distribution_plot rejects the normal's
+                            # [mean, sigma] read as an exponential rate rather
+                            # than dividing by zero mid-render. What this test
+                            # forbids is crashing on input the model accepted.
+                            continue
+                        with tempconfig({"dry_run": True}):
+                            built = build(name, arguments)
+                        self.assertTrue(built.parts, f"{name}({field}={option!r}) built nothing")
+                        checked += 1
+        self.assertGreater(checked, 20, "enum sweep covered almost nothing")
 
     def test_unicode_angle_label_is_normalised_before_typesetting(self):
         """Prompts often contain θ, but MathTex receives LaTeX, not Unicode."""
