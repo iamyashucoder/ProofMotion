@@ -31,15 +31,17 @@ One idea per scene, and take the steps small. A step the viewer can see happen
 is worth three they have to infer, so prefer more scenes each showing one
 movement to fewer scenes each carrying three. Introduce an object before
 referring to it, and give the viewer time to read anything you put on screen.
+For a worked problem, preserve one scene per mathematical step; never merge
+substitution or algebra merely to shorten the animation.
 
 Annotate everything the eye needs. Label the quantities on the figure — the
 radius, the angle, the force, the value at the point — so the picture carries
 the meaning rather than pointing at a caption. A diagram whose parts are unnamed
 makes the viewer hunt for what they are looking at.
 
-The scene budget you are given is a limit. Scenes that exist only to restate
-what was just shown should be cut — but a scene that shows the same figure
-changing is not a restatement, it is the explanation.
+Scenes that exist only to restate what was just shown should be cut — but a
+scene that shows the same figure changing is not a restatement, it is the
+explanation. Completeness always beats brevity for a worked problem.
 
 Express each scene as one component. Call component_search to see what exists
 and component_build to check the parameters you intend, then put that single

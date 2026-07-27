@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 #: Scene ceiling, shared by the director, the storyboard and the scene plan.
 #: Raised from 8 for smaller steps: a step the viewer watches beats one they
 #: have to infer, and an unchanged figure is held rather than redrawn.
-MAX_SCENES = 12
+MAX_SCENES = 30
 
 
 class StoryboardScene(BaseModel):

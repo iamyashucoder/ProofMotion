@@ -38,6 +38,7 @@ from proofmotion.tools.competitive import (
     ideal_gas_state,
     jee_mechanics,
     linear_drag_projectile,
+    meter_scale_alternating_friction,
     organic_reference_lookup,
     photoelectric_effect,
     polarization_malus,
@@ -256,6 +257,11 @@ class CompetitiveExamTests(unittest.TestCase):
         self.assertAlmostEqual(result["angular_frequency_squared"], 0.5)
         self.assertAlmostEqual(result["period"], 2 * math.pi * math.sqrt(2))
         self.assertAlmostEqual(result["period"], result["period_from_l"])
+
+    def test_meter_scale_alternating_friction_switches(self):
+        result = meter_scale_alternating_friction(0, 90, 0.40, 0.32)
+        self.assertAlmostEqual(result["left_position_at_first_switch_cm"], 18.0)
+        self.assertAlmostEqual(result["x_right_from_center_cm"], 25.6)
 
     def test_rotation_centre_of_mass_and_orbit(self):
         rotation = rigid_body_rotation("disc", mass_kg=2, radius_m=1, torque_nm=4)

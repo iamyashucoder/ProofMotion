@@ -6,7 +6,11 @@ Nothing here mentions a topic. Generality comes from the tools.
 """
 
 from proofmotion.agents.coder import write_scene
-from proofmotion.agents.completeness import check_solution_completeness, check_storyboard_final_answer
+from proofmotion.agents.completeness import (
+    check_solution_completeness,
+    check_storyboard_final_answer,
+    ensure_storyboard_final_answer,
+)
 from proofmotion.agents.director import direct_storyboard
 from proofmotion.agents.intent import understand_request
 from proofmotion.agents.planner import plan_mathematics
@@ -16,6 +20,7 @@ __all__ = [
     "check_solution_completeness",
     "check_storyboard_final_answer",
     "direct_storyboard",
+    "ensure_storyboard_final_answer",
     "plan_mathematics",
     "understand_request",
     "verify_plan",

@@ -85,6 +85,9 @@ class RegistrationTests(unittest.TestCase):
         for name in ("number_line_marks", "unit_circle", "geometry_construction", "matrix_transform", "distribution_plot"):
             self.assertIn(name, COMPONENTS)
 
+    def test_meter_scale_friction_visual_is_registered(self):
+        self.assertIn("meter_scale_friction", COMPONENTS)
+
 
 class CodeRecoveryTests(unittest.TestCase):
     """A run once failed with "the coding agent returned no code" while the agent

@@ -658,3 +658,43 @@ def wave_form(p: WaveParams) -> Built:
 
     place(group, layout("title_stage_caption")[p.region])
     return Built(group=group, parts=parts, beats=beats, notes=f"lambda {p.wavelength}, amplitude {p.amplitude}")
+
+
+class MeterScaleFrictionParams(BaseModel):
+    left_cm: float = Field(default=18.0, ge=0, le=100)
+    right_cm: float = Field(default=75.6, ge=0, le=100)
+    static_friction: float = Field(default=0.40, gt=0)
+    dynamic_friction: float = Field(default=0.32, gt=0)
+    region: str = "stage"
+
+
+@component(version=1, domain="physics", params=MeterScaleFrictionParams)
+def meter_scale_friction(p: MeterScaleFrictionParams) -> Built:
+    """Uniform metre scale on two fingers, labelled with reactions and alternating-slip positions."""
+    from manim import DOWN, RIGHT, UP, Arrow, Line, MathTex, Rectangle, Text, VGroup
+
+    scale = Rectangle(width=9.5, height=0.36, color="#e2e8f0", fill_opacity=0.9, stroke_width=2)
+    ticks = VGroup(*[Line(scale.get_left() + RIGHT * (9.5 * i / 10), scale.get_left() + RIGHT * (9.5 * i / 10) + DOWN * (0.12 if i % 5 else 0.22), color="#475569", stroke_width=2) for i in range(11)])
+    center = scale.get_left() + RIGHT * 4.75
+    def x_to_point(value: float):
+        return scale.get_left() + RIGHT * (9.5 * value / 100)
+    def finger(value: float, colour: str, label: str):
+        tip = x_to_point(value) + DOWN * 0.18
+        hand = VGroup(Line(tip + DOWN * 1.05, tip, color=colour, stroke_width=12), Circle(radius=0.16, color=colour, fill_opacity=1).move_to(tip + DOWN * 1.0))
+        arrow = Arrow(tip + DOWN * 0.78, tip + UP * 0.05, buff=0, color=colour, stroke_width=3)
+        return VGroup(hand, arrow, MathTex(label, font_size=24, color=colour).next_to(hand, DOWN, buff=0.18))
+    from manim import Circle
+    left = finger(p.left_cm, "#38bdf8", r"N_L")
+    right = finger(p.right_cm, "#f87171", r"N_R")
+    center_mark = Line(center + UP * 0.35, center + DOWN * 0.45, color="#fbbf24", stroke_width=3)
+    labels = VGroup(
+        Text("0 cm", font_size=18, color="#334155").next_to(scale.get_left(), UP, buff=0.28),
+        Text("50 cm", font_size=18, color="#fbbf24").next_to(center_mark, UP, buff=0.28),
+        Text("100 cm", font_size=18, color="#334155").next_to(scale.get_right(), UP, buff=0.28),
+        MathTex(rf"x_R={p.right_cm-50:g}\,\mathrm{{cm}}", font_size=28, color="#fbbf24").next_to(right, RIGHT, buff=0.25),
+        MathTex(rf"\mu_s={p.static_friction:g},\ \mu_k={p.dynamic_friction:g}", font_size=25).move_to(DOWN * 2.25),
+    )
+    parts: dict[str, object] = {"meter_scale": scale, "ticks": ticks, "left_finger": left, "right_finger": right, "center_mark": center_mark, "labels": labels}
+    group = VGroup(*parts.values())
+    place(group, layout("title_stage_caption")[p.region])
+    return Built(group=group, parts=parts, beats=[["meter_scale", "ticks", "center_mark"], ["left_finger", "right_finger"], ["labels"]], notes="alternating slip: sliding finger has dynamic friction, fixed finger reaches limiting static friction")

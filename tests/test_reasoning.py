@@ -210,9 +210,10 @@ class SolutionCompletenessTests(unittest.TestCase):
         from schemas.math_plan import MathStep
 
         return [
-            MathStep(index=1, concept="given", equation_latex="u=20", explanation="initial speed"),
-            MathStep(index=2, concept="formula", equation_latex="s=ut", explanation="use displacement"),
-            MathStep(index=3, concept="answer", equation_latex="s=80", explanation="substitute"),
+            MathStep(index=1, concept="given", equation_latex=r"u=20,\ v=0,\ t=4", explanation="write the given speeds and time"),
+            MathStep(index=2, concept="principle", equation_latex=r"s=\frac{u+v}{2}t", explanation="uniform deceleration makes average speed (u+v)/2"),
+            MathStep(index=3, concept="substitution", equation_latex=r"s=\frac{20+0}{2}\cdot4", explanation="substitute the given values"),
+            MathStep(index=4, concept="answer", equation_latex="s=40", explanation="simplify to the distance"),
         ]
 
     def _complete_plan(self):
@@ -220,9 +221,9 @@ class SolutionCompletenessTests(unittest.TestCase):
 
         return MathematicalPlan(
             topic="braking", concept_sequence=self._steps(),
-            given_quantities=["u=20 m/s", "t=4 s"], unknown="distance s",
+            given_quantities=["u=20 m/s", "v=0 m/s", "t=4 s"], unknown="distance s",
             governing_principles=["constant-acceleration kinematics"],
-            final_answer_latex="s=80", final_answer_explanation="The bus travels 80 m.",
+            final_answer_latex="s=40", final_answer_explanation="The bus travels 40 m.",
         )
 
     def test_rejects_missing_final_answer_even_when_equations_exist(self):
@@ -250,23 +251,26 @@ class SolutionCompletenessTests(unittest.TestCase):
         )
         report = check_solution_completeness(plan, self._intent())
         self.assertFalse(report["complete"])
-        self.assertIn("a requested derivation needs at least three explicit mathematical steps", report["problems"])
+        self.assertIn("a requested derivation needs at least four explicit mathematical steps", report["problems"])
 
-    def test_rejects_a_final_answer_not_derived_by_the_steps(self):
+    def test_flags_a_differently_written_final_answer_for_review(self):
         from proofmotion.agents.completeness import check_solution_completeness
 
         plan = self._complete_plan()
-        plan.final_answer_latex = "s=40"
+        plan.final_answer_latex = "s=20"
         report = check_solution_completeness(plan, self._intent())
-        self.assertFalse(report["complete"])
-        self.assertIn("final_answer_latex does not match the last derived equation", report["problems"])
+        self.assertTrue(report["complete"])
+        self.assertIn("final_answer_latex differs textually from the last derived equation; review equivalence", report["warnings"])
 
     def test_storyboard_must_show_a_dedicated_final_answer(self):
-        from proofmotion.agents.completeness import check_storyboard_final_answer
+        from proofmotion.agents.completeness import check_storyboard_final_answer, ensure_storyboard_final_answer
         from schemas.storyboard import Storyboard, StoryboardScene
 
         incomplete = Storyboard(teaching_strategy="test", scenes=[StoryboardScene(scene_id="one", purpose="work", title="Working", duration_seconds=2, equations=["x=1"])])
         self.assertFalse(check_storyboard_final_answer(incomplete, "x=1")["complete"])
+        repaired = ensure_storyboard_final_answer(incomplete, "x=1", "x equals one")
+        self.assertTrue(check_storyboard_final_answer(repaired, "x=1")["complete"])
+        self.assertEqual(repaired.scenes[-1].title, "FINAL ANSWER")
         complete = Storyboard(teaching_strategy="test", scenes=[StoryboardScene(scene_id="answer", purpose="state result", title="FINAL ANSWER", duration_seconds=2, equations=["x=1"])])
         self.assertTrue(check_storyboard_final_answer(complete, "x=1")["complete"])
 

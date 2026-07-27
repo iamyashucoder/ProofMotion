@@ -68,6 +68,7 @@ TOOLSETS: dict[str, list[str]] = {
         "competitive_exam_requirements",
         "competitive_exam_catalogue",
         "jee_mechanics",
+        "meter_scale_alternating_friction",
         "linear_drag_projectile",
         "power_transmission",
         "circuit_network",

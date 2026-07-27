@@ -14,8 +14,8 @@ from proofmotion.runtime.registry import ToolError, tool
 
 _TOPICS: dict[str, dict[str, Any]] = {
     "mechanics": {
-        "words": ("motion", "kinematic", "brake", "projectile", "collision", "orbit", "circular", "oscillation", "pendulum", "spring", "rotation"),
-        "tools": ["jee_mechanics", "units_check", "plausibility_check", "component_search"],
+        "words": ("motion", "kinematic", "brake", "projectile", "collision", "orbit", "circular", "oscillation", "pendulum", "spring", "rotation", "friction", "finger", "meter scale", "metre scale"),
+        "tools": ["jee_mechanics", "meter_scale_alternating_friction", "units_check", "plausibility_check", "component_search"],
         "checks": ["state the sign convention", "show a labelled force or motion diagram", "check units and a limiting case"],
     },
     "electricity_magnetism": {
@@ -199,6 +199,41 @@ def jee_mechanics(
         common["model"] = "small radial oscillation about an inverse-square circular orbit"
         common["derivation_hint"] = "Use U_eff=l^2/(2*m*r^2)-k/r; then omega_r^2=U_eff''(r0)/m."
     return common
+
+
+@tool
+def meter_scale_alternating_friction(
+    left_initial_cm: float,
+    right_initial_cm: float,
+    static_friction: float,
+    dynamic_friction: float,
+    center_cm: float = 50.0,
+) -> dict[str, Any]:
+    """Solve the alternating-slip meter-scale-on-two-fingers problem exactly.
+
+    At each switch, the sliding finger has dynamic friction mu_k*N while the
+    fixed finger is at limiting static friction mu_s*N.  The scale is uniform,
+    so its support reactions are found by taking moments about its centre.
+    """
+    if not (0 < dynamic_friction < static_friction):
+        raise ToolError("require positive coefficients with dynamic_friction < static_friction")
+    if not left_initial_cm < center_cm < right_initial_cm:
+        raise ToolError("the two initial finger positions must straddle the scale centre")
+    right_distance = right_initial_cm - center_cm
+    # Left slips first, right remains fixed: mu_k N_L = mu_s N_R.
+    left_after_first = center_cm - dynamic_friction * right_distance / static_friction
+    left_distance = center_cm - left_after_first
+    # Right then slips, left remains fixed: mu_k N_R = mu_s N_L.
+    right_after_second = center_cm + dynamic_friction * left_distance / static_friction
+    return {
+        "left_position_at_first_switch_cm": left_after_first,
+        "right_position_at_second_switch_cm": right_after_second,
+        "x_right_from_center_cm": right_after_second - center_cm,
+        "switch_1_condition": r"mu_k N_L=mu_s N_R",
+        "switch_2_condition": r"mu_k N_R=mu_s N_L",
+        "support_reactions": r"N_L=W(x_R-50)/(x_R-x_L), N_R=W(50-x_L)/(x_R-x_L)",
+        "final_answer": f"x_R={right_after_second - center_cm:.2f} cm",
+    }
 
 
 @tool

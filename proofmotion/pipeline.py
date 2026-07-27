@@ -18,7 +18,11 @@ from uuid import uuid4
 
 from llm.providers import LLMError, get_client
 from proofmotion.agents.coder import write_scene
-from proofmotion.agents.completeness import check_solution_completeness, check_storyboard_final_answer
+from proofmotion.agents.completeness import (
+    check_solution_completeness,
+    check_storyboard_final_answer,
+    ensure_storyboard_final_answer,
+)
 from proofmotion.agents.debugger import polish_scene, repair_scene
 from proofmotion.agents.director import direct_storyboard
 from proofmotion.agents.intent import understand_request
@@ -247,7 +251,7 @@ def _run(
     if duration_seconds:
         # An explicit request beats the agent's guess, and every downstream
         # budget is derived from this number.
-        intent.duration_seconds = max(5, min(90, duration_seconds))
+        intent.duration_seconds = max(5, min(600, duration_seconds))
     state.intent = intent.model_dump()
     artifact("intent", state.intent)
     headline(f"Read the request as: {intent.topic} ({intent.domain}, {intent.difficulty})")
@@ -310,7 +314,11 @@ def _run(
     storyboard = direct_storyboard(client, intent, plan, state.verified_math, creator_brief=creator_brief)
     storyboard_completeness = check_storyboard_final_answer(storyboard, plan.final_answer_latex)
     if not storyboard_completeness["complete"]:
-        raise LLMError(f"Storyboard is incomplete: {'; '.join(storyboard_completeness['problems'])}")
+        storyboard = ensure_storyboard_final_answer(storyboard, plan.final_answer_latex, plan.final_answer_explanation)
+        storyboard_completeness = check_storyboard_final_answer(storyboard, plan.final_answer_latex)
+        if not storyboard_completeness["complete"]:
+            raise LLMError(f"Storyboard is incomplete: {'; '.join(storyboard_completeness['problems'])}")
+        headline("Added the verified final answer to the closing storyboard scene", "improved")
     state.storyboard = storyboard.model_dump()
     state.tool_results["storyboard_completeness"] = storyboard_completeness
     state.selected_tools = list(dict.fromkeys([

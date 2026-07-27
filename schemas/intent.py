@@ -6,9 +6,8 @@ class AnimationIntent(BaseModel):
     domain: str
     audience: str = "general"
     educational_goal: str
-    # Capped at 90: a 60s default produced 36 animations and a 72s video, which
-    # is well past where an explanation stops holding attention.
-    duration_seconds: int = Field(default=30, ge=5, le=90)
+    # Duration is presentation metadata, never permission to omit a derivation.
+    duration_seconds: int = Field(default=60, ge=5, le=600)
     difficulty: str = "introductory"
     requires_graph: bool = False
     requires_derivation: bool = False
