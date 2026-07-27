@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import time
 from dataclasses import dataclass, field
 from typing import Any, ClassVar
 
@@ -136,6 +137,14 @@ class OpenAICompatibleClient:
                 # gpt-5.6 refuses tools here and is retried on the Responses
                 # endpoint — and an ERROR line for a handled condition makes the
                 # log untrustworthy. Genuine failures surface via the raise.
+                if _is_transient_connection_error(error) and attempt < 2:
+                    delay = 1.0 * (2**attempt)
+                    log.warning(
+                        "%s connection failed (attempt %s/3, model=%s); retrying in %.0fs",
+                        self.name, attempt + 1, self.model, delay,
+                    )
+                    time.sleep(delay)
+                    continue
                 log.debug("%s chat failed (model=%s): %s", self.name, self.model, error)
                 raise LLMError(f"{self.name} chat failed (model={self.model}): {error}") from error
             if response.choices:
@@ -199,6 +208,24 @@ class OpenAICompatibleClient:
 
 #: OpenAI reports both "Unsupported parameter: 'x'" and "Unsupported value: 'x'".
 _UNSUPPORTED = re.compile(r"[Uu]nsupported (?:parameter|value)s?: '([^']+)'")
+
+
+def _is_transient_connection_error(error: Exception) -> bool:
+    """Whether retrying can reasonably change the outcome.
+
+    Bad credentials and malformed requests must fail immediately. Transport
+    drops, timeouts, and temporary provider outages can succeed on retry.
+    """
+    message = str(error).lower()
+    markers = (
+        "connection error", "connection reset", "connect timeout", "read timeout",
+        "timed out", "temporarily unavailable", "service unavailable", "bad gateway",
+        "gateway timeout", "internal server error", "error code: 500", "error code: 502",
+        "error code: 503", "error code: 504",
+    )
+    return any(marker in message for marker in markers) or error.__class__.__name__ in {
+        "APIConnectionError", "APITimeoutError",
+    }
 
 
 def _unsupported_parameter(message: str) -> str | None:

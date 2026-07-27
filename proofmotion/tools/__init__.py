@@ -10,10 +10,12 @@ from proofmotion.tools import (
     algebra,
     analysis,
     answer_oracle,
+    cinematic,
     competitive,
     components_tool,
     creator,
     discrete,
+    experiments,
     geometry,
     inspect_scene,
     jee_experts,
@@ -32,7 +34,7 @@ from proofmotion.tools import (
 #: silently unregistering component_search and component_build, which then failed
 #: only at runtime inside an agent. A tuple a linter can see cannot be pruned.
 _REGISTERING_MODULES = (
-    algebra, analysis, answer_oracle, components_tool, competitive, creator, discrete, geometry, inspect_scene,
+    algebra, analysis, answer_oracle, cinematic, components_tool, competitive, creator, discrete, experiments, geometry, inspect_scene,
     layout, learned_tool, jee_experts, manim_api, numeric, reasoning, statistics, symbolic,
     typeset,
 )
@@ -106,6 +108,8 @@ TOOLSETS: dict[str, list[str]] = {
         "weak_acid_ph",
     ],
     "creator": ["study_animation_brief", "study_animation_timing", "motion_design_audit"],
+    "cinematic": ["cinematic_chase_brief", "vehicle_motion_profile", "non_graphic_action_audit"],
+    "experiment": ["measurement_line_fit", "propagate_measurement_uncertainty", "proof_obligations"],
     "jee_experts": ["jee_chapter_expert", "jee_chapter_coverage", "jee_chapter_case"],
     #: Checking that a result is right, as distinct from producing one.
     "verify": [
@@ -146,6 +150,7 @@ UMBRELLAS: dict[str, tuple[str, ...]] = {
     "compute": ("math", "discrete", "stats", "geometry"),
     #: Everything that decides whether an answer is right.
     "reason": ("verify",),
+    "evidence": ("experiment",),
 }
 
 

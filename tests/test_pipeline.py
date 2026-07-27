@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import unittest
 from pathlib import Path
+from unittest.mock import Mock, patch
 
 from proofmotion.pipeline import _is_competitive_exam_prompt, _is_creator_study_prompt
 from proofmotion.runtime.registry import ToolError, ToolRegistry
@@ -71,6 +72,18 @@ class ManimApiTests(unittest.TestCase):
         problem = report["problems"][0]
         self.assertIn("secant_line_width", problem["problem"])
         self.assertIn("secant_line_length", problem["did_you_mean"])
+
+    def test_catches_axis_config_label_before_manim_forwards_it(self):
+        code = (
+            "from manim import *\n"
+            "class GeneratedScene(Scene):\n"
+            "    def construct(self):\n"
+            "        axes = Axes(y_axis_config={\"label\": \"K_max\"})\n"
+            "        self.add(axes)\n"
+        )
+        report = manim_validate_code(code)
+        self.assertFalse(report["valid"])
+        self.assertIn("axis configuration does not accept", report["problems"][0]["problem"])
 
     def test_does_not_flag_manims_own_example_scenes(self):
         example = Path("vendor/manim/example_scenes/basic.py")
@@ -176,6 +189,17 @@ class ProviderTests(unittest.TestCase):
         enabled = DeepSeekClient(model="deepseek-v4-pro", thinking=True, reasoning_effort="high").extra_body
         self.assertEqual(enabled["thinking"], {"type": "enabled"})
         self.assertEqual(enabled["reasoning_effort"], "high")
+
+    @patch("llm.providers.time.sleep")
+    def test_connection_error_retries_before_failing(self, sleep):
+        from llm.providers import DeepSeekClient
+
+        client = DeepSeekClient(model="deepseek-v4-flash")
+        client._create = Mock(side_effect=[RuntimeError("Connection error"), Mock(choices=[Mock(message="ok")], usage=None)])
+        result = client.chat([{"role": "user", "content": "test"}])
+        self.assertEqual(result, "ok")
+        self.assertEqual(client._create.call_count, 2)
+        sleep.assert_called_once_with(1.0)
 
     def test_unsupported_parameters_are_read_from_the_api_error(self):
         from llm.providers import _unsupported_parameter

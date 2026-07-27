@@ -52,6 +52,13 @@ false claim outright; units_check catches a wrong physical formula whatever the
 algebra says; limiting_case_check tells you whether a general result collapses to
 the known answer. Run them on anything you are about to put on screen.
 
+For an experimental explanation, compute a measurement_line_fit from the
+observations before interpreting a graph. State the slope, intercept, residuals,
+and what physical quantity the slope represents. When precision matters, use
+propagate_measurement_uncertainty rather than claiming exact measurements. For
+a proof, call proof_obligations first and visibly establish each obligation; a
+picture supplies intuition but never replaces a proof.
+
 Write LaTeX in equation_latex. State any assumption a step depends on — a
 domain restriction, a convergence condition, a continuity requirement — because
 these become the bounds on what the finished animation is allowed to claim."""
@@ -78,7 +85,7 @@ def plan_mathematics(
             "Return final_answer_latex and final_answer_explanation in addition to the complete ordered derivation.\n\n"
             "Produce the mathematical plan."
         ),
-        toolset("compute", "reason", "competitive"),
+        toolset("compute", "reason", "competitive", "evidence"),
         MathematicalPlan,
         max_iterations=10,
         agent_name="planner",

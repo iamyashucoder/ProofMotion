@@ -84,14 +84,14 @@ def _is_creator_study_prompt(prompt: str) -> bool:
     return any(marker in text for marker in markers)
 
 
-def _repair_against_reference(
+def validate_and_repair_final_answer(
     client: Any,
     intent: Any,
     prompt: str,
     plan: Any,
     exam_requirements: dict[str, Any] | None,
 ) -> tuple[Any, dict[str, Any]]:
-    """Reject a result only when an exact, source-attributed reference disagrees.
+    """Confirm a final answer against valid context, then repair or block it.
 
     This does not alter the normal path for novel questions.  For a matched
     record, the planner gets one focused chance to recompute the concepts,
@@ -99,7 +99,11 @@ def _repair_against_reference(
     it can render an authoritative-looking but contradicted answer.
     """
     audit = audit_final_answer(prompt, plan.final_answer_latex)
+    if audit["status"] == "matched":
+        audit["outcome"] = "confirmed"
+        return plan, audit
     if audit["status"] != "mismatch":
+        audit["outcome"] = "unconfirmed"
         return plan, audit
 
     reference = audit["reference"]
@@ -116,7 +120,12 @@ def _repair_against_reference(
         exam_requirements=exam_requirements,
         completion_feedback=feedback,
     )
-    return repaired, audit_final_answer(prompt, repaired.final_answer_latex)
+    repaired_audit = audit_final_answer(prompt, repaired.final_answer_latex)
+    if repaired_audit["status"] == "matched":
+        repaired_audit["outcome"] = "repaired_and_confirmed"
+    else:
+        repaired_audit["outcome"] = "mismatch_blocked"
+    return repaired, repaired_audit
 
 
 def _tools_by_agent() -> dict[str, list[str]]:
@@ -323,7 +332,7 @@ def _run(
 
     # A reference is only used on an exact local match.  Novel prompts retain
     # the existing symbolic/numeric verification path unchanged.
-    plan, reference_audit = _repair_against_reference(
+    plan, reference_audit = validate_and_repair_final_answer(
         client, intent, user_prompt, plan, exam_requirements
     )
     if reference_audit["status"] == "mismatch":

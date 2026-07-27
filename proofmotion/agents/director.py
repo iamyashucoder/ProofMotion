@@ -154,9 +154,10 @@ def direct_storyboard(
         # tools and spent nine of twenty-two calls measuring hypothetical text
         # boxes — placement it no longer owns, since the assembler places
         # everything and components own their own internals.
-        toolset("visual", "creator").subset([
+        toolset("visual", "creator", "cinematic").subset([
             "component_search", "component_build", "typeset_check",
             "study_animation_brief", "study_animation_timing", "motion_design_audit",
+            "cinematic_chase_brief", "vehicle_motion_profile", "non_graphic_action_audit",
         ]),
         Storyboard,
         max_iterations=10,

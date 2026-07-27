@@ -70,6 +70,11 @@ Look it up:
   manim_members   — what methods a class has
 If you are unsure whether a keyword argument exists, that means you must check it.
 
+For Axes, never put ``label`` inside axis_config, x_axis_config, or
+y_axis_config. Those dictionaries configure the axis line and Manim will crash
+on that key. Make labels as separate Mobjects with
+axes.get_axis_labels(x_label=..., y_label=...).
+
 Ask for several lookups in one turn rather than one at a time. Independent
 lookups run concurrently, so six signatures in a single turn cost about what one
 costs, while six separate turns burn six round trips of your iteration budget.

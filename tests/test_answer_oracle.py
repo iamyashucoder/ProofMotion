@@ -29,3 +29,9 @@ class AnswerOracleTests(unittest.TestCase):
         result = audit_final_answer("Find the acceleration of a falling object.", r"a=g")
         self.assertEqual(result["status"], "no_reference")
         self.assertIsNone(result["matched"])
+
+    def test_a_reference_record_keeps_its_context_and_source_kind(self):
+        result = lookup_reference_answer(METER_PROMPT)
+        reference = result["reference"]
+        self.assertEqual(reference["source_kind"], "user_verified")
+        self.assertTrue(reference["match_terms"])

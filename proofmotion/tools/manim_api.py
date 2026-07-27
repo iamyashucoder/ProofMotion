@@ -93,6 +93,41 @@ def _component_beat_animation_errors(tree: ast.AST) -> list[dict[str, Any]]:
     return problems
 
 
+def _axis_config_label_errors(tree: ast.AST) -> list[dict[str, Any]]:
+    """Reject ``label`` inside an axis configuration before Manim forwards it.
+
+    ``Axes`` accepts ``x_axis_config`` and ``y_axis_config`` dictionaries, but
+    their contents are forwarded to line-like Mobjects.  ``label`` sounds
+    plausible, survives a constructor-signature check, and then fails deep in
+    Manim as ``Mobject.__init__() got an unexpected keyword argument 'label'``.
+    Axis labels must instead be distinct Mobjects from ``get_axis_labels``.
+    """
+    problems: list[dict[str, Any]] = []
+    axes_classes = {"Axes", "ThreeDAxes", "NumberPlane", "PolarPlane"}
+    for node in ast.walk(tree):
+        if not (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id in axes_classes
+        ):
+            continue
+        for keyword in node.keywords:
+            if keyword.arg not in {"axis_config", "x_axis_config", "y_axis_config"}:
+                continue
+            if not isinstance(keyword.value, ast.Dict):
+                continue
+            if any(isinstance(key, ast.Constant) and key.value == "label" for key in keyword.value.keys):
+                problems.append(
+                    {
+                        "line": keyword.value.lineno,
+                        "call": f"{node.func.id}(..., {keyword.arg}=...)",
+                        "problem": "axis configuration does not accept a 'label' key",
+                        "fix": "remove the label key and add labels with axes.get_axis_labels(x_label=..., y_label=...)",
+                    }
+                )
+    return problems
+
+
 def _bound_names(tree: ast.AST) -> set[str]:
     """Every name the module binds anywhere.
 
@@ -298,6 +333,7 @@ def manim_validate_code(code: str) -> dict[str, Any]:
     index = _index()
     problems: list[dict[str, Any]] = []
     problems.extend(_component_beat_animation_errors(tree))
+    problems.extend(_axis_config_label_errors(tree))
 
     # A helper that builds a mobject and forgets to return it. The caller gets
     # None, and the failure surfaces far away — always_redraw reporting that
