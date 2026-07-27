@@ -49,6 +49,9 @@ class SceneAssignment(BaseModel):
     caption: str = Field(
         default="", description="LaTeX shown beneath the stage (no $ delimiters), or empty."
     )
+    read_from_previous: list[str] = Field(default_factory=list, description="Selected board items retained from the preceding scene.")
+    bridge_text: str = Field(default="", description="Short visual connection from the retained board item to this step.")
+    forget_after: list[str] = Field(default_factory=list, description="Board items cleared after this step is read.")
     seconds: float = Field(default=6.0, gt=0.5, le=40.0, description="Target length of this scene.")
 
 
@@ -131,16 +134,25 @@ def assemble(plan: ScenePlan) -> str:
     # actually differs, so a run of scenes about one figure keeps it on screen.
     write("        chrome = []")
     write("        stage = None")
+    write("        equation_memory = None")
     write("")
 
     standing: tuple[str, str] | None = None
     for index, scene in enumerate(plan.assignments, 1):
         write(f"        # ---- scene {index} ----")
-        # Leaving the previous section's words on screen was the single most
-        # common defect while this was a prompt rule. Here it is unconditional.
+        read_equation = "equation" in scene.read_from_previous
+        # Selective read/forget: the new board retains only items explicitly
+        # requested by this scene. Every other item is removed before writing.
         write("        if chrome:")
-        write("            self.play(*[FadeOut(m) for m in chrome], run_time=0.4)")
-        write("            chrome = []")
+        if read_equation:
+            write("            forgotten = [m for m in chrome if m is not equation_memory]")
+            write("            if forgotten:")
+            write("                self.play(*[FadeOut(m) for m in forgotten], run_time=0.4)")
+            write("            chrome = [equation_memory] if equation_memory is not None else []")
+        else:
+            write("            self.play(*[FadeOut(m) for m in chrome], run_time=0.4)")
+            write("            chrome = []")
+            write("            equation_memory = None")
 
         if scene.title:
             write(f"        title = Text({scene.title!r}, font_size=40)")
@@ -150,7 +162,7 @@ def assemble(plan: ScenePlan) -> str:
 
         beat_time = max(0.4, round(scene.seconds / 8, 2))
         key = (scene.component, repr(scene.parameters)) if scene.component else None
-        if key is not None and key == standing:
+        if "diagram" in scene.read_from_previous and key is not None and key == standing:
             # Identical picture, identical parameters. Rebuilding it means the
             # viewer watches the same figure fade out and back in for no reason
             # — four times over, in the run that prompted this. Leave it up and
@@ -184,10 +196,32 @@ def assemble(plan: ScenePlan) -> str:
             region, size = ("caption", 30) if scene.component else ("stage", 44)
             write(f"        caption = MathTex({scene.caption!r}, font_size={size})")
             write(f"        place(caption, regions[{region!r}])")
+            if read_equation:
+                write("        if equation_memory is not None:")
+                write("            self.play(equation_memory.animate.scale(0.72).shift(UP * 0.28), run_time=0.35)")
+                write("            caption.shift(DOWN * 0.22)")
+            if scene.bridge_text:
+                write(f"        bridge = Text({scene.bridge_text!r}, font_size=24, color=GREY_B)")
+                write("        bridge.scale_to_fit_width(regions['caption'][2] * 0.92)")
+                write("        place(bridge, regions['caption'])")
+                write("        bridge.shift(UP * 0.26)")
+                write("        self.play(FadeIn(bridge, shift=UP * 0.08), run_time=0.35)")
+                write("        chrome.append(bridge)")
+                write("        caption.shift(DOWN * 0.2)")
             write(f"        self.play(Write(caption), run_time={max(0.6, beat_time)})")
             write("        chrome.append(caption)")
+            write("        equation_memory = caption")
 
         write(f"        self.wait({max(0.4, round(scene.seconds * 0.2, 2))})")
+        if "equation" in scene.forget_after:
+            write("        if equation_memory is not None:")
+            write("            self.play(FadeOut(equation_memory), run_time=0.3)")
+            write("            chrome = [m for m in chrome if m is not equation_memory]")
+            write("            equation_memory = None")
+        if "diagram" in scene.forget_after:
+            write("        if stage is not None:")
+            write("            self.play(FadeOut(stage), run_time=0.3)")
+            write("            stage = None")
         write("")
 
     write("        leaving = chrome + ([stage] if stage is not None else [])")

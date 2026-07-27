@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 #: Scene ceiling, shared by the director, the storyboard and the scene plan.
@@ -17,6 +19,14 @@ class StoryboardScene(BaseModel):
     narration: str | None = None
     visual_objects: list[dict] = Field(default_factory=list)
     equations: list[str] = Field(default_factory=list)
+    #: Selective read: items from the immediately preceding board that this
+    #: scene needs in order to make its next statement intelligible.
+    read_from_previous: list[Literal["diagram", "equation"]] = Field(default_factory=list)
+    #: Selective write: a short bridge such as "using the velocity above".
+    #: This connects a retained item to the new step without copying a board.
+    bridge_text: str | None = Field(default=None, max_length=120)
+    #: Selective forget: items that must leave once this scene has been read.
+    forget_after: list[Literal["diagram", "equation"]] = Field(default_factory=list)
     editable: bool = True
 
     # `transitions` used to live here. The assembler decides transitions now —

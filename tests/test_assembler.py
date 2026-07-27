@@ -237,17 +237,33 @@ class TestEmission(unittest.TestCase):
         """
         repeated = plan(
             SceneAssignment(title="The tangent", component="tangent_secant", parameters={**PLOT, "at": 3.0}, caption="f'(3)=2"),
-            SceneAssignment(title="Rise over run", component="tangent_secant", parameters={**PLOT, "at": 3.0}, caption="m=2"),
-            SceneAssignment(title="Derivative", component="tangent_secant", parameters={**PLOT, "at": 3.0}),
+            SceneAssignment(title="Rise over run", component="tangent_secant", parameters={**PLOT, "at": 3.0}, caption="m=2", read_from_previous=["diagram", "equation"], bridge_text="Use the tangent above"),
+            SceneAssignment(title="Derivative", component="tangent_secant", parameters={**PLOT, "at": 3.0}, read_from_previous=["diagram"], forget_after=["diagram"]),
         )
         code = assemble(repeated)
         ast.parse(code)
         self.assertEqual(manim_validate_code(code)["valid"], True)
         self.assertEqual(code.count("built = build("), 1)  # built once, not three times
         self.assertEqual(code.count("unchanged from the previous scene"), 2)
-        # The words still change on every scene.
-        self.assertEqual(code.count("FadeOut(m) for m in chrome"), 3)
+        # Selective forget clears normal chrome; the selected equation remains.
+        self.assertEqual(code.count("FadeOut(m) for m in chrome"), 2)
         self.assertIn("Rise over run", code)
+
+    def test_selective_read_write_keeps_only_the_previous_line(self):
+        code = assemble(plan(
+            SceneAssignment(title="Start", component="function_plot", parameters=PLOT, caption="f(x)=x^2"),
+            SceneAssignment(title="Differentiate", component="function_plot", parameters=PLOT, caption="f'(x)=2x", read_from_previous=["diagram", "equation"], bridge_text="Differentiate the function above"),
+        ))
+        self.assertIn("forgotten = [m for m in chrome if m is not equation_memory]", code)
+        self.assertIn("equation_memory.animate.scale(0.72)", code)
+        self.assertIn("Differentiate the function above", code)
+
+    def test_selective_forget_removes_completed_board_items(self):
+        code = assemble(plan(
+            SceneAssignment(title="Finish", component="function_plot", parameters=PLOT, caption="f'(x)=2x", forget_after=["diagram", "equation"]),
+        ))
+        self.assertIn("FadeOut(equation_memory)", code)
+        self.assertIn("FadeOut(stage), run_time=0.3", code)
 
     def test_a_different_parameter_rebuilds_the_picture(self):
         """Same component, different `at` — that is a new picture, not a repeat."""

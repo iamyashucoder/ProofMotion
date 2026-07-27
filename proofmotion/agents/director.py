@@ -95,6 +95,15 @@ the components themselves — a component owns its own axis ranges, label
 positions and text fitting. Choosing the right component is how you control the
 picture; arranging it is not your decision to make.
 
+Treat the animation as one evolving board, not a sequence of unrelated slides.
+For every scene decide three things explicitly:
+- Selective read: set read_from_previous to "diagram" and/or "equation" only
+  when that exact item from the preceding board is needed to understand this step.
+- Selective write: use bridge_text for one short connecting phrase, for example
+  "Use the velocity obtained above". Then add only the new equation or visual.
+- Selective forget: set forget_after for a diagram or equation once its role is
+  complete. Never retain a whole board just because it was shown before.
+
 Confirm every equation typesets with typeset_check before putting it in a scene.
 
 Ask for everything you need in one turn rather than one call at a time. Four

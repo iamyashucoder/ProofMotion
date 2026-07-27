@@ -35,6 +35,7 @@ from proofmotion.compose import (
     plan_from_storyboard,
     select_components,
 )
+from proofmotion.knowledge.answer_oracle import audit_final_answer
 from proofmotion.learned import load_all as load_learned
 from proofmotion.runtime.events import BUS, artifact, headline, stage
 from proofmotion.runtime.registry import ToolError
@@ -81,6 +82,41 @@ def _is_creator_study_prompt(prompt: str) -> bool:
     text = prompt.lower()
     markers = ("content creator", "study animation", "educational animation", "study purpose", "3blue1brown", "3 blue 1 brown")
     return any(marker in text for marker in markers)
+
+
+def _repair_against_reference(
+    client: Any,
+    intent: Any,
+    prompt: str,
+    plan: Any,
+    exam_requirements: dict[str, Any] | None,
+) -> tuple[Any, dict[str, Any]]:
+    """Reject a result only when an exact, source-attributed reference disagrees.
+
+    This does not alter the normal path for novel questions.  For a matched
+    record, the planner gets one focused chance to recompute the concepts,
+    physics, and arithmetic.  A remaining disagreement blocks the run before
+    it can render an authoritative-looking but contradicted answer.
+    """
+    audit = audit_final_answer(prompt, plan.final_answer_latex)
+    if audit["status"] != "mismatch":
+        return plan, audit
+
+    reference = audit["reference"]
+    feedback = (
+        "A vetted reference-answer audit disagreed with this plan. Recompute every governing principle, "
+        "assumption, algebraic transformation, numerical substitution, unit check, and final answer. "
+        f"Expected final answer: {reference['answer_latex']}. Source: {reference['source']}. "
+        "Do not copy it blindly: derive it and make the last step equal to it."
+    )
+    headline("Reference answer disagreed; recomputing the full derivation before visualisation", "warned")
+    repaired = plan_mathematics(
+        client,
+        intent,
+        exam_requirements=exam_requirements,
+        completion_feedback=feedback,
+    )
+    return repaired, audit_final_answer(prompt, repaired.final_answer_latex)
 
 
 def _tools_by_agent() -> dict[str, list[str]]:
@@ -284,6 +320,28 @@ def _run(
         completeness = check_solution_completeness(plan, intent)
     if not completeness["complete"]:
         raise LLMError(f"Mathematical plan is incomplete: {'; '.join(completeness['problems'])}")
+
+    # A reference is only used on an exact local match.  Novel prompts retain
+    # the existing symbolic/numeric verification path unchanged.
+    plan, reference_audit = _repair_against_reference(
+        client, intent, user_prompt, plan, exam_requirements
+    )
+    if reference_audit["status"] == "mismatch":
+        reference = reference_audit["reference"]
+        raise LLMError(
+            "Final answer conflicts with a vetted reference after a full recomputation: "
+            f"derived {plan.final_answer_latex!r}, expected {reference['answer_latex']!r}."
+        )
+    # A repaired plan must pass the same completeness gate as the original.
+    completeness = check_solution_completeness(plan, intent)
+    if not completeness["complete"]:
+        raise LLMError(f"Reference-repaired mathematical plan is incomplete: {'; '.join(completeness['problems'])}")
+    state.tool_results["reference_answer_audit"] = reference_audit
+    if reference_audit["status"] == "matched":
+        headline("Final answer independently agrees with a vetted reference", "improved")
+    elif reference_audit["status"] == "no_reference":
+        headline("No exact reference record found; using independent symbolic and numerical checks", "warned")
+
     state.math_plan = plan.model_dump()
     state.tool_results["solution_completeness"] = completeness
     artifact("plan", state.math_plan)

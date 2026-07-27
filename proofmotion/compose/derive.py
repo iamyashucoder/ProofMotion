@@ -89,6 +89,9 @@ def plan_from_storyboard(storyboard: dict[str, Any]) -> ScenePlan | None:
                 component=component,
                 parameters=parameters,
                 caption=equations[0] if equations else "",
+                read_from_previous=[item for item in (scene.get("read_from_previous") or []) if item in {"diagram", "equation"}],
+                bridge_text=str(scene.get("bridge_text") or "")[:120],
+                forget_after=[item for item in (scene.get("forget_after") or []) if item in {"diagram", "equation"}],
                 seconds=min(40.0, max(1.0, float(scene.get("duration_seconds") or 6.0))),
             )
         )
