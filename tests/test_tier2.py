@@ -12,27 +12,53 @@ import unittest
 
 import sympy as sp
 
+from proofmotion.knowledge.jee_cases import CHAPTER_CASES, execute_case
 from proofmotion.runtime.registry import ToolError
 from proofmotion.tools.algebra import symbolic_algebra, symbolic_matrix, symbolic_vector_calculus
 from proofmotion.tools.analysis import numeric_interpolate, numeric_ode, numeric_optimize, symbolic_ode
 from proofmotion.tools.competitive import (
+    ac_phasor_analysis,
+    calorimetry_mix,
     capacitor_network,
+    centre_of_mass,
     chemical_equilibrium_direction,
     circuit_network,
     competitive_exam_catalogue,
     competitive_exam_requirements,
+    coordination_complex_analysis,
+    damped_oscillator,
+    doppler_effect,
+    elasticity_wire,
+    electromagnetic_induction,
     electrostatics_point_charges,
+    fluid_flow_bernoulli,
+    gravitation_orbit,
+    heat_conduction,
     hydrogen_transition,
     ideal_gas_state,
     jee_mechanics,
+    linear_drag_projectile,
+    organic_reference_lookup,
+    photoelectric_effect,
+    polarization_malus,
     power_transmission,
+    radioactive_decay,
+    ray_optics,
+    rigid_body_rotation,
+    rlc_resonance,
+    semiconductor_diode,
     stoichiometry_limit,
+    surface_tension_capillary,
+    terminal_velocity_sphere,
     thermodynamic_process,
+    vector_plane_relation,
+    wave_optics,
     weak_acid_ph,
 )
 from proofmotion.tools.creator import motion_design_audit, study_animation_brief, study_animation_timing
 from proofmotion.tools.discrete import combinatorics, graph_algorithm, logic_table, number_theory
 from proofmotion.tools.geometry import conic_properties, geometry_solve
+from proofmotion.tools.jee_experts import jee_chapter_case, jee_chapter_coverage, jee_chapter_expert
 from proofmotion.tools.statistics import linear_regression, monte_carlo, probability, statistics_summary
 
 
@@ -231,6 +257,42 @@ class CompetitiveExamTests(unittest.TestCase):
         self.assertAlmostEqual(result["period"], 2 * math.pi * math.sqrt(2))
         self.assertAlmostEqual(result["period"], result["period_from_l"])
 
+    def test_rotation_centre_of_mass_and_orbit(self):
+        rotation = rigid_body_rotation("disc", mass_kg=2, radius_m=1, torque_nm=4)
+        self.assertAlmostEqual(rotation["moment_of_inertia_kg_m2"], 1.0)
+        self.assertAlmostEqual(rotation["angular_acceleration_rad_per_s2"], 4.0)
+        centre = centre_of_mass([1, 3], [[0, 0], [4, 0]])
+        self.assertEqual(centre["centre_of_mass_m"], [3.0, 0.0])
+        orbit = gravitation_orbit(1, 5.972e24, 6.371e6)
+        self.assertAlmostEqual(orbit["escape_speed_m_per_s"], math.sqrt(2) * orbit["orbital_speed_m_per_s"])
+
+    def test_damping_terminal_velocity_and_decay(self):
+        oscillator = damped_oscillator(mass_kg=1, stiffness_n_per_m=4, damping_kg_per_s=2)
+        self.assertEqual(oscillator["regime"], "underdamped")
+        self.assertAlmostEqual(oscillator["damped_angular_frequency"], math.sqrt(3))
+        falling = terminal_velocity_sphere(0.001, 2000, 1000, 1, gravity=10)
+        self.assertEqual(falling["direction"], "downward")
+        self.assertAlmostEqual(falling["terminal_velocity_m_per_s"], 2 / 900)
+        decay = radioactive_decay(100, half_life_s=10, time_s=10)
+        self.assertAlmostEqual(decay["remaining_nuclei"], 50.0)
+        self.assertAlmostEqual(decay["decayed_fraction"], 0.5)
+
+    def test_extended_jee_physics_tools_match_known_results(self):
+        wire = elasticity_wire(100, 2, 1e-4, 2e11)
+        self.assertAlmostEqual(wire["extension_m"], 1e-5)
+        capillary = surface_tension_capillary(0.072, 0.001, 0, 1000, gravity=10)
+        self.assertAlmostEqual(capillary["height_m"], 0.0144)
+        mixture = calorimetry_mix([1, 1], [1000, 1000], [300, 400])
+        self.assertAlmostEqual(mixture["equilibrium_temperature_k"], 350)
+        self.assertAlmostEqual(doppler_effect(1000, 340, observer_speed_m_per_s=34)["observed_frequency_hz"], 1100)
+        self.assertAlmostEqual(ray_optics(0.1, 0.3)["image_distance_m"], 0.15)
+        self.assertEqual(photoelectric_effect(2, 1.9)["emission"], False)
+        self.assertAlmostEqual(photoelectric_effect(2, 5)["stopping_potential_v"], 3)
+        self.assertAlmostEqual(semiconductor_diode(5, 100)["current_a"], 0.043)
+        self.assertAlmostEqual(heat_conduction(2, 1, 400, 300, 0.5)["heat_flow_rate_w"], 400)
+        self.assertAlmostEqual(rlc_resonance(10, 1, 0.25, 20)["resonant_frequency_hz"], 1 / math.pi)
+        self.assertAlmostEqual(polarization_malus(100, 60)["transmitted_intensity"], 25)
+
     def test_core_physical_chemistry_tools(self):
         reaction = stoichiometry_limit([2, 5], [1, 2], product_coefficient=2, product_molar_mass=18)
         self.assertEqual(reaction["limiting_reactant_indices"], [0])
@@ -248,6 +310,11 @@ class CompetitiveExamTests(unittest.TestCase):
         self.assertAlmostEqual(result["line_current_a"], 15)
         self.assertEqual(result["step_down_ratio"], "200:1")
         self.assertAlmostEqual(result["line_loss_reduction_factor"], 100)
+
+    def test_linear_drag_projectile_matches_the_given_wall_distance(self):
+        result = linear_drag_projectile(0.2, 0.1, 270, 60, 2, e_approx=2.7)
+        self.assertAlmostEqual(result["beta_per_s"], 0.5)
+        self.assertAlmostEqual(result["position_at_time_m"]["x"], 170.0, places=6)
 
     def test_full_pcm_catalogue_exposes_coverage_and_database_gaps(self):
         catalogue = competitive_exam_catalogue()
@@ -273,6 +340,15 @@ class CompetitiveExamTests(unittest.TestCase):
         self.assertAlmostEqual(lyman["wavelength_nm"], 121.55, places=1)
         self.assertEqual(chemical_equilibrium_direction(0.1, 1)["direction"], "forward, toward products")
 
+    def test_advanced_visual_topics_have_checked_tools(self):
+        self.assertAlmostEqual(ac_phasor_analysis(100, 5, 60)["real_power_w"], 250)
+        self.assertAlmostEqual(electromagnetic_induction(100, 0.1, 0.3, 2)["induced_emf_v"], -10)
+        self.assertAlmostEqual(wave_optics("double_slit", 600, 2, 0.5)["distance_mm"], 2.4)
+        self.assertAlmostEqual(fluid_flow_bernoulli(2, 1, 3, 100000)["speed_2_m_per_s"], 6)
+        self.assertEqual(organic_reference_lookup("sn2")["product_prediction_allowed"], False)
+        self.assertEqual(coordination_complex_analysis(6, 5)["geometry"], "octahedral")
+        self.assertTrue(vector_plane_relation([1, -1, 0], [1, 1, 0, 0])["parallel_to_plane"])
+
 
 class CreatorToolTests(unittest.TestCase):
     def test_calculus_brief_requests_continuous_visual_motion(self):
@@ -290,6 +366,38 @@ class CreatorToolTests(unittest.TestCase):
             {"primitive": "spin", "purpose": ""},
         ])
         self.assertFalse(audit["approved"])
+
+
+class ChapterExpertRegistryTests(unittest.TestCase):
+    def test_every_pcm_chapter_is_individually_profiled(self):
+        report = jee_chapter_coverage()
+        self.assertGreaterEqual(report["total"], 100)
+        self.assertTrue({"physics", "chemistry", "mathematics"} <= report["by_subject"].keys())
+        self.assertEqual(report["readiness"]["planned"], 0)
+        self.assertEqual(report["readiness"]["infrastructure_ready"], report["total"])
+        expert = jee_chapter_expert("electromagnetic induction")
+        self.assertTrue(expert["solver_or_reference"])
+        self.assertTrue(expert["verification"])
+        self.assertTrue(expert["visuals"])
+        self.assertEqual(expert["syllabus_sources"], ["jee_advanced_2026", "jee_main_2026"])
+        self.assertTrue(expert["representative_test_required"])
+        self.assertEqual(expert["evidence"]["tool_test"], "passed")
+        self.assertIsNone(expert["evidence"]["render_review"])
+        self.assertTrue(all(not chapter["missing_verification"] for chapter in report["chapters"].values()))
+
+    def test_every_chapter_has_a_passing_known_answer_case(self):
+        self.assertEqual(set(CHAPTER_CASES), set(jee_chapter_coverage()["chapters"]))
+        for identifier in CHAPTER_CASES:
+            with self.subTest(chapter=identifier):
+                profile = jee_chapter_expert(identifier)
+                self.assertIn(CHAPTER_CASES[identifier]["tool"], profile["solver_or_reference"])
+                self.assertTrue(CHAPTER_CASES[identifier]["expected"])
+                self.assertNotEqual(
+                    CHAPTER_CASES[identifier]["prompt"],
+                    f"Representative known-answer check for {identifier.replace('_', ' ')}.",
+                )
+                self.assertTrue(execute_case(identifier)["passed"])
+        self.assertTrue(jee_chapter_case("ray optics", execute=True)["passed"])
 
 
 if __name__ == "__main__":

@@ -81,6 +81,10 @@ class RegistrationTests(unittest.TestCase):
         for name in ("component_search", "component_build"):
             self.assertIn(name, REGISTRY.names, f"{name} is missing from the registry")
 
+    def test_competitive_math_visuals_are_registered(self):
+        for name in ("number_line_marks", "unit_circle", "geometry_construction", "matrix_transform", "distribution_plot"):
+            self.assertIn(name, COMPONENTS)
+
 
 class CodeRecoveryTests(unittest.TestCase):
     """A run once failed with "the coding agent returned no code" while the agent
@@ -665,6 +669,11 @@ class ComponentTests(unittest.TestCase):
         with tempconfig({"dry_run": True}):
             built = build("power_transmission_diagram", {"power_kw": 600, "plant_voltage": 4000, "step_up_ratio": 10, "consumer_voltage": 200})
         self.assertTrue({"power_plant", "step_up_transformer", "high_voltage_line", "step_down_transformer", "consumers"} <= built.parts.keys())
+
+    def test_linear_drag_projectile_marks_the_wall_and_exact_trajectory(self):
+        with tempconfig({"dry_run": True}):
+            built = build("linear_drag_projectile", {"mass_kg": 0.2, "drag_coefficient": 0.1, "speed": 270, "angle_deg": 60, "wall_time": 2, "e_approx": 2.7})
+        self.assertTrue({"axes", "trajectory", "wall", "projectile", "labels"} <= built.parts.keys())
 
     def test_story_components_provide_real_2d_characters_and_vehicles(self):
         with tempconfig({"dry_run": True}):

@@ -278,6 +278,62 @@ def projectile_motion(p: ProjectileParams) -> Built:
     )
 
 
+class LinearDragProjectileParams(BaseModel):
+    mass_kg: float = Field(default=0.2, gt=0)
+    drag_coefficient: float = Field(default=0.1, gt=0, description="Linear-drag coefficient c in kg/s.")
+    speed: float = Field(default=270.0, gt=0)
+    angle_deg: float = Field(default=60.0, gt=0, lt=90)
+    wall_time: float = Field(default=2.0, gt=0)
+    gravity: float = Field(default=GRAVITY, gt=0)
+    e_approx: float | None = Field(default=None, gt=0, description="Use only when the question supplies an approximation for e.")
+    region: str = "stage"
+
+
+@component(version=1, domain="physics", params=LinearDragProjectileParams)
+def linear_drag_projectile(p: LinearDragProjectileParams) -> Built:
+    """Exact F=-cv trajectory, with its wall position marked at a chosen time."""
+    import numpy as np
+    from manim import Axes, DashedLine, Dot, Line, MathTex, VGroup
+
+    beta = p.drag_coefficient / p.mass_kg
+    theta = math.radians(p.angle_deg)
+    ux, uy = p.speed * math.cos(theta), p.speed * math.sin(theta)
+
+    def position(time: float) -> tuple[float, float]:
+        decay = math.exp(-beta * time) if p.e_approx is None else p.e_approx ** (-beta * time)
+        x = ux * (1 - decay) / beta
+        y = (uy + p.gravity / beta) * (1 - decay) / beta - p.gravity * time / beta
+        return x, y
+
+    x_wall, y_wall = position(p.wall_time)
+    samples = [position(p.wall_time * index / 100) for index in range(101)]
+    max_y = max(y for _, y in samples)
+    axes = Axes(
+        x_range=[0, x_wall * 1.14, max(x_wall / 4, 1)], y_range=[0, max_y * 1.22, max(max_y / 3, 1)],
+        x_length=8.2, y_length=3.9, tips=False,
+        axis_config={"include_numbers": True, "color": "#9aa7bd", "font_size": 18},
+    )
+    trajectory = VGroup(*[
+        Line(axes.c2p(*samples[index]), axes.c2p(*samples[index + 1]), color="#fbbf24", stroke_width=4)
+        for index in range(len(samples) - 1)
+    ])
+    projectile = Dot(axes.c2p(x_wall, y_wall), radius=0.09, color=BODY_COLOR)
+    wall = Line(axes.c2p(x_wall, 0), axes.c2p(x_wall, max_y * 1.1), color="#f87171", stroke_width=6)
+    hit_guide = DashedLine(axes.c2p(x_wall, 0), axes.c2p(x_wall, y_wall), color="#94a3b8", stroke_width=2)
+    labels = VGroup(
+        MathTex(r"\vec F_d=-c\vec v", font_size=25, color="#f87171").next_to(axes, np.array([0.0, 1.0, 0.0]), buff=0.18),
+        MathTex(rf"\frac{{c}}{{m}}={beta:g}\,\mathrm{{s^{{-1}}}}", font_size=22).next_to(axes, np.array([1.0, 0.0, 0.0]), buff=0.24),
+        MathTex(rf"t={p.wall_time:g}\,\mathrm{{s}}", font_size=22).next_to(projectile, np.array([0.0, 1.0, 0.0]), buff=0.12),
+        MathTex(rf"x={x_wall:.0f}\,\mathrm{{m}}", font_size=25, color="#4ade80").next_to(axes.c2p(x_wall, 0), np.array([0.0, -1.0, 0.0]), buff=0.18),
+    )
+    parts: dict[str, object] = {"axes": axes, "trajectory": trajectory, "wall": wall, "hit_guide": hit_guide, "projectile": projectile, "labels": labels}
+    group = VGroup(axes, trajectory, wall, hit_guide, projectile, labels)
+    beats = [["axes", "wall"], ["trajectory"], ["hit_guide", "projectile"], ["labels"]]
+    place(group, layout("title_stage_caption")[p.region])
+    approximation = f" using e={p.e_approx:g}" if p.e_approx is not None else " exactly"
+    return Built(group=group, parts=parts, beats=beats, notes=f"linear drag c/m={beta:g}/s; wall at t={p.wall_time:g}s is x={x_wall:.6f}m, y={y_wall:.6f}m{approximation}")
+
+
 class InclinedPlaneParams(BaseModel):
     angle_deg: float = Field(gt=1, lt=80, description="Slope angle above the horizontal.")
     show_components: bool = Field(default=True, description="Resolve the weight along and into the slope.")

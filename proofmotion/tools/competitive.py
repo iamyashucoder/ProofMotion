@@ -202,6 +202,52 @@ def jee_mechanics(
 
 
 @tool
+def linear_drag_projectile(
+    mass_kg: float,
+    drag_coefficient_kg_per_s: float,
+    launch_speed: float,
+    angle_deg: float,
+    time_s: float,
+    gravity: float = 9.8,
+    e_approx: float | None = None,
+) -> dict[str, Any]:
+    """Solve a projectile exactly when drag force is F_drag=-c*v.
+
+    The horizontal coordinate is x(t)=u*cos(theta)*(1-exp(-c*t/m))/(c/m).
+    Use this rather than the parabolic no-drag range formula.
+
+    Args:
+        mass_kg: Projectile mass in kg.
+        drag_coefficient_kg_per_s: Linear drag coefficient c in kg/s.
+        launch_speed: Initial speed u in m/s.
+        angle_deg: Launch angle above horizontal in degrees.
+        time_s: Time at which the wall is struck, in seconds.
+        gravity: Positive gravitational acceleration in m/s^2.
+        e_approx: Optional supplied approximation for e, e.g. 2.7. When set,
+            use this only because the question explicitly requests it.
+    """
+    if min(mass_kg, drag_coefficient_kg_per_s, launch_speed, time_s, gravity) <= 0 or not 0 < angle_deg < 90:
+        raise ToolError("mass, drag, speed, time, and gravity must be positive; angle_deg must lie between 0 and 90")
+    beta = drag_coefficient_kg_per_s / mass_kg
+    theta = math.radians(angle_deg)
+    decay = math.exp(-beta * time_s) if e_approx is None else e_approx ** (-beta * time_s)
+    ux, uy = launch_speed * math.cos(theta), launch_speed * math.sin(theta)
+    x = ux * (1 - decay) / beta
+    y = (uy + gravity / beta) * (1 - decay) / beta - gravity * time_s / beta
+    vx = ux * decay
+    vy = (uy + gravity / beta) * decay - gravity / beta
+    return {
+        "beta_per_s": beta, "decay_factor": decay,
+        "used_e_approximation": e_approx,
+        "initial_components_m_per_s": {"ux": ux, "uy": uy},
+        "position_at_time_m": {"x": x, "y": y},
+        "velocity_at_time_m_per_s": {"vx": vx, "vy": vy},
+        "horizontal_equation": "x(t)=u*cos(theta)*(1-exp(-(c/m)t))/(c/m)",
+        "vertical_equation": "y(t)=(u*sin(theta)+g/(c/m))*(1-exp(-(c/m)t))/(c/m)-g*t/(c/m)",
+    }
+
+
+@tool
 def power_transmission(
     power_kw: float,
     generation_voltage: float,
@@ -396,6 +442,251 @@ def chemical_equilibrium_direction(reaction_quotient: float, equilibrium_constan
     else:
         direction = "reverse, toward reactants"
     return {"Q": reaction_quotient, "K": equilibrium_constant, "direction": direction}
+
+
+@tool
+def ac_phasor_analysis(voltage_rms: float, current_rms: float, phase_deg: float) -> dict[str, Any]:
+    """Compute AC power, reactive power, and power factor from RMS phasors."""
+    if voltage_rms <= 0 or current_rms <= 0 or not -90 <= phase_deg <= 90:
+        raise ToolError("RMS values must be positive and phase_deg must lie between -90 and 90")
+    phase = math.radians(phase_deg)
+    return {"apparent_power_va": voltage_rms * current_rms, "power_factor": math.cos(phase), "real_power_w": voltage_rms * current_rms * math.cos(phase), "reactive_power_var": voltage_rms * current_rms * math.sin(phase), "current_relation": "lagging" if phase_deg < 0 else "leading" if phase_deg > 0 else "in phase"}
+
+
+@tool
+def electromagnetic_induction(turns: int, flux_initial_wb: float, flux_final_wb: float, interval_s: float) -> dict[str, Any]:
+    """Apply Faraday's law to compute induced emf and Lenz-law opposition."""
+    if turns <= 0 or interval_s <= 0:
+        raise ToolError("turns and interval_s must be positive")
+    flux_change = flux_final_wb - flux_initial_wb
+    emf = -turns * flux_change / interval_s
+    return {"flux_change_wb": flux_change, "induced_emf_v": emf, "emf_magnitude_v": abs(emf), "law": "emf=-N*DeltaPhi/Delta t", "lenz_law": "induced current opposes the change in magnetic flux"}
+
+
+@tool
+def wave_optics(
+    mode: Literal["double_slit", "single_slit"], wavelength_nm: float, screen_distance_m: float, aperture_mm: float,
+) -> dict[str, Any]:
+    """Compute double-slit fringe spacing or single-slit first-minimum distance."""
+    if min(wavelength_nm, screen_distance_m, aperture_mm) <= 0:
+        raise ToolError("wavelength, screen distance, and aperture must be positive")
+    distance = wavelength_nm * 1e-9 * screen_distance_m / (aperture_mm * 1e-3)
+    return {"mode": mode, "distance_m": distance, "distance_mm": distance * 1000, "equation": "beta=lambda*D/d" if mode == "double_slit" else "y_1=lambda*D/a"}
+
+
+@tool
+def fluid_flow_bernoulli(area_1: float, area_2: float, speed_1: float, pressure_1_pa: float, density: float = 1000.0, height_1_m: float = 0.0, height_2_m: float = 0.0, gravity: float = 9.8) -> dict[str, Any]:
+    """Use continuity and Bernoulli equations for incompressible steady flow."""
+    if min(area_1, area_2, speed_1, density, gravity) <= 0:
+        raise ToolError("areas, speed, density, and gravity must be positive")
+    speed_2 = area_1 * speed_1 / area_2
+    pressure_2 = pressure_1_pa + 0.5 * density * (speed_1**2 - speed_2**2) + density * gravity * (height_1_m - height_2_m)
+    return {"speed_2_m_per_s": speed_2, "pressure_2_pa": pressure_2, "continuity": "A1*v1=A2*v2", "bernoulli": "P+rho*v^2/2+rho*g*h=constant"}
+
+
+_ORGANIC_REFERENCE: dict[str, dict[str, str]] = {
+    "sn1": {"mechanism": "carbocation formation followed by nucleophilic attack", "conditions": "tertiary substrate; polar protic solvent", "visual": "organic_mechanism_template"},
+    "sn2": {"mechanism": "single backside nucleophilic attack", "conditions": "primary substrate; strong nucleophile", "visual": "organic_mechanism_template"},
+    "e1": {"mechanism": "carbocation formation followed by deprotonation", "conditions": "tertiary substrate; polar protic solvent", "visual": "organic_mechanism_template"},
+    "e2": {"mechanism": "concerted beta-hydrogen abstraction and leaving-group departure", "conditions": "strong base; anti-periplanar geometry", "visual": "organic_mechanism_template"},
+}
+
+
+@tool
+def organic_reference_lookup(reaction_family: Literal["sn1", "sn2", "e1", "e2"]) -> dict[str, Any]:
+    """Return a vetted mechanism-family reference; never predict an unlisted product."""
+    return {"reaction_family": reaction_family, **_ORGANIC_REFERENCE[reaction_family], "product_prediction_allowed": False, "note": "Use a curated reaction database before naming a specific product."}
+
+
+@tool
+def coordination_complex_analysis(coordination_number: int, d_electrons: int, field: Literal["weak", "strong"] = "weak") -> dict[str, Any]:
+    """Classify common coordination geometry and estimate d-electron unpairing."""
+    if coordination_number not in {4, 6} or not 0 <= d_electrons <= 10:
+        raise ToolError("support currently covers coordination number 4 or 6 and d-electron count 0..10")
+    geometry = "octahedral" if coordination_number == 6 else "tetrahedral_or_square_planar"
+    # Octahedral high/low spin counts; CN=4 requires ligand-specific structural evidence.
+    unpaired = min(d_electrons, 10 - d_electrons) if field == "weak" else (0 if d_electrons in {0, 6, 10} else min(d_electrons, 10 - d_electrons))
+    return {"geometry": geometry, "field": field, "estimated_unpaired_electrons": unpaired, "requires_ligand_evidence_for_exact_geometry": coordination_number == 4}
+
+
+@tool
+def vector_plane_relation(vector: list[float], plane: list[float], point: list[float] | None = None) -> dict[str, Any]:
+    """Check a 3D vector against plane ax+by+cz=d and optionally project a point."""
+    if len(vector) != 3 or len(plane) != 4 or (point is not None and len(point) != 3):
+        raise ToolError("vector needs 3 values, plane needs [a,b,c,d], and point needs 3 values")
+    a, b, c, d = map(float, plane)
+    norm2 = a*a + b*b + c*c
+    if norm2 == 0:
+        raise ToolError("plane normal cannot be zero")
+    dot = a*vector[0] + b*vector[1] + c*vector[2]
+    result: dict[str, Any] = {"normal": [a, b, c], "dot_with_normal": dot, "parallel_to_plane": math.isclose(dot, 0.0, abs_tol=1e-10), "perpendicular_to_plane": vector == [a, b, c]}
+    if point is not None:
+        factor = (a*point[0] + b*point[1] + c*point[2] - d) / norm2
+        result["point_projection"] = [point[i] - factor*[a, b, c][i] for i in range(3)]
+    return result
+
+
+@tool
+def rigid_body_rotation(shape: Literal["ring", "disc", "solid_sphere", "solid_cylinder"], mass_kg: float, radius_m: float, torque_nm: float) -> dict[str, Any]:
+    """Compute moment of inertia and angular acceleration about a symmetry axis."""
+    if min(mass_kg, radius_m) <= 0:
+        raise ToolError("mass_kg and radius_m must be positive")
+    factors = {"ring": 1.0, "disc": 0.5, "solid_sphere": 0.4, "solid_cylinder": 0.5}
+    inertia = factors[shape] * mass_kg * radius_m**2
+    return {"shape": shape, "moment_of_inertia_kg_m2": inertia, "angular_acceleration_rad_per_s2": torque_nm / inertia, "equation": "tau=I*alpha"}
+
+
+@tool
+def centre_of_mass(masses_kg: list[float], positions_m: list[list[float]]) -> dict[str, Any]:
+    """Compute centre of mass of point particles in 1D, 2D, or 3D."""
+    if not masses_kg or len(masses_kg) != len(positions_m) or any(m <= 0 for m in masses_kg):
+        raise ToolError("supply matching positive masses and positions")
+    dimension = len(positions_m[0])
+    if dimension not in {1, 2, 3} or any(len(position) != dimension for position in positions_m):
+        raise ToolError("all positions must have the same dimension of 1, 2, or 3")
+    total = sum(masses_kg)
+    return {"total_mass_kg": total, "centre_of_mass_m": [sum(m * position[i] for m, position in zip(masses_kg, positions_m, strict=True)) / total for i in range(dimension)]}
+
+
+@tool
+def gravitation_orbit(mass_kg: float, central_mass_kg: float, radius_m: float, gravitational_constant: float = 6.67430e-11) -> dict[str, Any]:
+    """Compute circular-orbit speed, period, gravitational field, and escape speed."""
+    if min(mass_kg, central_mass_kg, radius_m, gravitational_constant) <= 0:
+        raise ToolError("masses, radius, and gravitational constant must be positive")
+    mu = gravitational_constant * central_mass_kg
+    return {"orbital_speed_m_per_s": math.sqrt(mu / radius_m), "period_s": 2 * math.pi * math.sqrt(radius_m**3 / mu), "escape_speed_m_per_s": math.sqrt(2 * mu / radius_m), "field_m_per_s2": mu / radius_m**2}
+
+
+@tool
+def damped_oscillator(mass_kg: float, stiffness_n_per_m: float, damping_kg_per_s: float) -> dict[str, Any]:
+    """Classify a damped spring oscillator and compute its damped frequency when applicable."""
+    if min(mass_kg, stiffness_n_per_m) <= 0 or damping_kg_per_s < 0:
+        raise ToolError("mass and stiffness must be positive; damping must be non-negative")
+    omega0 = math.sqrt(stiffness_n_per_m / mass_kg)
+    gamma = damping_kg_per_s / (2 * mass_kg)
+    regime = "underdamped" if gamma < omega0 else "critical" if math.isclose(gamma, omega0) else "overdamped"
+    return {"natural_angular_frequency": omega0, "damping_constant": gamma, "regime": regime, "damped_angular_frequency": math.sqrt(max(0.0, omega0**2 - gamma**2))}
+
+
+@tool
+def terminal_velocity_sphere(radius_m: float, sphere_density: float, fluid_density: float, viscosity_pa_s: float, gravity: float = 9.8) -> dict[str, Any]:
+    """Use Stokes drag to compute a sphere's low-Reynolds-number terminal velocity."""
+    if min(radius_m, sphere_density, fluid_density, viscosity_pa_s, gravity) <= 0:
+        raise ToolError("all physical inputs must be positive")
+    velocity = 2 * radius_m**2 * gravity * (sphere_density - fluid_density) / (9 * viscosity_pa_s)
+    return {"terminal_velocity_m_per_s": velocity, "direction": "downward" if velocity > 0 else "upward", "equation": "v_t=2*r^2*g*(rho_s-rho_f)/(9*eta)"}
+
+
+@tool
+def radioactive_decay(initial_nuclei: float, half_life_s: float, time_s: float) -> dict[str, Any]:
+    """Compute remaining nuclei, decayed fraction, and decay constant from half-life."""
+    if min(initial_nuclei, half_life_s, time_s) < 0 or initial_nuclei <= 0 or half_life_s <= 0:
+        raise ToolError("initial nuclei and half-life must be positive; time must be non-negative")
+    decay_constant = math.log(2) / half_life_s
+    remaining = initial_nuclei * math.exp(-decay_constant * time_s)
+    return {"remaining_nuclei": remaining, "decayed_fraction": 1 - remaining / initial_nuclei, "decay_constant_per_s": decay_constant, "equation": "N=N0*exp(-lambda*t)"}
+
+
+@tool
+def elasticity_wire(force_n: float, length_m: float, area_m2: float, young_modulus_pa: float) -> dict[str, Any]:
+    """Compute extension, stress, strain, and elastic energy of a uniform wire."""
+    if min(length_m, area_m2, young_modulus_pa) <= 0:
+        raise ToolError("length, area, and Young modulus must be positive")
+    stress = force_n / area_m2
+    strain = stress / young_modulus_pa
+    extension = strain * length_m
+    return {"stress_pa": stress, "strain": strain, "extension_m": extension, "elastic_energy_j": 0.5 * force_n * extension, "equation": "Delta L=F*L/(A*Y)"}
+
+
+@tool
+def surface_tension_capillary(surface_tension_n_per_m: float, radius_m: float, contact_angle_deg: float, density: float, gravity: float = 9.8) -> dict[str, Any]:
+    """Compute capillary rise/depression in a circular tube from surface tension."""
+    if min(surface_tension_n_per_m, radius_m, density, gravity) <= 0:
+        raise ToolError("surface tension, radius, density, and gravity must be positive")
+    rise = 2 * surface_tension_n_per_m * math.cos(math.radians(contact_angle_deg)) / (density * gravity * radius_m)
+    return {"height_m": rise, "height_cm": rise * 100, "direction": "rise" if rise >= 0 else "depression", "equation": "h=2*T*cos(theta)/(rho*g*r)"}
+
+
+@tool
+def calorimetry_mix(masses_kg: list[float], specific_heats_j_per_kg_k: list[float], temperatures_k: list[float]) -> dict[str, Any]:
+    """Find equilibrium temperature for insulated mixing with no phase change."""
+    if not masses_kg or not (len(masses_kg) == len(specific_heats_j_per_kg_k) == len(temperatures_k)):
+        raise ToolError("supply matching non-empty masses, specific heats, and temperatures")
+    capacities = [m * c for m, c in zip(masses_kg, specific_heats_j_per_kg_k, strict=True)]
+    if any(value <= 0 for value in capacities) or any(temp <= 0 for temp in temperatures_k):
+        raise ToolError("masses, specific heats, and absolute temperatures must be positive")
+    final = sum(capacity * temp for capacity, temp in zip(capacities, temperatures_k, strict=True)) / sum(capacities)
+    return {"equilibrium_temperature_k": final, "heat_capacities_j_per_k": capacities, "equation": "sum(m*c*(Tf-Ti))=0"}
+
+
+@tool
+def doppler_effect(source_frequency_hz: float, wave_speed_m_per_s: float, observer_speed_m_per_s: float = 0.0, source_speed_m_per_s: float = 0.0, approaching: bool = True) -> dict[str, Any]:
+    """Compute observed frequency for collinear source/observer motion in a medium."""
+    if min(source_frequency_hz, wave_speed_m_per_s) <= 0 or abs(source_speed_m_per_s) >= wave_speed_m_per_s:
+        raise ToolError("frequency and wave speed must be positive; source speed magnitude must be below wave speed")
+    sign = 1 if approaching else -1
+    observed = source_frequency_hz * (wave_speed_m_per_s + sign * observer_speed_m_per_s) / (wave_speed_m_per_s - sign * source_speed_m_per_s)
+    return {"observed_frequency_hz": observed, "frequency_shift_hz": observed - source_frequency_hz, "equation": "f'=f*(v +/- vo)/(v -/+ vs)"}
+
+
+@tool
+def ray_optics(focal_length_m: float, object_distance_m: float) -> dict[str, Any]:
+    """Apply the Cartesian lens formula 1/f=1/v-1/u using positive distances as magnitudes."""
+    if focal_length_m == 0 or object_distance_m <= 0:
+        raise ToolError("focal length must be non-zero and object distance must be positive")
+    # With u=-object_distance in the Cartesian convention.
+    denominator = 1 / focal_length_m - 1 / object_distance_m
+    if math.isclose(denominator, 0.0, abs_tol=1e-12):
+        return {"image_distance_m": None, "image_type": "at_infinity", "equation": "1/f=1/v-1/u"}
+    image_distance = 1 / denominator
+    magnification = image_distance / -object_distance_m
+    return {"image_distance_m": image_distance, "magnification": magnification, "image_type": "real" if image_distance > 0 else "virtual", "equation": "1/f=1/v-1/u"}
+
+
+@tool
+def photoelectric_effect(work_function_ev: float, photon_energy_ev: float) -> dict[str, Any]:
+    """Compute photoelectron kinetic energy and stopping potential from Einstein's equation."""
+    if min(work_function_ev, photon_energy_ev) < 0:
+        raise ToolError("work function and photon energy must be non-negative")
+    kinetic = max(0.0, photon_energy_ev - work_function_ev)
+    return {"emission": photon_energy_ev >= work_function_ev, "max_kinetic_energy_ev": kinetic, "stopping_potential_v": kinetic, "equation": "Kmax=Ephoton-phi"}
+
+
+@tool
+def semiconductor_diode(supply_voltage_v: float, resistance_ohm: float, threshold_voltage_v: float = 0.7, forward_biased: bool = True) -> dict[str, Any]:
+    """Use the constant-voltage diode model to compute circuit current."""
+    if resistance_ohm <= 0 or min(supply_voltage_v, threshold_voltage_v) < 0:
+        raise ToolError("resistance must be positive and voltages must be non-negative")
+    conducts = forward_biased and supply_voltage_v > threshold_voltage_v
+    current = (supply_voltage_v - threshold_voltage_v) / resistance_ohm if conducts else 0.0
+    return {"conducting": conducts, "current_a": current, "diode_voltage_v": threshold_voltage_v if conducts else supply_voltage_v, "model": "constant-voltage diode"}
+
+
+@tool
+def heat_conduction(conductivity_w_per_m_k: float, area_m2: float, temperature_hot_k: float, temperature_cold_k: float, thickness_m: float) -> dict[str, Any]:
+    """Compute steady one-dimensional conductive heat flow through a slab."""
+    if min(conductivity_w_per_m_k, area_m2, thickness_m, temperature_hot_k, temperature_cold_k) <= 0:
+        raise ToolError("conductivity, area, thickness, and absolute temperatures must be positive")
+    rate = conductivity_w_per_m_k * area_m2 * (temperature_hot_k - temperature_cold_k) / thickness_m
+    return {"heat_flow_rate_w": rate, "direction": "hot_to_cold" if rate >= 0 else "cold_to_hot", "equation": "Qdot=k*A*(Th-Tc)/L"}
+
+
+@tool
+def rlc_resonance(resistance_ohm: float, inductance_h: float, capacitance_f: float, voltage_rms_v: float) -> dict[str, Any]:
+    """Compute series-RLC resonance frequency, quality factor, and resonant current."""
+    if min(resistance_ohm, inductance_h, capacitance_f, voltage_rms_v) <= 0:
+        raise ToolError("resistance, inductance, capacitance, and voltage must be positive")
+    angular = 1 / math.sqrt(inductance_h * capacitance_f)
+    return {"resonant_angular_frequency_rad_per_s": angular, "resonant_frequency_hz": angular / (2 * math.pi), "quality_factor": angular * inductance_h / resistance_ohm, "resonant_current_a": voltage_rms_v / resistance_ohm, "equation": "omega0=1/sqrt(LC)"}
+
+
+@tool
+def polarization_malus(initial_intensity: float, angle_deg: float) -> dict[str, Any]:
+    """Apply Malus's law to ideal polarizers."""
+    if initial_intensity < 0:
+        raise ToolError("initial intensity must be non-negative")
+    transmitted = initial_intensity * math.cos(math.radians(angle_deg)) ** 2
+    return {"transmitted_intensity": transmitted, "transmission_fraction": transmitted / initial_intensity if initial_intensity else 0.0, "equation": "I=I0*cos^2(theta)"}
 
 
 @tool
