@@ -200,5 +200,76 @@ class VerifierIntegrationTests(unittest.TestCase):
         self.assertIn("EOF", report["checks"][0]["note"])
 
 
+class SolutionCompletenessTests(unittest.TestCase):
+    def _intent(self):
+        from schemas.intent import AnimationIntent
+
+        return AnimationIntent(topic="braking", domain="mechanics", educational_goal="solve", requires_derivation=True)
+
+    def _steps(self):
+        from schemas.math_plan import MathStep
+
+        return [
+            MathStep(index=1, concept="given", equation_latex="u=20", explanation="initial speed"),
+            MathStep(index=2, concept="formula", equation_latex="s=ut", explanation="use displacement"),
+            MathStep(index=3, concept="answer", equation_latex="s=80", explanation="substitute"),
+        ]
+
+    def _complete_plan(self):
+        from schemas.math_plan import MathematicalPlan
+
+        return MathematicalPlan(
+            topic="braking", concept_sequence=self._steps(),
+            given_quantities=["u=20 m/s", "t=4 s"], unknown="distance s",
+            governing_principles=["constant-acceleration kinematics"],
+            final_answer_latex="s=80", final_answer_explanation="The bus travels 80 m.",
+        )
+
+    def test_rejects_missing_final_answer_even_when_equations_exist(self):
+        from proofmotion.agents.completeness import check_solution_completeness
+        from schemas.math_plan import MathematicalPlan
+
+        report = check_solution_completeness(MathematicalPlan(topic="braking", concept_sequence=self._steps()), self._intent())
+        self.assertFalse(report["complete"])
+        self.assertIn("missing final_answer_latex", report["problems"])
+
+    def test_accepts_complete_worked_solution(self):
+        from proofmotion.agents.completeness import check_solution_completeness
+
+        plan = self._complete_plan()
+        self.assertTrue(check_solution_completeness(plan, self._intent())["complete"])
+
+    def test_rejects_a_short_derivation(self):
+        from proofmotion.agents.completeness import check_solution_completeness
+        from schemas.math_plan import MathematicalPlan, MathStep
+
+        plan = MathematicalPlan(
+            topic="braking", concept_sequence=[MathStep(index=1, concept="answer", equation_latex="s=80", explanation="answer")],
+            given_quantities=["u=20"], unknown="s", governing_principles=["kinematics"],
+            final_answer_latex="s=80", final_answer_explanation="distance",
+        )
+        report = check_solution_completeness(plan, self._intent())
+        self.assertFalse(report["complete"])
+        self.assertIn("a requested derivation needs at least three explicit mathematical steps", report["problems"])
+
+    def test_rejects_a_final_answer_not_derived_by_the_steps(self):
+        from proofmotion.agents.completeness import check_solution_completeness
+
+        plan = self._complete_plan()
+        plan.final_answer_latex = "s=40"
+        report = check_solution_completeness(plan, self._intent())
+        self.assertFalse(report["complete"])
+        self.assertIn("final_answer_latex does not match the last derived equation", report["problems"])
+
+    def test_storyboard_must_show_a_dedicated_final_answer(self):
+        from proofmotion.agents.completeness import check_storyboard_final_answer
+        from schemas.storyboard import Storyboard, StoryboardScene
+
+        incomplete = Storyboard(teaching_strategy="test", scenes=[StoryboardScene(scene_id="one", purpose="work", title="Working", duration_seconds=2, equations=["x=1"])])
+        self.assertFalse(check_storyboard_final_answer(incomplete, "x=1")["complete"])
+        complete = Storyboard(teaching_strategy="test", scenes=[StoryboardScene(scene_id="answer", purpose="state result", title="FINAL ANSWER", duration_seconds=2, equations=["x=1"])])
+        self.assertTrue(check_storyboard_final_answer(complete, "x=1")["complete"])
+
+
 if __name__ == "__main__":
     unittest.main()

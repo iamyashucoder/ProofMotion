@@ -268,14 +268,19 @@ class SceneInspectionTests(unittest.TestCase):
 
 
 class PacingTests(unittest.TestCase):
-    def test_step_budget_scales_with_duration_and_stays_bounded(self):
-        from proofmotion.agents.planner import _step_budget
+    def test_planner_never_caps_a_requested_derivation_by_duration(self):
+        from proofmotion.agents.planner import SYSTEM
 
-        self.assertEqual(_step_budget(20), 3)
-        self.assertEqual(_step_budget(30), 5)
-        # An 11-step plan for a 30s animation is what made runs feel endless.
-        self.assertLessEqual(_step_budget(600), 8)
-        self.assertGreaterEqual(_step_budget(1), 3)
+        self.assertNotIn("at most", SYSTEM)
+        self.assertIn("Do not compress a derivation", SYSTEM)
+        self.assertIn("final_answer_latex", SYSTEM)
+
+    def test_numerical_question_is_treated_as_a_worked_problem(self):
+        from proofmotion.pipeline import _is_worked_problem_prompt
+
+        self.assertTrue(_is_worked_problem_prompt("A 2 kg mass moves under a force. Find its acceleration."))
+        self.assertTrue(_is_worked_problem_prompt("Derive the time period of small oscillations."))
+        self.assertFalse(_is_worked_problem_prompt("Visualize a sine wave."))
 
 
 class RepairExtractionTests(unittest.TestCase):

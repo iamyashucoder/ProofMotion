@@ -92,6 +92,9 @@ def verify_plan(plan: MathematicalPlan) -> dict[str, Any]:
             continue
         checks.append({"step": step.index, **_check_equation(step.equation_latex)})
 
+    if plan.final_answer_latex:
+        checks.append({"step": "final_answer", **_check_equation(plan.final_answer_latex)})
+
     failures = [
         check
         for check in checks

@@ -102,6 +102,11 @@ and round trips are most of the time this stage takes.
 Give each scene a purpose, a duration proportional to how much there is to read,
 and narration that would make sense read aloud.
 
+The final scene is mandatory: title it exactly "FINAL ANSWER", include the
+verified final_answer_latex as an equation, and state in narration what the
+answer means with its units or conditions. It must not be replaced by a diagram
+or a prose conclusion.
+
 Give each scene a title too: the few words that go on screen above it, like
 "Slope of the tangent". That is not the purpose restated — the purpose is a
 sentence for the pipeline, and a sentence rendered as a heading gets shrunk
@@ -127,14 +132,8 @@ def direct_storyboard(
             f"Topic: {intent.topic}\n"
             f"Audience: {intent.audience} ({intent.difficulty})\n"
             f"Goal: {intent.educational_goal}\n"
-            f"Target length: about {intent.duration_seconds} seconds\n"
-            # Roughly one scene per five seconds rather than per eight. Smaller
-            # steps are the point: a step the viewer watches happen beats one
-            # they have to infer, and the assembler holds an unchanged figure
-            # across scenes, so extra scenes cost transitions, not redraws.
-            f"Budget: aim for {max(4, min(MAX_SCENES, round(intent.duration_seconds / 5)))} scenes "
-            f"(at most {MAX_SCENES}), and the scene durations must total close to "
-            f"{intent.duration_seconds}s\n"
+            f"Final answer: {plan.final_answer_latex or 'MISSING'} — {plan.final_answer_explanation or 'MISSING'}\n"
+            f"Use as many scenes as required for the derivation (at most {MAX_SCENES}); do not remove a mathematical step to shorten the animation.\n"
             f"Mathematics verified: {verification['valid']}\n\n"
             f"Creator study-animation brief: {creator_brief or 'not requested'}\n\n"
             f"Verified steps:\n{steps}\n\n"

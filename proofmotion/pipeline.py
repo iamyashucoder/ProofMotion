@@ -18,6 +18,7 @@ from uuid import uuid4
 
 from llm.providers import LLMError, get_client
 from proofmotion.agents.coder import write_scene
+from proofmotion.agents.completeness import check_solution_completeness, check_storyboard_final_answer
 from proofmotion.agents.debugger import polish_scene, repair_scene
 from proofmotion.agents.director import direct_storyboard
 from proofmotion.agents.intent import understand_request
@@ -59,6 +60,17 @@ def _is_competitive_exam_prompt(prompt: str) -> bool:
     text = prompt.lower()
     markers = ("jee", "neet", "olympiad", "competitive exam", "entrance exam", "exam question")
     return any(marker in text for marker in markers)
+
+
+def _is_worked_problem_prompt(prompt: str) -> bool:
+    """Recognise a numerical/derivation question even when it does not say JEE."""
+    text = prompt.lower()
+    requests = ("find ", "calculate", "determine", "derive", "solve", "what is", "how far", "time period", "magnitude", "distance travelled")
+    physical_or_math_data = any(char.isdigit() for char in text) or any(token in text for token in ("given", "where ", "force", "mass", "velocity", "voltage", "angle", "equation"))
+    # A symbolic derivation can have no numerals or named physical data at all.
+    if any(marker in text for marker in ("derive", "solve")):
+        return True
+    return physical_or_math_data and any(marker in text for marker in requests)
 
 
 def _is_creator_study_prompt(prompt: str) -> bool:
@@ -229,6 +241,9 @@ def _run(
 
     stage("understand")
     intent = understand_request(client, user_prompt)
+    worked_problem = _is_worked_problem_prompt(user_prompt)
+    if worked_problem:
+        intent.requires_derivation = True
     if duration_seconds:
         # An explicit request beats the agent's guess, and every downstream
         # budget is derived from this number.
@@ -243,7 +258,7 @@ def _run(
 
     stage("plan")
     exam_requirements: dict[str, Any] | None = None
-    if _is_competitive_exam_prompt(user_prompt):
+    if _is_competitive_exam_prompt(user_prompt) or worked_problem:
         exam_requirements = competitive_exam_requirements(user_prompt)
         state.tool_results["competitive_exam_requirements"] = exam_requirements
         state.selected_tools = exam_requirements["required_tools"]
@@ -253,7 +268,20 @@ def _run(
             "improved",
         )
     plan = plan_mathematics(client, intent, exam_requirements=exam_requirements)
+    completeness = check_solution_completeness(plan, intent)
+    if not completeness["complete"]:
+        headline("Mathematical plan was incomplete; requesting a full worked solution", "warned")
+        plan = plan_mathematics(
+            client,
+            intent,
+            exam_requirements=exam_requirements,
+            completion_feedback="; ".join(completeness["problems"]),
+        )
+        completeness = check_solution_completeness(plan, intent)
+    if not completeness["complete"]:
+        raise LLMError(f"Mathematical plan is incomplete: {'; '.join(completeness['problems'])}")
     state.math_plan = plan.model_dump()
+    state.tool_results["solution_completeness"] = completeness
     artifact("plan", state.math_plan)
     headline(f"Derived {len(plan.concept_sequence)} mathematical steps using symbolic tools", "improved")
     stage("plan", "done")
@@ -280,7 +308,11 @@ def _run(
         artifact("study_animation_brief", creator_brief)
         headline("Creator study-animation safeguards enabled", "improved")
     storyboard = direct_storyboard(client, intent, plan, state.verified_math, creator_brief=creator_brief)
+    storyboard_completeness = check_storyboard_final_answer(storyboard, plan.final_answer_latex)
+    if not storyboard_completeness["complete"]:
+        raise LLMError(f"Storyboard is incomplete: {'; '.join(storyboard_completeness['problems'])}")
     state.storyboard = storyboard.model_dump()
+    state.tool_results["storyboard_completeness"] = storyboard_completeness
     state.selected_tools = list(dict.fromkeys([
         *state.selected_tools,
         "symbolic", "numeric", "manim_api", "layout", "typeset",

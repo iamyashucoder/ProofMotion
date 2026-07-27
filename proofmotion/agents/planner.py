@@ -19,12 +19,17 @@ SYSTEM = """You lay out the mathematical steps of an explanation, in teaching or
 Each step should carry one idea and connect to the one before it. Move from a
 concrete instance to the general statement unless the audience is advanced.
 
-Be brief. A step costs roughly six seconds of finished animation, so the budget
-you are given is a real limit, not a target to fill. Prefer the shortest route
-that actually explains the idea: a worked instance plus the general statement
-beats an exhaustive enumeration. If you find yourself writing step 4, 5, and 6
-of the same routine calculation, collapse them into one step that shows the
-pattern.
+Do not compress a derivation to fit an assumed duration. When the question asks
+for a solution, show every mathematical transformation that is needed to reach
+the requested unknown: identify the given quantities, select the governing
+law, derive or rearrange it, substitute values, simplify, check units, and give
+the final answer. A visual can support a calculation but can never replace it.
+Always return final_answer_latex and final_answer_explanation after the
+derivation; these must answer the requested unknown directly.
+For a worked problem also return given_quantities, unknown, and
+governing_principles before the concept_sequence.
+The last mathematical step must derive the same equation as final_answer_latex;
+do not introduce a new, unsupported result in the final answer.
 
 Compute with the tools; do not do algebra in your head. The full surface is
 available — linear algebra, differential equations, vector calculus, number
@@ -39,8 +44,7 @@ For a JEE Advanced, JEE Main, NEET, Olympiad, or competitive-exam request, call
 competitive_exam_requirements before planning. Follow its required structure:
 give the data and unknown, introduce a labelled diagram, make one justified
 transformation per displayed step, substitute values with units, and only then
-box the answer. Never collapse a requested derivation merely to meet a duration
-budget. Use jee_mechanics, stoichiometry_limit, ideal_gas_state, or weak_acid_ph
+box the answer. Use jee_mechanics, stoichiometry_limit, ideal_gas_state, or weak_acid_ph
 when the pattern fits, rather than estimating values from memory.
 
 Refute before you assert. counterexample_search takes seconds and settles a
@@ -53,15 +57,11 @@ domain restriction, a convergence condition, a continuity requirement — becaus
 these become the bounds on what the finished animation is allowed to claim."""
 
 
-def _step_budget(duration_seconds: int) -> int:
-    """Steps a duration can actually carry, at roughly six seconds each."""
-    return max(3, min(8, round(duration_seconds / 6)))
-
-
 def plan_mathematics(
     client: Any,
     intent: AnimationIntent,
     exam_requirements: dict[str, Any] | None = None,
+    completion_feedback: str | None = None,
 ) -> MathematicalPlan:
     """Derive a verified sequence of mathematical steps for the intent."""
     return run_structured(
@@ -74,8 +74,8 @@ def plan_mathematics(
             f"Goal: {intent.educational_goal}\n"
             f"Assumptions so far: {intent.assumptions or 'none'}\n"
             f"Competitive-exam requirements: {exam_requirements or 'not a competitive-exam prompt'}\n"
-            f"Budget: at most {_step_budget(intent.duration_seconds)} steps "
-            f"for a {intent.duration_seconds}s animation.\n\n"
+            f"Completion feedback from a previous rejected plan: {completion_feedback or 'none'}\n\n"
+            "Return final_answer_latex and final_answer_explanation in addition to the complete ordered derivation.\n\n"
             "Produce the mathematical plan."
         ),
         toolset("compute", "reason", "competitive"),
