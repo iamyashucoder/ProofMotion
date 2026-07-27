@@ -15,6 +15,13 @@ import sympy as sp
 from proofmotion.runtime.registry import ToolError
 from proofmotion.tools.algebra import symbolic_algebra, symbolic_matrix, symbolic_vector_calculus
 from proofmotion.tools.analysis import numeric_interpolate, numeric_ode, numeric_optimize, symbolic_ode
+from proofmotion.tools.competitive import (
+    competitive_exam_requirements,
+    ideal_gas_state,
+    jee_mechanics,
+    stoichiometry_limit,
+    weak_acid_ph,
+)
 from proofmotion.tools.discrete import combinatorics, graph_algorithm, logic_table, number_theory
 from proofmotion.tools.geometry import conic_properties, geometry_solve
 from proofmotion.tools.statistics import linear_regression, monte_carlo, probability, statistics_summary
@@ -192,6 +199,38 @@ class GeometryTests(unittest.TestCase):
 
     def test_ellipse_eccentricity(self):
         self.assertAlmostEqual(conic_properties("ellipse", [5, 3])["eccentricity"], 0.8)
+
+
+class CompetitiveExamTests(unittest.TestCase):
+    def test_router_requires_a_diagram_and_checked_tools_for_mechanics(self):
+        requirements = competitive_exam_requirements("A projectile is fired from a cliff. Find its range.")
+        self.assertIn("mechanics", requirements["matched_domains"])
+        self.assertIn("jee_mechanics", requirements["required_tools"])
+        self.assertIn("labelled diagram or graph before the derivation", requirements["required_solution_structure"])
+
+    def test_braking_and_projectile_results(self):
+        braking = jee_mechanics("uniform_acceleration", initial_velocity=20, final_velocity=0, time=4)
+        self.assertAlmostEqual(braking["acceleration"], -5)
+        self.assertAlmostEqual(braking["distance"], 40)
+        projectile = jee_mechanics("projectile", speed=20, angle_deg=30, gravity=10)
+        self.assertAlmostEqual(projectile["time_of_flight"], 2)
+        self.assertAlmostEqual(projectile["range"], 20 * math.sqrt(3), places=7)
+
+    def test_kepler_small_radial_period_matches_derived_formula(self):
+        result = jee_mechanics("small_radial_kepler", mass=2, force_constant=8, radius=2)
+        self.assertAlmostEqual(result["angular_frequency_squared"], 0.5)
+        self.assertAlmostEqual(result["period"], 2 * math.pi * math.sqrt(2))
+        self.assertAlmostEqual(result["period"], result["period_from_l"])
+
+    def test_core_physical_chemistry_tools(self):
+        reaction = stoichiometry_limit([2, 5], [1, 2], product_coefficient=2, product_molar_mass=18)
+        self.assertEqual(reaction["limiting_reactant_indices"], [0])
+        self.assertAlmostEqual(reaction["product_moles"], 4)
+        self.assertAlmostEqual(reaction["product_mass_g"], 72)
+        gas = ideal_gas_state(101325, 0.024465, 1, 298.15)
+        self.assertLess(gas["relative_residual"], 0.01)
+        acid = weak_acid_ph(0.1, 1e-5)
+        self.assertAlmostEqual(acid["ph"], 3.0, places=2)
 
 
 if __name__ == "__main__":

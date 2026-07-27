@@ -10,6 +10,7 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
+from proofmotion.pipeline import _is_competitive_exam_prompt
 from proofmotion.runtime.registry import ToolError, ToolRegistry
 from proofmotion.tools import REGISTRY, toolset
 from proofmotion.tools.layout import layout_check, layout_frame
@@ -42,6 +43,10 @@ class RegistryTests(unittest.TestCase):
         self.assertIsInstance(toolset("manim"), ToolRegistry)
         with self.assertRaises(KeyError):
             toolset("nonexistent")
+
+    def test_competitive_exam_prompts_are_detected_without_guessing(self):
+        self.assertTrue(_is_competitive_exam_prompt("Solve this JEE Advanced mechanics question."))
+        self.assertFalse(_is_competitive_exam_prompt("Explain a derivative visually."))
 
 
 class ManimApiTests(unittest.TestCase):

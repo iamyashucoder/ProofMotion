@@ -25,6 +25,11 @@ Any topic is in scope, from arithmetic to research mathematics and physics. If
 the request is vague, choose one concrete example that makes it teachable and
 record that choice in `assumptions`.
 
+For JEE Advanced, JEE Main, NEET, Olympiad, or other competitive-exam prompts,
+call competitive_exam_requirements first. Its required solution structure is a
+contract: preserve all given quantities, demand a labelled diagram where the
+question has a physical or geometric setup, and do not skip algebraic steps.
+
 Keep duration_seconds short unless the request asks otherwise. Around 30 seconds
 suits most explanations and 45 is generous; a viewer learns more from a tight
 explanation than a thorough one. Only go beyond 45 when the request explicitly
@@ -37,7 +42,7 @@ def understand_request(client: Any, user_prompt: str) -> AnimationIntent:
         client,
         SYSTEM,
         f"Animation request:\n{user_prompt}",
-        toolset("compute"),
+        toolset("compute", "competitive"),
         AnimationIntent,
         max_iterations=6,
         agent_name="intent",

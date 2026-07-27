@@ -1,6 +1,6 @@
 """Verified, parameterised builders the model composes instead of writing layout code."""
 
-from proofmotion.components import core, fields, graphs, mechanics, physics
+from proofmotion.components import core, fields, graphs, mechanics, physics, story
 
 #: Referenced so a linter cannot prune these imports; registration is a side effect.
 _REGISTERING_MODULES = (core, fields, graphs, mechanics, physics)

@@ -35,6 +35,14 @@ limits, series, roots, and equality checks are all available, and their answers
 are correct by construction. Every equation you write into the plan must be one
 a tool returned or one you have checked with symbolic_verify_equality.
 
+For a JEE Advanced, JEE Main, NEET, Olympiad, or competitive-exam request, call
+competitive_exam_requirements before planning. Follow its required structure:
+give the data and unknown, introduce a labelled diagram, make one justified
+transformation per displayed step, substitute values with units, and only then
+box the answer. Never collapse a requested derivation merely to meet a duration
+budget. Use jee_mechanics, stoichiometry_limit, ideal_gas_state, or weak_acid_ph
+when the pattern fits, rather than estimating values from memory.
+
 Refute before you assert. counterexample_search takes seconds and settles a
 false claim outright; units_check catches a wrong physical formula whatever the
 algebra says; limiting_case_check tells you whether a general result collapses to
@@ -50,7 +58,11 @@ def _step_budget(duration_seconds: int) -> int:
     return max(3, min(8, round(duration_seconds / 6)))
 
 
-def plan_mathematics(client: Any, intent: AnimationIntent) -> MathematicalPlan:
+def plan_mathematics(
+    client: Any,
+    intent: AnimationIntent,
+    exam_requirements: dict[str, Any] | None = None,
+) -> MathematicalPlan:
     """Derive a verified sequence of mathematical steps for the intent."""
     return run_structured(
         client,
@@ -61,11 +73,12 @@ def plan_mathematics(client: Any, intent: AnimationIntent) -> MathematicalPlan:
             f"Audience: {intent.audience} ({intent.difficulty})\n"
             f"Goal: {intent.educational_goal}\n"
             f"Assumptions so far: {intent.assumptions or 'none'}\n"
+            f"Competitive-exam requirements: {exam_requirements or 'not a competitive-exam prompt'}\n"
             f"Budget: at most {_step_budget(intent.duration_seconds)} steps "
             f"for a {intent.duration_seconds}s animation.\n\n"
             "Produce the mathematical plan."
         ),
-        toolset("compute", "reason"),
+        toolset("compute", "reason", "competitive"),
         MathematicalPlan,
         max_iterations=10,
         agent_name="planner",

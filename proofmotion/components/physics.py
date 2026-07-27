@@ -406,6 +406,70 @@ def energy_bars(p: EnergyBarsParams) -> Built:
     return Built(group=group, parts=parts, beats=[reveal], notes=f"{len(items)} bars, largest {biggest:g} {p.unit}")
 
 
+class BusBrakingParams(BaseModel):
+    initial_speed_kmh: float = Field(default=72.0, gt=0, description="Bus speed before braking, in km/h.")
+    stopping_time: float = Field(default=4.0, gt=0, description="Time to rest, in seconds.")
+    bus_color: str = Field(default="#fbbf24", description="Hex colour for the bus body.")
+    show_velocity: bool = True
+    region: str = "stage"
+
+
+@component(version=1, domain="physics", params=BusBrakingParams)
+def bus_braking_road(p: BusBrakingParams) -> Built:
+    """A clearly recognisable 2D bus on a road for uniform-braking problems."""
+    from manim import Arrow, Circle, DOWN, LEFT, Line, MathTex, Rectangle, RIGHT, RoundedRectangle, UP, VGroup, WHITE
+
+    road = Rectangle(width=10.6, height=1.9, color="#64748b", fill_opacity=0.65, stroke_width=2)
+    road.shift(DOWN * 1.65)
+    dashes = VGroup(*[
+        Line([x, -1.65, 0], [x + 0.65, -1.65, 0], color=WHITE, stroke_width=5)
+        for x in (-4.8, -3.1, -1.4, 0.3, 2.0, 3.7)
+    ])
+
+    body = RoundedRectangle(width=3.25, height=1.15, corner_radius=0.15,
+                            color=p.bus_color, fill_opacity=1, stroke_width=3)
+    body.move_to(LEFT * 1.3 + DOWN * 0.75)
+    roof = RoundedRectangle(width=1.75, height=0.63, corner_radius=0.13,
+                            color=p.bus_color, fill_opacity=1, stroke_width=3)
+    roof.next_to(body, UP, buff=-0.05).shift(LEFT * 0.15)
+    windows = VGroup(*[
+        Rectangle(width=0.43, height=0.36, color="#38bdf8", fill_opacity=0.9, stroke_width=1)
+        for _ in range(4)
+    ]).arrange(RIGHT, buff=0.12).move_to(roof.get_center() + DOWN * 0.03)
+    door = Rectangle(width=0.35, height=0.72, color="#0f172a", fill_opacity=0.8, stroke_width=1)
+    door.move_to(body.get_right() + LEFT * 0.34 + DOWN * 0.05)
+    wheels = VGroup(*[
+        Circle(radius=0.26, color="#111827", fill_opacity=1, stroke_width=2)
+        for _ in range(2)
+    ])
+    wheels[0].move_to(body.get_left() + RIGHT * 0.65 + DOWN * 0.62)
+    wheels[1].move_to(body.get_right() + LEFT * 0.65 + DOWN * 0.62)
+    hubs = VGroup(*[Circle(radius=0.09, color="#cbd5e1", fill_opacity=1) for _ in range(2)])
+    for hub, wheel in zip(hubs, wheels, strict=True):
+        hub.move_to(wheel)
+    bus = VGroup(body, roof, windows, door, wheels, hubs)
+
+    speed_ms = p.initial_speed_kmh / 3.6
+    speed_arrow = Arrow(bus.get_top() + RIGHT * 0.2, bus.get_top() + RIGHT * 2.2,
+                        buff=0.1, color="#4ade80", stroke_width=4)
+    speed_label = MathTex(rf"v_0={p.initial_speed_kmh:g}\,\mathrm{{km/h}}={speed_ms:g}\,\mathrm{{m/s}}",
+                          font_size=26, color="#4ade80").next_to(speed_arrow, UP, buff=0.12)
+    brake_label = MathTex(rf"\text{{uniform braking for }}{p.stopping_time:g}\,\mathrm{{s}}",
+                          font_size=25, color="#f87171").next_to(road, DOWN, buff=0.18)
+
+    parts: dict[str, object] = {"road": road, "lane_marks": dashes, "bus": bus, "brake_label": brake_label}
+    group = VGroup(road, dashes, bus, brake_label)
+    beats = [["road", "lane_marks"], ["bus"], ["brake_label"]]
+    if p.show_velocity:
+        parts.update({"velocity_arrow": speed_arrow, "velocity_label": speed_label})
+        group.add(speed_arrow, speed_label)
+        beats.append(["velocity_arrow", "velocity_label"])
+
+    place(group, layout("title_stage_caption")[p.region])
+    return Built(group=group, parts=parts, beats=beats,
+                 notes=f"2D bus braking from {p.initial_speed_kmh:g} km/h for {p.stopping_time:g} s")
+
+
 class WaveParams(BaseModel):
     amplitude: float = Field(default=1.0, gt=0)
     wavelength: float = Field(default=2.0, gt=0.1)

@@ -654,6 +654,27 @@ class ComponentTests(unittest.TestCase):
                     for part in beat:
                         self.assertIn(part, built.parts, f"{name}: beat names missing part {part!r}")
 
+    def test_bus_braking_component_contains_a_2d_bus_and_road(self):
+        with tempconfig({"dry_run": True}):
+            built = build("bus_braking_road", {"initial_speed_kmh": 72, "stopping_time": 4})
+        self.assertIn("bus", built.parts)
+        self.assertIn("road", built.parts)
+        self.assertTrue(built.beats)
+
+    def test_story_components_provide_real_2d_characters_and_vehicles(self):
+        with tempconfig({"dry_run": True}):
+            traffic = build("traffic_story", {"vehicle": "car"})
+            chase = build("police_bicycle_chase", {"road_turns": 4})
+        self.assertTrue({"road", "vehicle"} <= traffic.parts.keys())
+        self.assertTrue({"zigzag_road", "thief_bicycle", "police_runner"} <= chase.parts.keys())
+
+    def test_transport_and_road_safety_objects_are_available(self):
+        with tempconfig({"dry_run": True}):
+            transport = build("transport_story", {"vehicle": "rocket"})
+            safety = build("road_safety_scene", {"show_pedestrian": True})
+        self.assertIn("vehicle", transport.parts)
+        self.assertTrue({"car", "traffic_light", "pedestrian", "crossing"} <= safety.parts.keys())
+
     def test_unicode_angle_label_is_normalised_before_typesetting(self):
         """Prompts often contain θ, but MathTex receives LaTeX, not Unicode."""
         from proofmotion.tools.typeset import typeset_check

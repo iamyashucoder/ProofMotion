@@ -34,6 +34,7 @@ from proofmotion.learned import load_all as load_learned
 from proofmotion.runtime.events import BUS, artifact, headline, stage
 from proofmotion.runtime.registry import ToolError
 from proofmotion.runtime.watcher import watch_render
+from proofmotion.tools.competitive import competitive_exam_requirements
 from proofmotion.tools.inspect_scene import inspect_scene
 from proofmotion.tools.manim_api import manim_validate_code
 from proofmotion.tools.typeset import typeset_scene
@@ -50,6 +51,13 @@ PROJECTS_DIR = Path("generated_projects")
 #: first version of this gate passed a run at 0.75 coverage that was four
 #: screens of algebra answering a question which asked for full diagrams.
 MIN_ASSEMBLY_COVERAGE = 0.5
+
+
+def _is_competitive_exam_prompt(prompt: str) -> bool:
+    """Whether the user explicitly asks for an exam-style, fully worked solution."""
+    text = prompt.lower()
+    markers = ("jee", "neet", "olympiad", "competitive exam", "entrance exam", "exam question")
+    return any(marker in text for marker in markers)
 
 
 def _tools_by_agent() -> dict[str, list[str]]:
@@ -227,7 +235,17 @@ def _run(
     state.save(project_dir)
 
     stage("plan")
-    plan = plan_mathematics(client, intent)
+    exam_requirements: dict[str, Any] | None = None
+    if _is_competitive_exam_prompt(user_prompt):
+        exam_requirements = competitive_exam_requirements(user_prompt)
+        state.tool_results["competitive_exam_requirements"] = exam_requirements
+        state.selected_tools = exam_requirements["required_tools"]
+        artifact("competitive_exam_requirements", exam_requirements)
+        headline(
+            f"Competitive-exam safeguards: {', '.join(exam_requirements['matched_domains'])}",
+            "improved",
+        )
+    plan = plan_mathematics(client, intent, exam_requirements=exam_requirements)
     state.math_plan = plan.model_dump()
     artifact("plan", state.math_plan)
     headline(f"Derived {len(plan.concept_sequence)} mathematical steps using symbolic tools", "improved")
@@ -249,7 +267,10 @@ def _run(
     stage("storyboard")
     storyboard = direct_storyboard(client, intent, plan, state.verified_math)
     state.storyboard = storyboard.model_dump()
-    state.selected_tools = ["symbolic", "numeric", "manim_api", "layout", "typeset"]
+    state.selected_tools = list(dict.fromkeys([
+        *state.selected_tools,
+        "symbolic", "numeric", "manim_api", "layout", "typeset",
+    ]))
     artifact("storyboard", state.storyboard)
     headline(f"Composed {len(storyboard.scenes)} scenes, measured against the frame", "improved")
     stage("storyboard", "done")

@@ -10,6 +10,7 @@ from proofmotion.tools import (
     algebra,
     analysis,
     components_tool,
+    competitive,
     discrete,
     geometry,
     inspect_scene,
@@ -28,7 +29,7 @@ from proofmotion.tools import (
 #: silently unregistering component_search and component_build, which then failed
 #: only at runtime inside an agent. A tuple a linter can see cannot be pruned.
 _REGISTERING_MODULES = (
-    algebra, analysis, components_tool, discrete, geometry, inspect_scene,
+    algebra, analysis, components_tool, competitive, discrete, geometry, inspect_scene,
     layout, learned_tool, manim_api, numeric, reasoning, statistics, symbolic,
     typeset,
 )
@@ -61,6 +62,13 @@ TOOLSETS: dict[str, list[str]] = {
     "stats": ["probability", "statistics_summary", "linear_regression", "monte_carlo"],
     #: Analytic geometry.
     "geometry": ["geometry_solve", "conic_properties"],
+    "competitive": [
+        "competitive_exam_requirements",
+        "jee_mechanics",
+        "stoichiometry_limit",
+        "ideal_gas_state",
+        "weak_acid_ph",
+    ],
     #: Checking that a result is right, as distinct from producing one.
     "verify": [
         "units_check",
