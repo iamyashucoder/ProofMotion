@@ -95,10 +95,134 @@ def densify(points: np.ndarray) -> np.ndarray:
     return curve.reshape(-1, points.shape[1])
 
 
+#: Grid spacing for the inside of a filled shape, in scene units. Small enough
+#: that a short label lying on a fill contains at least MIN_INK_POINTS of them.
+FILL_SAMPLE_STEP = 0.09
+
+#: Ceiling on interior samples per shape, so a large fill cannot dominate.
+MAX_FILL_SAMPLES = 6000
+
+#: A fill with less opacity than this is a wash the text still reads through.
+MIN_FILL_OPACITY = 0.12
+
+
 def _is_axis(mobject: Any) -> bool:
     from manim import CoordinateSystem, NumberLine
 
     return isinstance(mobject, (NumberLine, CoordinateSystem))
+
+
+#: Set on a shape a component deliberately puts text inside — an array cell, a
+#: badge, a labelled box. See holds_text().
+HOLDS_TEXT = "pm_holds_text"
+
+
+def holds_text(mobject: Any) -> Any:
+    """Mark a shape as a container for the text placed in it, and return it.
+
+    Geometry cannot tell a container from an accident. An array cell holding
+    its value and a label lying across a filled disc are the same picture to a
+    measuring tool: text inside a fill, and — measured — at the same size ratio,
+    25.1 against 24.2. One is designed and tested, the other is the defect this
+    checker exists to catch.
+
+    So the component says which it is. This is deliberately something only a
+    component author writes: raw scene code does not set it, so a hand-placed
+    label on a figure is still reported.
+    """
+    setattr(mobject, HOLDS_TEXT, True)
+    return mobject
+
+
+def _is_backdrop(mobject: Any) -> bool:
+    """Shapes whose whole job is to sit behind or around text.
+
+    BackgroundRectangle and SurroundingRectangle exist to be drawn under or
+    around a label. Counting them as ink reported every boxed label as a major
+    collision — their border hugs the text, so even the outline alone landed
+    inside the clearance box.
+    """
+    if getattr(mobject, HOLDS_TEXT, False):
+        return True
+    try:
+        from manim import BackgroundRectangle, SurroundingRectangle
+    except ImportError:  # pragma: no cover - both ship with manim
+        return False
+    return isinstance(mobject, (BackgroundRectangle, SurroundingRectangle))
+
+
+def _fill_opacity(mobject: Any) -> float:
+    """How solidly a mobject is filled, as a single number."""
+    value = getattr(mobject, "fill_opacity", 0.0)
+    try:
+        # Manim stores this per-point on some mobjects.
+        return float(np.max(np.asarray(value, dtype=float))) if np.size(value) else 0.0
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _subpaths(mobject: Any, points: np.ndarray) -> list[np.ndarray]:
+    """Closed outlines making up a shape.
+
+    Treating every point as one polygon joins the end of one subpath to the
+    start of the next, and a ring or a letter-shaped hole then tests as solid.
+    """
+    try:
+        paths = [np.asarray(p) for p in mobject.get_subpaths()]
+    except Exception:  # noqa: BLE001 - not every mobject exposes subpaths
+        paths = []
+    paths = [p for p in paths if len(p) >= 4]
+    return [densify(p) for p in paths] if paths else [points]
+
+
+def _inside_polygon(grid: np.ndarray, polygon: np.ndarray) -> np.ndarray:
+    """Even-odd ray cast: which grid points lie within the outline."""
+    x, y = grid[:, 0], grid[:, 1]
+    x1, y1 = polygon[:, 0], polygon[:, 1]
+    x2, y2 = np.roll(x1, -1), np.roll(y1, -1)
+
+    straddles = (y1[:, None] > y[None, :]) != (y2[:, None] > y[None, :])
+    dy = (y2 - y1)[:, None]
+    # Horizontal edges never straddle, so the division they guard is masked out.
+    safe = np.where(dy == 0, 1.0, dy)
+    crossing_x = (x2 - x1)[:, None] * (y[None, :] - y1[:, None]) / safe + x1[:, None]
+    return np.logical_xor.reduce(straddles & (x[None, :] < crossing_x), axis=0)
+
+
+def fill_points(mobject: Any, boundary: np.ndarray) -> np.ndarray:
+    """Sample the interior of a filled shape, so its inside counts as ink.
+
+    Outline points alone are not the shape. A filled disc has no points
+    anywhere but its rim, so a label lying across the middle of one contained
+    no ink at all and measured perfectly clean — which is how "frictionless
+    axle" came to sit unreadable across a disc while the checker reported zero
+    overlaps.
+    """
+    if _fill_opacity(mobject) < MIN_FILL_OPACITY or _is_backdrop(mobject):
+        return np.empty((0, boundary.shape[1]))
+
+    left, right = float(np.min(boundary[:, 0])), float(np.max(boundary[:, 0]))
+    bottom, top = float(np.min(boundary[:, 1])), float(np.max(boundary[:, 1]))
+    width, height = right - left, top - bottom
+    if width <= 0 or height <= 0:
+        return np.empty((0, boundary.shape[1]))
+
+    # Coarsen rather than refuse, so a large fill still registers.
+    step = max(FILL_SAMPLE_STEP, np.sqrt(width * height / MAX_FILL_SAMPLES))
+    xs = np.arange(left + step / 2, right, step)
+    ys = np.arange(bottom + step / 2, top, step)
+    if not len(xs) or not len(ys):
+        return np.empty((0, boundary.shape[1]))
+    mesh = np.stack(np.meshgrid(xs, ys), axis=-1).reshape(-1, 2)
+
+    inside = np.zeros(len(mesh), dtype=bool)
+    for path in _subpaths(mobject, boundary):
+        if len(path) >= 3:
+            inside ^= _inside_polygon(mesh, path[:, :2])
+    kept = mesh[inside]
+    if not len(kept):
+        return np.empty((0, boundary.shape[1]))
+    return np.column_stack([kept, np.zeros((len(kept), boundary.shape[1] - 2))])
 
 
 def axis_owned_text(roots: list[Any]) -> dict[int, set[int]]:
@@ -141,6 +265,11 @@ def ink_of(roots: list[Any]) -> list[tuple[Any, Any, np.ndarray]]:
     def walk(node: Any, axes: tuple[int, ...], glyphs: set[int]) -> None:
         if is_text(node) or id(node) in glyphs:
             return
+        if _is_backdrop(node):
+            # A backdrop is not ink in any part. Its border hugs the text it
+            # wraps, so even the outline alone landed inside the clearance box
+            # and reported every boxed label as a major collision.
+            return
         inner = (*axes, id(node)) if _is_axis(node) else axes
         # A node's own points, not get_all_points(): the family version rolls every
         # descendant into the container, so a VGroup wrapping the figure became one
@@ -148,7 +277,13 @@ def ink_of(roots: list[Any]) -> list[tuple[Any, Any, np.ndarray]]:
         points = getattr(node, "points", None)
         points = points if points is not None and len(points) else []
         if len(points):
-            collected.append(((inner[-1] if inner else id(node)), node, densify(np.asarray(points))))
+            outline = densify(np.asarray(points))
+            # The inside of a filled shape is ink too. Without this a label
+            # lying across a filled disc contained no points at all, because
+            # they are all out on the rim, and measured perfectly clean.
+            interior = fill_points(node, outline)
+            ink = np.vstack([outline, interior]) if len(interior) else outline
+            collected.append(((inner[-1] if inner else id(node)), node, ink))
         for child in getattr(node, "submobjects", ()) or ():
             walk(child, inner, glyphs)
 

@@ -319,6 +319,100 @@ class DirectWriteFallbackTests(unittest.TestCase):
         self.assertTrue(out["wrote_directly"])
 
 
+class FilledShapeInkTests(unittest.TestCase):
+    """The inside of a filled shape is ink, and the checker was blind to it.
+
+    Ink was the sampled points of a mobject's outline, and a filled disc has
+    points only on its rim. So "frictionless axle" lay unreadable across a disc
+    in a finished video while the checker measured zero overlaps — steering the
+    whole system on a metric that reported success on the frames being
+    complained about.
+    """
+
+    def collide(self, *mobjects) -> list:
+        from manim import VGroup
+
+        with tempconfig({"dry_run": True}):
+            return major_collisions([VGroup(*mobjects)])
+
+    def test_a_label_lying_across_a_filled_shape_is_caught(self):
+        from manim import Circle, Text
+
+        with tempconfig({"dry_run": True}):
+            disc = Circle(radius=2.0, color="#4aa3df", fill_opacity=0.35)
+            label = Text("frictionless axle", font_size=24).move_to(disc.get_center())
+        self.assertTrue(self.collide(disc, label), "text on a fill went unreported")
+
+    def test_the_same_label_inside_an_unfilled_outline_is_clean(self):
+        """Nothing is drawn there, so the text is perfectly readable."""
+        from manim import Circle, Text
+
+        with tempconfig({"dry_run": True}):
+            hollow = Circle(radius=2.0, color="#4aa3df", fill_opacity=0.0)
+            label = Text("readable", font_size=24).move_to(hollow.get_center())
+        self.assertEqual(self.collide(hollow, label), [])
+
+    def test_a_hole_in_a_ring_is_not_ink(self):
+        """Subpaths matter: joining them makes a ring measure as solid."""
+        from manim import Annulus, Text
+
+        with tempconfig({"dry_run": True}):
+            ring = Annulus(inner_radius=1.2, outer_radius=2.0, fill_opacity=1.0)
+            in_hole = Text("hole", font_size=22).move_to(ring.get_center())
+            on_band = Text("band", font_size=18).move_to([1.6, 0, 0])
+        self.assertEqual(self.collide(ring, in_hole), [])
+        self.assertTrue(self.collide(ring, on_band))
+
+    def test_a_faint_wash_is_not_ink(self):
+        from manim import Circle, Text
+
+        with tempconfig({"dry_run": True}):
+            wash = Circle(radius=2.0, fill_opacity=0.05)
+            label = Text("still legible", font_size=24).move_to(wash.get_center())
+        self.assertEqual(self.collide(wash, label), [])
+
+    def test_a_background_rectangle_is_not_ink(self):
+        """It exists to sit under a label; its border hugs the text.
+
+        This was a false positive before any of the fill work — the outline
+        alone landed inside the clearance box, so every boxed label read as a
+        major collision.
+        """
+        from manim import BackgroundRectangle, Text
+
+        with tempconfig({"dry_run": True}):
+            label = Text("boxed", font_size=24)
+            backdrop = BackgroundRectangle(label)
+        self.assertEqual(self.collide(backdrop, label), [])
+
+    def test_a_component_can_declare_a_shape_that_holds_text(self):
+        """Geometry cannot tell a container from an accident.
+
+        An array cell holding its value and a stray label on a filled disc are
+        the same picture to a measuring tool, and at the same size ratio — 25.1
+        against 24.2. So the component says which it is, and only a component
+        can: raw scene code never sets this.
+        """
+        from manim import Square, Text
+
+        from proofmotion.layout.collision import holds_text
+
+        with tempconfig({"dry_run": True}):
+            box = Square(side_length=0.9, fill_opacity=0.35)
+            value = Text("7", font_size=24).move_to(box.get_center())
+            self.assertTrue(self.collide(box, value), "an undeclared fill should still be ink")
+            holds_text(box)
+        self.assertEqual(self.collide(box, value), [])
+
+    def test_the_library_declares_the_containers_it_uses(self):
+        """array_cells and free_body_diagram write inside their own shapes."""
+        with tempconfig({"dry_run": True}):
+            cells = build("array_cells", {"values": [1, 3, 5, 7], "pointers": {"low": 0}})
+            body = build("free_body_diagram", {"forces": [{"label": "mg", "magnitude": 9.8, "angle_deg": 270}]})
+        self.assertEqual(major_collisions([cells.group]), [])
+        self.assertEqual(major_collisions([body.group]), [])
+
+
 class PointerStackingTests(unittest.TestCase):
     """low, mid and high on nearby cells used to overprint into one smear."""
 

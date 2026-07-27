@@ -14,6 +14,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, model_validator
 
 from proofmotion.components.base import Built, component
+from proofmotion.layout.collision import holds_text
 from proofmotion.layout.labels import place_label
 from proofmotion.layout.regions import layout, place
 from proofmotion.runtime.registry import ToolError
@@ -587,6 +588,10 @@ def array_cells(p: ArrayCellsParams) -> Built:
             stroke_width=2.4 if marked else 1.6,
         )
         box.move_to(np.array([(index - (count - 1) / 2) * cell_width, 0.6, 0.0]))
+        # A cell exists to hold its value. Without saying so, the checker reads
+        # the number sitting on the cell's fill as text over geometry, which is
+        # exactly what it reads a stray label on a filled disc as.
+        holds_text(box)
         text = Text(str(value), font_size=int(min(26, cell_width * 26))).move_to(box.get_center())
         if faded:
             box.set_opacity(0.25)

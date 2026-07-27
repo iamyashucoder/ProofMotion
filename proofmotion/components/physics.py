@@ -18,6 +18,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from proofmotion.components.base import Built, component
+from proofmotion.layout.collision import holds_text
 from proofmotion.layout.labels import place_label
 from proofmotion.layout.regions import layout, place
 
@@ -105,6 +106,10 @@ def free_body_diagram(p: FreeBodyParams) -> Built:
         # A dot has no interior to write in, so the label sits beside it.
         place_label(body_text, origin, avoid=[body, *arrows.values()])
     else:
+        # Written inside the body on purpose, which the checker has to be told:
+        # a filled shape's interior counts as ink, and it cannot tell a mass
+        # label in its own box from a stray label dropped on a figure.
+        holds_text(body)
         body_text.move_to(origin)
 
     group = VGroup(body, body_text, *arrows.values())
