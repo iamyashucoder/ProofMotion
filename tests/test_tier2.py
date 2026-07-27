@@ -16,12 +16,21 @@ from proofmotion.runtime.registry import ToolError
 from proofmotion.tools.algebra import symbolic_algebra, symbolic_matrix, symbolic_vector_calculus
 from proofmotion.tools.analysis import numeric_interpolate, numeric_ode, numeric_optimize, symbolic_ode
 from proofmotion.tools.competitive import (
+    capacitor_network,
+    chemical_equilibrium_direction,
+    circuit_network,
+    competitive_exam_catalogue,
     competitive_exam_requirements,
+    electrostatics_point_charges,
+    hydrogen_transition,
     ideal_gas_state,
     jee_mechanics,
+    power_transmission,
     stoichiometry_limit,
+    thermodynamic_process,
     weak_acid_ph,
 )
+from proofmotion.tools.creator import motion_design_audit, study_animation_brief, study_animation_timing
 from proofmotion.tools.discrete import combinatorics, graph_algorithm, logic_table, number_theory
 from proofmotion.tools.geometry import conic_properties, geometry_solve
 from proofmotion.tools.statistics import linear_regression, monte_carlo, probability, statistics_summary
@@ -231,6 +240,56 @@ class CompetitiveExamTests(unittest.TestCase):
         self.assertLess(gas["relative_residual"], 0.01)
         acid = weak_acid_ph(0.1, 1e-5)
         self.assertAlmostEqual(acid["ph"], 3.0, places=2)
+
+    def test_transformer_transmission_ratio_and_loss_reduction(self):
+        result = power_transmission(600, 4000, 0.1, 200)
+        self.assertAlmostEqual(result["plant_current_a"], 150)
+        self.assertAlmostEqual(result["transmission_voltage_v"], 40000)
+        self.assertAlmostEqual(result["line_current_a"], 15)
+        self.assertEqual(result["step_down_ratio"], "200:1")
+        self.assertAlmostEqual(result["line_loss_reduction_factor"], 100)
+
+    def test_full_pcm_catalogue_exposes_coverage_and_database_gaps(self):
+        catalogue = competitive_exam_catalogue()
+        self.assertIn("physics_electricity_magnetism", catalogue["domains"])
+        self.assertIn("chemistry_organic", catalogue["known_gaps"])
+        self.assertIn("math_algebra_calculus", catalogue["domains"])
+
+    def test_electricity_tools_match_known_networks_and_coulomb_law(self):
+        series = circuit_network([2, 3], 10, "series")
+        self.assertAlmostEqual(series["total_current_a"], 2)
+        self.assertAlmostEqual(series["total_power_w"], 20)
+        parallel = capacitor_network([2e-6, 3e-6], 10, "parallel")
+        self.assertAlmostEqual(parallel["equivalent_capacitance_f"], 5e-6)
+        field = electrostatics_point_charges([[1e-6, 0, 0]], [1, 0])
+        self.assertAlmostEqual(field["field_magnitude_n_per_c"], 8.9875517923e3, places=4)
+
+    def test_thermal_modern_and_equilibrium_tools(self):
+        process = thermodynamic_process(1, 300, 400, "isobaric")
+        self.assertAlmostEqual(process["work_by_gas_j"], 831.4462618, places=4)
+        self.assertAlmostEqual(process["heat_added_j"], process["delta_u_j"] + process["work_by_gas_j"])
+        lyman = hydrogen_transition(2, 1)
+        self.assertEqual(lyman["kind"], "emission")
+        self.assertAlmostEqual(lyman["wavelength_nm"], 121.55, places=1)
+        self.assertEqual(chemical_equilibrium_direction(0.1, 1)["direction"], "forward, toward products")
+
+
+class CreatorToolTests(unittest.TestCase):
+    def test_calculus_brief_requests_continuous_visual_motion(self):
+        brief = study_animation_brief("Visualise the derivative of a function")
+        primitives = {item["primitive"] for item in brief["motion_primitives"]}
+        self.assertIn("continuous_parameter", primitives)
+        self.assertIn("traced_motion", primitives)
+        self.assertIn("do not use decorative motion or equations moving without explanatory purpose", brief["required_visual_rules"])
+
+    def test_timing_and_motion_audit_protect_readability(self):
+        timing = study_animation_timing(6, "worked_problem")
+        self.assertGreater(timing["recommended_seconds"], 45)
+        audit = motion_design_audit([
+            {"primitive": "path_follow", "purpose": "show the bicycle position changing with time"},
+            {"primitive": "spin", "purpose": ""},
+        ])
+        self.assertFalse(audit["approved"])
 
 
 if __name__ == "__main__":

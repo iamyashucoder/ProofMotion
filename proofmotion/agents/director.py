@@ -113,6 +113,7 @@ def direct_storyboard(
     intent: AnimationIntent,
     plan: MathematicalPlan,
     verification: dict[str, Any],
+    creator_brief: dict[str, Any] | None = None,
 ) -> Storyboard:
     """Compose a storyboard from the verified plan."""
     steps = "\n".join(
@@ -135,6 +136,7 @@ def direct_storyboard(
             f"(at most {MAX_SCENES}), and the scene durations must total close to "
             f"{intent.duration_seconds}s\n"
             f"Mathematics verified: {verification['valid']}\n\n"
+            f"Creator study-animation brief: {creator_brief or 'not requested'}\n\n"
             f"Verified steps:\n{steps}\n\n"
             "Design the storyboard."
         ),
@@ -142,7 +144,10 @@ def direct_storyboard(
         # tools and spent nine of twenty-two calls measuring hypothetical text
         # boxes — placement it no longer owns, since the assembler places
         # everything and components own their own internals.
-        toolset("visual").subset(["component_search", "component_build", "typeset_check"]),
+        toolset("visual", "creator").subset([
+            "component_search", "component_build", "typeset_check",
+            "study_animation_brief", "study_animation_timing", "motion_design_audit",
+        ]),
         Storyboard,
         max_iterations=10,
         agent_name="director",

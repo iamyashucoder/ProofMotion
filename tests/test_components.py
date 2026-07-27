@@ -661,6 +661,11 @@ class ComponentTests(unittest.TestCase):
         self.assertIn("road", built.parts)
         self.assertTrue(built.beats)
 
+    def test_power_transmission_component_draws_the_full_electricity_setup(self):
+        with tempconfig({"dry_run": True}):
+            built = build("power_transmission_diagram", {"power_kw": 600, "plant_voltage": 4000, "step_up_ratio": 10, "consumer_voltage": 200})
+        self.assertTrue({"power_plant", "step_up_transformer", "high_voltage_line", "step_down_transformer", "consumers"} <= built.parts.keys())
+
     def test_story_components_provide_real_2d_characters_and_vehicles(self):
         with tempconfig({"dry_run": True}):
             traffic = build("traffic_story", {"vehicle": "car"})

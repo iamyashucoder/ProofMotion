@@ -103,6 +103,16 @@ into a single play with an AnimationGroup rather than animating each object in
 turn, and keep self.wait short — 0.5s after a reveal is usually enough, and a
 wait after every single beat is what turns a tight explanation into a long one.
 
+For creator or study-animation briefs, use the supplied creator brief as a
+contract. Prefer deliberate continuity: TransformMatchingTex for evolving
+notation, ValueTracker plus always_redraw for a quantity that changes
+continuously, MoveAlongPath with TracedPath for meaningful physical motion, and
+MovingCameraScene only when camera movement makes a local relationship easier
+to see. Keep a before-state or reference object when comparison matters. Every
+motion needs a named teaching purpose; never add spinning, bouncing, flashing,
+or camera movement merely as decoration. This is an independent clarity-first
+study style, not an imitation of any creator's visual identity.
+
 Requirements:
   - exactly one Scene subclass, named GeneratedScene
   - start with: from manim import *

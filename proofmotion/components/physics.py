@@ -417,7 +417,7 @@ class BusBrakingParams(BaseModel):
 @component(version=1, domain="physics", params=BusBrakingParams)
 def bus_braking_road(p: BusBrakingParams) -> Built:
     """A clearly recognisable 2D bus on a road for uniform-braking problems."""
-    from manim import Arrow, Circle, DOWN, LEFT, Line, MathTex, Rectangle, RIGHT, RoundedRectangle, UP, VGroup, WHITE
+    from manim import DOWN, LEFT, RIGHT, UP, WHITE, Arrow, Circle, Line, MathTex, Rectangle, RoundedRectangle, VGroup
 
     road = Rectangle(width=10.6, height=1.9, color="#64748b", fill_opacity=0.65, stroke_width=2)
     road.shift(DOWN * 1.65)
@@ -468,6 +468,84 @@ def bus_braking_road(p: BusBrakingParams) -> Built:
     place(group, layout("title_stage_caption")[p.region])
     return Built(group=group, parts=parts, beats=beats,
                  notes=f"2D bus braking from {p.initial_speed_kmh:g} km/h for {p.stopping_time:g} s")
+
+
+class PowerTransmissionParams(BaseModel):
+    power_kw: float = Field(default=600.0, gt=0, description="Power supplied, in kW.")
+    plant_voltage: float = Field(default=4000.0, gt=0, description="Plant-side RMS voltage, in V.")
+    step_up_ratio: float = Field(default=10.0, gt=1, description="Step-up secondary/primary turns ratio.")
+    consumer_voltage: float = Field(default=200.0, gt=0, description="Required consumer RMS voltage, in V.")
+    distance_km: float = Field(default=20.0, gt=0, description="Transmission distance, in km.")
+    region: str = "stage"
+
+
+@component(version=1, domain="physics", params=PowerTransmissionParams)
+def power_transmission_diagram(p: PowerTransmissionParams) -> Built:
+    """A labelled plant → step-up → high-voltage line → step-down → homes diagram."""
+    from manim import DOWN, LEFT, RIGHT, UP, Circle, Line, MathTex, Rectangle, RoundedRectangle, Text, VGroup
+
+    power_w = p.power_kw * 1000
+    line_voltage = p.plant_voltage * p.step_up_ratio
+    plant_current = power_w / p.plant_voltage
+    line_current = power_w / line_voltage
+    step_down_ratio = line_voltage / p.consumer_voltage
+
+    plant = VGroup(
+        Rectangle(width=1.25, height=1.15, color="#475569", fill_opacity=0.9),
+        Rectangle(width=0.22, height=0.7, color="#64748b", fill_opacity=1).shift(LEFT * 0.32 + UP * 0.9),
+        Rectangle(width=0.22, height=0.95, color="#64748b", fill_opacity=1).shift(RIGHT * 0.32 + UP * 1.03),
+        Text("POWER\nPLANT", font_size=17, color="#f8fafc"),
+    ).move_to(LEFT * 5.0 + DOWN * 0.15)
+
+    def transformer(name: str, colour: str):
+        core = RoundedRectangle(width=1.05, height=1.35, corner_radius=0.12, color=colour, fill_opacity=0.25, stroke_width=3)
+        coils = VGroup(*[Circle(radius=0.17, color=colour, stroke_width=3) for _ in range(3)])
+        coils.arrange(DOWN, buff=0.05).shift(LEFT * 0.23)
+        coils_2 = coils.copy().shift(RIGHT * 0.46)
+        label = Text(name, font_size=15, color=colour).next_to(core, DOWN, buff=0.12)
+        return VGroup(core, coils, coils_2, label)
+
+    step_up = transformer("STEP-UP", "#fbbf24").move_to(LEFT * 2.55 + DOWN * 0.15)
+    step_down = transformer("STEP-DOWN", "#4ade80").move_to(RIGHT * 2.55 + DOWN * 0.15)
+    houses = VGroup()
+    for shift in (RIGHT * 4.65, RIGHT * 5.45):
+        base = Rectangle(width=0.62, height=0.5, color="#38bdf8", fill_opacity=0.75)
+        roof = Line(base.get_left() + UP * 0.25, base.get_center() + UP * 0.72, color="#f87171", stroke_width=5)
+        roof_2 = Line(base.get_center() + UP * 0.72, base.get_right() + UP * 0.25, color="#f87171", stroke_width=5)
+        houses.add(VGroup(base, roof, roof_2).move_to(shift + DOWN * 0.28))
+    homes_label = Text("CONSUMERS", font_size=16, color="#e2e8f0").next_to(houses, DOWN, buff=0.15)
+    homes = VGroup(houses, homes_label)
+
+    low_line = Line(plant.get_right() + RIGHT * 0.05, step_up.get_left() + LEFT * 0.08, color="#38bdf8", stroke_width=4)
+    high_line = Line(step_up.get_right() + RIGHT * 0.05, step_down.get_left() + LEFT * 0.05, color="#f87171", stroke_width=6)
+    output_line = Line(step_down.get_right() + RIGHT * 0.05, homes.get_left() + LEFT * 0.08, color="#4ade80", stroke_width=4)
+    towers = VGroup(*[
+        VGroup(Line([x, -0.68, 0], [x, 1.2, 0], color="#94a3b8", stroke_width=3),
+               Line([x - 0.26, 0.77, 0], [x + 0.26, 0.77, 0], color="#94a3b8", stroke_width=2))
+        for x in (-0.75, 0.75)
+    ])
+
+    labels = VGroup(
+        MathTex(rf"P={p.power_kw:g}\,\mathrm{{kW}}", font_size=24).next_to(plant, UP, buff=0.12),
+        MathTex(rf"V_p={p.plant_voltage:g}\,\mathrm{{V}},\ I_p={plant_current:g}\,\mathrm{{A}}", font_size=21, color="#38bdf8").next_to(low_line, UP, buff=0.14),
+        MathTex(rf"V_{{\rm line}}={line_voltage:g}\,\mathrm{{V}},\ I_{{\rm line}}={line_current:g}\,\mathrm{{A}}", font_size=21, color="#f87171").next_to(high_line, UP, buff=0.3),
+        MathTex(rf"{p.distance_km:g}\,\mathrm{{km}}", font_size=20, color="#e2e8f0").next_to(high_line, DOWN, buff=0.34),
+        MathTex(rf"V_s={p.consumer_voltage:g}\,\mathrm{{V}}", font_size=21, color="#4ade80").next_to(output_line, DOWN, buff=0.14),
+        MathTex(rf"\frac{{N_p}}{{N_s}}=\frac{{{line_voltage:g}}}{{{p.consumer_voltage:g}}}={step_down_ratio:g}:1", font_size=25, color="#fbbf24").move_to(DOWN * 2.2),
+    )
+    parts: dict[str, object] = {
+        "power_plant": plant, "step_up_transformer": step_up, "high_voltage_line": high_line,
+        "transmission_towers": towers, "step_down_transformer": step_down, "consumers": homes,
+        "plant_line": low_line, "consumer_line": output_line, "labels": labels,
+    }
+    group = VGroup(*parts.values())
+    beats = [["power_plant", "step_up_transformer", "plant_line"], ["high_voltage_line", "transmission_towers"], ["step_down_transformer", "consumers", "consumer_line"], ["labels"]]
+    place(group, layout("title_stage_caption")[p.region])
+    return Built(
+        group=group, parts=parts, beats=beats,
+        notes=(f"ideal transmission: {p.plant_voltage:g} V -> {line_voltage:g} V; "
+               f"current {plant_current:g} A -> {line_current:g} A; step-down ratio {step_down_ratio:g}:1"),
+    )
 
 
 class WaveParams(BaseModel):

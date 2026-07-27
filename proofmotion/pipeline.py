@@ -35,6 +35,7 @@ from proofmotion.runtime.events import BUS, artifact, headline, stage
 from proofmotion.runtime.registry import ToolError
 from proofmotion.runtime.watcher import watch_render
 from proofmotion.tools.competitive import competitive_exam_requirements
+from proofmotion.tools.creator import study_animation_brief
 from proofmotion.tools.inspect_scene import inspect_scene
 from proofmotion.tools.manim_api import manim_validate_code
 from proofmotion.tools.typeset import typeset_scene
@@ -57,6 +58,12 @@ def _is_competitive_exam_prompt(prompt: str) -> bool:
     """Whether the user explicitly asks for an exam-style, fully worked solution."""
     text = prompt.lower()
     markers = ("jee", "neet", "olympiad", "competitive exam", "entrance exam", "exam question")
+    return any(marker in text for marker in markers)
+
+
+def _is_creator_study_prompt(prompt: str) -> bool:
+    text = prompt.lower()
+    markers = ("content creator", "study animation", "educational animation", "study purpose", "3blue1brown", "3 blue 1 brown")
     return any(marker in text for marker in markers)
 
 
@@ -265,7 +272,14 @@ def _run(
     state.save(project_dir)
 
     stage("storyboard")
-    storyboard = direct_storyboard(client, intent, plan, state.verified_math)
+    creator_brief: dict[str, Any] | None = None
+    if _is_creator_study_prompt(user_prompt):
+        creator_brief = study_animation_brief(intent.topic, intent.audience, "concept_explainer")
+        state.tool_results["study_animation_brief"] = creator_brief
+        state.selected_tools.extend(["study_animation_brief", "study_animation_timing", "motion_design_audit"])
+        artifact("study_animation_brief", creator_brief)
+        headline("Creator study-animation safeguards enabled", "improved")
+    storyboard = direct_storyboard(client, intent, plan, state.verified_math, creator_brief=creator_brief)
     state.storyboard = storyboard.model_dump()
     state.selected_tools = list(dict.fromkeys([
         *state.selected_tools,

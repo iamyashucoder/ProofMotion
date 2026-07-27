@@ -10,7 +10,7 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
-from proofmotion.pipeline import _is_competitive_exam_prompt
+from proofmotion.pipeline import _is_competitive_exam_prompt, _is_creator_study_prompt
 from proofmotion.runtime.registry import ToolError, ToolRegistry
 from proofmotion.tools import REGISTRY, toolset
 from proofmotion.tools.layout import layout_check, layout_frame
@@ -47,6 +47,11 @@ class RegistryTests(unittest.TestCase):
     def test_competitive_exam_prompts_are_detected_without_guessing(self):
         self.assertTrue(_is_competitive_exam_prompt("Solve this JEE Advanced mechanics question."))
         self.assertFalse(_is_competitive_exam_prompt("Explain a derivative visually."))
+
+    def test_creator_study_prompts_enable_the_creator_layer(self):
+        self.assertTrue(_is_creator_study_prompt("I am a content creator making a study animation."))
+        self.assertTrue(_is_creator_study_prompt("Explain it in a 3Blue1Brown-like educational way."))
+        self.assertFalse(_is_creator_study_prompt("Solve this algebra question."))
 
 
 class ManimApiTests(unittest.TestCase):

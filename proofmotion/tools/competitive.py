@@ -19,9 +19,19 @@ _TOPICS: dict[str, dict[str, Any]] = {
         "checks": ["state the sign convention", "show a labelled force or motion diagram", "check units and a limiting case"],
     },
     "electricity_magnetism": {
-        "words": ("electric", "charge", "capacitor", "circuit", "current", "magnetic", "induction", "lens", "mirror"),
-        "tools": ["symbolic_solve", "numeric_evaluate", "units_check", "component_search"],
+        "words": ("electric", "power plant", "transformer", "transmission", "charge", "capacitor", "circuit", "current", "magnetic", "induction", "lens", "mirror"),
+        "tools": ["power_transmission", "symbolic_solve", "numeric_evaluate", "units_check", "component_search"],
         "checks": ["draw the circuit, field, or ray diagram before equations", "state the direction convention", "check units"],
+    },
+    "thermal_waves_optics": {
+        "words": ("thermodynamic", "heat", "engine", "entropy", "wave", "sound", "doppler", "interference", "diffraction", "optics", "lens", "mirror"),
+        "tools": ["thermodynamic_process", "symbolic_solve", "units_check", "component_search"],
+        "checks": ["draw the process path or ray/wavefront diagram", "state the sign convention for work and heat", "check the limiting case"],
+    },
+    "modern_physics": {
+        "words": ("hydrogen", "bohr", "photon", "photoelectric", "nuclear", "radioactive", "semiconductor", "de broglie"),
+        "tools": ["hydrogen_transition", "numeric_evaluate", "units_check", "component_search"],
+        "checks": ["write the energy-level or band diagram", "keep eV and joule conversions explicit", "state emission versus absorption"],
     },
     "physical_chemistry": {
         "words": ("mole", "stoichi", "gas", "molar", "equilibrium", "ph", "acid", "base", "thermodynamic", "enthalpy", "electrochem", "kinetics"),
@@ -49,6 +59,37 @@ _TOPICS: dict[str, dict[str, Any]] = {
         "checks": ["draw and label the coordinate diagram", "state the coordinate convention", "verify the final point or locus"],
     },
 }
+
+
+_CATALOGUE: dict[str, dict[str, Any]] = {
+    "physics_mechanics": {"coverage": "deterministic", "tools": ["jee_mechanics", "numeric_ode", "units_check"], "visuals": ["free_body_diagram", "projectile_motion", "circular_motion", "pendulum", "spring_mass", "collision"]},
+    "physics_electricity_magnetism": {"coverage": "deterministic core", "tools": ["circuit_network", "capacitor_network", "electrostatics_point_charges", "power_transmission", "units_check"], "visuals": ["circuit_diagram", "field_lines", "power_transmission_diagram"]},
+    "physics_thermal_waves_optics": {"coverage": "deterministic core", "tools": ["thermodynamic_process", "symbolic_solve", "numeric_sample"], "visuals": ["pv_diagram", "wave_form", "standing_wave", "ray_diagram"]},
+    "physics_modern": {"coverage": "deterministic core", "tools": ["hydrogen_transition", "numeric_evaluate", "units_check"], "visuals": ["energy_bars"]},
+    "chemistry_physical": {"coverage": "deterministic core", "tools": ["stoichiometry_limit", "ideal_gas_state", "weak_acid_ph", "chemical_equilibrium_direction", "thermodynamic_process"], "visuals": ["pv_diagram", "energy_bars"]},
+    "chemistry_organic": {"coverage": "requires curated reaction database", "tools": ["competitive_exam_requirements"], "visuals": ["structural-formula and mechanism components: pending"]},
+    "chemistry_inorganic": {"coverage": "requires curated periodic/reaction database", "tools": ["competitive_exam_requirements"], "visuals": ["orbital and coordination components: pending"]},
+    "math_algebra_calculus": {"coverage": "deterministic", "tools": ["symbolic_algebra", "symbolic_solve", "symbolic_differentiate", "symbolic_integrate", "symbolic_limit", "symbolic_series"], "visuals": ["function_plot", "tangent_secant", "riemann_area", "iteration_trace"]},
+    "math_coordinate_vector": {"coverage": "deterministic", "tools": ["geometry_solve", "conic_properties", "symbolic_matrix", "symbolic_vector_calculus"], "visuals": ["geometry_construction", "matrix_transform", "vector_field", "unit_circle"]},
+    "math_discrete_probability": {"coverage": "deterministic", "tools": ["combinatorics", "number_theory", "probability", "graph_algorithm"], "visuals": ["array_cells", "distribution_plot"]},
+}
+
+
+@tool
+def competitive_exam_catalogue(subject: Literal["all", "physics", "chemistry", "mathematics"] = "all") -> dict[str, Any]:
+    """Return the supported JEE/competitive-exam capability map and known gaps.
+
+    Use this before planning a broad exam topic. It prevents an agent from
+    pretending that a chemistry reaction database or a visual component already
+    exists when it does not.
+
+    Args:
+        subject: all, physics, chemistry, or mathematics.
+    """
+    prefixes = {"physics": "physics_", "chemistry": "chemistry_", "mathematics": "math_"}
+    selected = _CATALOGUE if subject == "all" else {key: value for key, value in _CATALOGUE.items() if key.startswith(prefixes[subject])}
+    gaps = [key for key, value in selected.items() if "requires curated" in value["coverage"]]
+    return {"subject": subject, "domains": selected, "known_gaps": gaps, "policy": "Use deterministic tools where listed; request a vetted reference dataset for every known gap."}
 
 
 @tool
@@ -158,6 +199,203 @@ def jee_mechanics(
         common["model"] = "small radial oscillation about an inverse-square circular orbit"
         common["derivation_hint"] = "Use U_eff=l^2/(2*m*r^2)-k/r; then omega_r^2=U_eff''(r0)/m."
     return common
+
+
+@tool
+def power_transmission(
+    power_kw: float,
+    generation_voltage: float,
+    step_up_primary_to_secondary: float,
+    consumer_voltage: float,
+) -> dict[str, Any]:
+    """Solve an ideal-transformer power-transmission setup exactly.
+
+    Use when a power plant raises voltage for a resistive transmission line and
+    lowers it again for consumers. The cable resistance is not needed to find
+    the turns ratio; if it is unspecified, this reports the negligible-drop
+    ideal result and the I-squared-R loss reduction factor.
+
+    Args:
+        power_kw: Power generated and supplied, in kW.
+        generation_voltage: Plant-side RMS voltage before the step-up transformer, in V.
+        step_up_primary_to_secondary: N_primary/N_secondary for the step-up transformer.
+        consumer_voltage: Required RMS voltage at consumers, in V.
+    """
+    if min(power_kw, generation_voltage, step_up_primary_to_secondary, consumer_voltage) <= 0:
+        raise ToolError("power, both voltages, and the turns ratio must be positive")
+    power_w = power_kw * 1000
+    transmission_voltage = generation_voltage / step_up_primary_to_secondary
+    plant_current = power_w / generation_voltage
+    line_current = power_w / transmission_voltage
+    return {
+        "power_w": power_w,
+        "plant_current_a": plant_current,
+        "transmission_voltage_v": transmission_voltage,
+        "line_current_a": line_current,
+        "step_down_primary_to_secondary": transmission_voltage / consumer_voltage,
+        "step_down_ratio": f"{transmission_voltage / consumer_voltage:g}:1",
+        "line_loss_reduction_factor": (plant_current / line_current) ** 2,
+        "derivation": [
+            "V_s/V_p=N_s/N_p for an ideal transformer",
+            "P=V*I at unity power factor",
+            "P_loss=I^2*R, so the loss ratio follows from the current ratio squared",
+            f"N_p/N_s=V_p/V_s={transmission_voltage:g}/{consumer_voltage:g}",
+        ],
+        "assumption": "Cable voltage drop is neglected for the turns-ratio calculation because no cable resistance was supplied.",
+        "units": {"power_w": "W", "plant_current_a": "A", "transmission_voltage_v": "V", "line_current_a": "A"},
+    }
+
+
+@tool
+def circuit_network(
+    resistances_ohm: list[float],
+    supply_voltage: float,
+    arrangement: Literal["series", "parallel"] = "series",
+) -> dict[str, Any]:
+    """Solve a DC series or parallel resistor network with power checks.
+
+    Args:
+        resistances_ohm: Positive resistor values in ohms.
+        supply_voltage: Ideal supply voltage in V.
+        arrangement: series or parallel.
+    """
+    if not resistances_ohm or any(value <= 0 for value in resistances_ohm) or supply_voltage <= 0:
+        raise ToolError("resistances and supply_voltage must be positive")
+    if arrangement == "series":
+        equivalent = sum(resistances_ohm)
+        current = supply_voltage / equivalent
+        branch_currents = [current] * len(resistances_ohm)
+        branch_voltages = [current * value for value in resistances_ohm]
+    else:
+        equivalent = 1 / sum(1 / value for value in resistances_ohm)
+        current = supply_voltage / equivalent
+        branch_currents = [supply_voltage / value for value in resistances_ohm]
+        branch_voltages = [supply_voltage] * len(resistances_ohm)
+    powers = [voltage * current for voltage, current in zip(branch_voltages, branch_currents, strict=True)]
+    return {"arrangement": arrangement, "equivalent_resistance_ohm": equivalent, "total_current_a": current, "branch_currents_a": branch_currents, "branch_voltages_v": branch_voltages, "branch_powers_w": powers, "total_power_w": supply_voltage * current, "checks": {"power_sum_w": sum(powers), "power_conserved": math.isclose(sum(powers), supply_voltage * current, rel_tol=1e-10)}}
+
+
+@tool
+def capacitor_network(
+    capacitances_farad: list[float],
+    supply_voltage: float,
+    arrangement: Literal["series", "parallel"] = "series",
+) -> dict[str, Any]:
+    """Solve a series or parallel capacitor network, including charge and energy.
+
+    Args:
+        capacitances_farad: Positive capacitances in F.
+        supply_voltage: Applied voltage in V.
+        arrangement: series or parallel.
+    """
+    if not capacitances_farad or any(value <= 0 for value in capacitances_farad) or supply_voltage <= 0:
+        raise ToolError("capacitances and supply_voltage must be positive")
+    if arrangement == "series":
+        equivalent = 1 / sum(1 / value for value in capacitances_farad)
+        charge = equivalent * supply_voltage
+        charges = [charge] * len(capacitances_farad)
+        voltages = [charge / value for value in capacitances_farad]
+    else:
+        equivalent = sum(capacitances_farad)
+        charges = [value * supply_voltage for value in capacitances_farad]
+        voltages = [supply_voltage] * len(capacitances_farad)
+        charge = sum(charges)
+    energies = [0.5 * value * voltage**2 for value, voltage in zip(capacitances_farad, voltages, strict=True)]
+    return {"arrangement": arrangement, "equivalent_capacitance_f": equivalent, "total_charge_c": charge, "capacitor_charges_c": charges, "capacitor_voltages_v": voltages, "stored_energies_j": energies, "total_energy_j": 0.5 * equivalent * supply_voltage**2}
+
+
+@tool
+def electrostatics_point_charges(
+    source_charges_c: list[list[float]],
+    at: list[float],
+    test_charge_c: float = 1.0,
+) -> dict[str, Any]:
+    """Compute electric field, potential, and force from point charges in 2D.
+
+    Args:
+        source_charges_c: Entries [charge_coulomb, x_m, y_m].
+        at: Evaluation point [x_m, y_m].
+        test_charge_c: Test charge for the reported force, in C.
+    """
+    if len(at) != 2 or not source_charges_c:
+        raise ToolError("provide at=[x,y] and at least one source charge [q,x,y]")
+    k = 8.9875517923e9
+    ex = ey = potential = 0.0
+    for entry in source_charges_c:
+        if len(entry) != 3:
+            raise ToolError("each source charge must be [charge_coulomb, x_m, y_m]")
+        charge, x, y = map(float, entry)
+        dx, dy = at[0] - x, at[1] - y
+        radius_squared = dx * dx + dy * dy
+        if radius_squared == 0:
+            raise ToolError("field is undefined at a source-charge position")
+        radius = math.sqrt(radius_squared)
+        factor = k * charge / (radius_squared * radius)
+        ex += factor * dx
+        ey += factor * dy
+        potential += k * charge / radius
+    return {"field_n_per_c": [ex, ey], "field_magnitude_n_per_c": math.hypot(ex, ey), "potential_v": potential, "force_on_test_charge_n": [test_charge_c * ex, test_charge_c * ey]}
+
+
+@tool
+def thermodynamic_process(
+    moles: float,
+    initial_temperature_k: float,
+    final_temperature_k: float,
+    process: Literal["isochoric", "isobaric"],
+    gamma: float = 1.4,
+) -> dict[str, Any]:
+    """Compute Q, W, and ΔU for an ideal-gas isochoric or isobaric process.
+
+    Sign convention: positive W is work done by the gas, and Q=ΔU+W.
+
+    Args:
+        moles: Gas amount in mol.
+        initial_temperature_k: Initial absolute temperature in K.
+        final_temperature_k: Final absolute temperature in K.
+        process: isochoric or isobaric.
+        gamma: Heat-capacity ratio Cp/Cv, greater than one.
+    """
+    if min(moles, initial_temperature_k, final_temperature_k) <= 0 or gamma <= 1:
+        raise ToolError("moles and temperatures must be positive, and gamma must exceed 1")
+    r = 8.314462618
+    delta_t = final_temperature_k - initial_temperature_k
+    delta_u = moles * r / (gamma - 1) * delta_t
+    work = 0.0 if process == "isochoric" else moles * r * delta_t
+    return {"process": process, "delta_temperature_k": delta_t, "delta_u_j": delta_u, "work_by_gas_j": work, "heat_added_j": delta_u + work, "sign_convention": "Q=DeltaU+W, where W is work done by the gas"}
+
+
+@tool
+def hydrogen_transition(n_initial: int, n_final: int) -> dict[str, Any]:
+    """Solve a hydrogen-atom transition using Bohr energy levels.
+
+    Args:
+        n_initial: Initial principal quantum number, at least 1.
+        n_final: Final principal quantum number, at least 1 and different from n_initial.
+    """
+    if min(n_initial, n_final) < 1 or n_initial == n_final:
+        raise ToolError("n_initial and n_final must be positive, distinct integers")
+    emitted_energy_ev = 13.6 * abs(1 / n_final**2 - 1 / n_initial**2)
+    return {"transition": f"{n_initial}->{n_final}", "kind": "emission" if n_initial > n_final else "absorption", "photon_energy_ev": emitted_energy_ev, "photon_energy_j": emitted_energy_ev * 1.602176634e-19, "wavelength_nm": 1239.841984 / emitted_energy_ev}
+
+
+@tool
+def chemical_equilibrium_direction(reaction_quotient: float, equilibrium_constant: float) -> dict[str, Any]:
+    """Determine the equilibrium shift from Qc and Kc without guessing.
+
+    Args:
+        reaction_quotient: Current Qc, non-negative.
+        equilibrium_constant: Positive Kc at the given temperature.
+    """
+    if reaction_quotient < 0 or equilibrium_constant <= 0:
+        raise ToolError("reaction_quotient must be non-negative and equilibrium_constant must be positive")
+    if math.isclose(reaction_quotient, equilibrium_constant, rel_tol=1e-9, abs_tol=1e-12):
+        direction = "already at equilibrium"
+    elif reaction_quotient < equilibrium_constant:
+        direction = "forward, toward products"
+    else:
+        direction = "reverse, toward reactants"
+    return {"Q": reaction_quotient, "K": equilibrium_constant, "direction": direction}
 
 
 @tool

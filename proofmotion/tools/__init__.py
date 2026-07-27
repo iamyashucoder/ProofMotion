@@ -9,8 +9,9 @@ from proofmotion.runtime.registry import REGISTRY
 from proofmotion.tools import (
     algebra,
     analysis,
-    components_tool,
     competitive,
+    components_tool,
+    creator,
     discrete,
     geometry,
     inspect_scene,
@@ -29,7 +30,7 @@ from proofmotion.tools import (
 #: silently unregistering component_search and component_build, which then failed
 #: only at runtime inside an agent. A tuple a linter can see cannot be pruned.
 _REGISTERING_MODULES = (
-    algebra, analysis, components_tool, competitive, discrete, geometry, inspect_scene,
+    algebra, analysis, components_tool, competitive, creator, discrete, geometry, inspect_scene,
     layout, learned_tool, manim_api, numeric, reasoning, statistics, symbolic,
     typeset,
 )
@@ -64,11 +65,20 @@ TOOLSETS: dict[str, list[str]] = {
     "geometry": ["geometry_solve", "conic_properties"],
     "competitive": [
         "competitive_exam_requirements",
+        "competitive_exam_catalogue",
         "jee_mechanics",
+        "power_transmission",
+        "circuit_network",
+        "capacitor_network",
+        "electrostatics_point_charges",
+        "thermodynamic_process",
+        "hydrogen_transition",
+        "chemical_equilibrium_direction",
         "stoichiometry_limit",
         "ideal_gas_state",
         "weak_acid_ph",
     ],
+    "creator": ["study_animation_brief", "study_animation_timing", "motion_design_audit"],
     #: Checking that a result is right, as distinct from producing one.
     "verify": [
         "units_check",
