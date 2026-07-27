@@ -21,6 +21,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from proofmotion.components import COMPONENTS
+from proofmotion.layout.notation import to_latex
 from proofmotion.runtime.registry import ToolError
 from schemas.storyboard import MAX_SCENES
 
@@ -194,7 +195,12 @@ def assemble(plan: ScenePlan) -> str:
             # Without a component the equation is the scene, so it belongs on
             # the stage at full size rather than shrunk into the caption strip.
             region, size = ("caption", 30) if scene.component else ("stage", 44)
-            write(f"        caption = MathTex({scene.caption!r}, font_size={size})")
+            # MathTex cannot compile Unicode, and a model writing a caption
+            # writes what it would write anywhere — "sum ≈ 9.86", "∫₀³ x² dx".
+            # Three clips in a row died on the approximately-equal sign alone,
+            # and the error named a file in vendored Manim rather than the
+            # caption. The notation is right; only the encoding is wrong.
+            write(f"        caption = MathTex({to_latex(scene.caption)!r}, font_size={size})")
             write(f"        place(caption, regions[{region!r}])")
             if read_equation:
                 write("        if equation_memory is not None:")

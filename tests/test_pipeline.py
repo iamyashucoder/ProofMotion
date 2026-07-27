@@ -171,6 +171,52 @@ class ProviderTests(unittest.TestCase):
         self.assertEqual(DeepSeekClient.token_param, "max_tokens")
         self.assertEqual(OpenRouterClient.token_param, "max_tokens")
 
+    def test_ollama_needs_no_key_and_is_judged_by_the_daemon_answering(self):
+        """"Has an API key" cannot mean available for a local daemon.
+
+        Ollama ignores credentials entirely, so the base class's check would
+        call it available whenever the placeholder key was set — including when
+        nothing is listening on the port.
+        """
+        from unittest.mock import patch
+
+        from llm.providers import OllamaClient
+
+        client = OllamaClient("gemma4:latest")
+        self.assertEqual(client.name, "ollama")
+        self.assertIn("11434", client.base_url)
+
+        with patch("urllib.request.urlopen", side_effect=OSError("connection refused")):
+            self.assertFalse(client.available, "a stopped daemon must not read as available")
+
+    def test_ollama_raises_the_completion_floor(self):
+        """A reasoning model that runs out mid-thought returns nothing at all.
+
+        qwen3.6 spends its budget thinking and emits the tool call afterwards:
+        at 300 tokens it returned no call and no content, at 4000 it called
+        correctly. Ollama's OpenAI endpoint ignores `think` and
+        `reasoning_effort`, so the budget is the only lever there is.
+        """
+        from llm.providers import OllamaClient
+
+        client = OllamaClient("qwen3.6:latest")
+        seen = {}
+
+        def capture(_self, messages, *, tools=None, max_tokens=4000):
+            seen["max_tokens"] = max_tokens
+
+        from llm import providers
+
+        original = providers.OpenAICompatibleClient.chat
+        providers.OpenAICompatibleClient.chat = capture
+        try:
+            client.chat([{"role": "user", "content": "hi"}], max_tokens=300)
+            self.assertEqual(seen["max_tokens"], OllamaClient.MIN_TOKENS)
+            client.chat([{"role": "user", "content": "hi"}], max_tokens=9000)
+            self.assertEqual(seen["max_tokens"], 9000, "a larger budget must not be lowered")
+        finally:
+            providers.OpenAICompatibleClient.chat = original
+
     def test_disabling_deepseek_thinking_is_sent_rather_than_omitted(self):
         """Both v4 models reason when the key is absent, so silence meant on.
 

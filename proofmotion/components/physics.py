@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 from proofmotion.components.base import Built, component
 from proofmotion.layout.collision import holds_text
 from proofmotion.layout.labels import place_label
+from proofmotion.layout.notation import to_latex
 from proofmotion.layout.regions import layout, place
 
 GRAVITY = 9.81
@@ -31,12 +32,13 @@ FORCE_COLORS = ("#f87171", "#4ade80", "#fbbf24", "#a78bfa", "#38bdf8", "#fb923c"
 
 
 def _latex_label(value: str) -> str:
-    """Normalise common Unicode math copied from a prompt into LaTeX source."""
-    return value.translate(str.maketrans({
-        "θ": r"\theta", "Θ": r"\Theta", "λ": r"\lambda", "Λ": r"\Lambda",
-        "π": r"\pi", "Π": r"\Pi", "φ": r"\phi", "Φ": r"\Phi",
-        "ω": r"\omega", "Ω": r"\Omega", "δ": r"\delta", "Δ": r"\Delta",
-    }))
+    """Normalise Unicode maths copied from a prompt into LaTeX source.
+
+    Delegates to the one table. This carried its own list of a dozen Greek
+    letters and knew nothing about the operators or the superscripts, so the
+    same class of bug was fixed here and still live everywhere else.
+    """
+    return to_latex(value)
 
 
 class Force(BaseModel):

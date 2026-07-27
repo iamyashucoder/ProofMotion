@@ -319,6 +319,76 @@ class LocalVLLMClient(OpenAICompatibleClient):
         )
 
 
+class OllamaClient(OpenAICompatibleClient):
+    """Models served by a local Ollama daemon, over its OpenAI-compatible port.
+
+    Ollama needs no credentials, so `available` cannot mean "has an API key" —
+    it means the daemon answers. That check is a real request rather than an
+    assumption, because a stopped daemon and a wrong port both look identical
+    until something tries to use them.
+
+    Reasoning models here need room. qwen3.6 spends its whole budget thinking
+    and emits the tool call afterwards, so at 300 tokens it returned no call and
+    no content while at 4000 it called correctly. Ollama's OpenAI endpoint
+    ignores `think` and `reasoning_effort` — both were sent and the trace came
+    back the same length — so the budget is the only lever, and MIN_TOKENS is
+    it.
+    """
+
+    name = "ollama"
+    DEFAULT_MODEL = "gemma4:latest"
+
+    #: Floor on the completion budget. A local reasoning model that runs out
+    #: mid-thought returns an empty message, which reads downstream as a model
+    #: that cannot use tools rather than one that was cut off.
+    MIN_TOKENS = 4000
+
+    def __init__(self, model: str | None = None, **kwargs: Any) -> None:
+        super().__init__(
+            base_url=os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434/v1"),
+            # The OpenAI SDK requires a key; Ollama ignores whatever it is sent.
+            api_key=os.getenv("OLLAMA_API_KEY", "ollama"),
+            model=model or os.getenv("OLLAMA_MODEL", self.DEFAULT_MODEL),
+            **kwargs,
+        )
+
+    @property
+    def available(self) -> bool:
+        """Whether the daemon is actually answering on this port."""
+        import urllib.error
+        import urllib.request
+
+        root = self.base_url.removesuffix("/v1").rstrip("/")
+        try:
+            with urllib.request.urlopen(f"{root}/api/tags", timeout=5) as response:
+                return response.status == 200
+        except (urllib.error.URLError, OSError, ValueError) as error:
+            log.warning("Ollama is not answering at %s: %s", root, error)
+            return False
+
+    def chat(
+        self,
+        messages: list[dict[str, Any]],
+        *,
+        tools: list[dict[str, Any]] | None = None,
+        max_tokens: int = 4000,
+    ) -> Any:
+        return super().chat(messages, tools=tools, max_tokens=max(max_tokens, self.MIN_TOKENS))
+
+    def models(self) -> list[str]:
+        """Model tags the daemon has pulled, for choosing one that exists."""
+        import json as _json
+        import urllib.request
+
+        root = self.base_url.removesuffix("/v1").rstrip("/")
+        try:
+            with urllib.request.urlopen(f"{root}/api/tags", timeout=10) as response:
+                payload = _json.loads(response.read())
+        except (OSError, ValueError) as error:
+            raise LLMError(f"could not list Ollama models at {root}: {error}") from error
+        return sorted(m["name"] for m in payload.get("models", []))
+
+
 class OpenAIClient(OpenAICompatibleClient):
     """OpenAI directly.
 
@@ -384,6 +454,7 @@ class OpenAIClient(OpenAICompatibleClient):
 
 PROVIDERS: dict[str, type[OpenAICompatibleClient]] = {
     "deepseek": DeepSeekClient,
+    "ollama": OllamaClient,
     "openai": OpenAIClient,
     "openrouter": OpenRouterClient,
     "vllm": LocalVLLMClient,

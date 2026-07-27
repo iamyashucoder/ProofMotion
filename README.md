@@ -93,6 +93,7 @@ all of them. Select with `PROOFMOTION_LLM_PROVIDER`:
 ```bash
 uv run proofmotion --provider openai   "..."
 uv run proofmotion --provider deepseek "..."
+uv run proofmotion --provider ollama   "..."   # local, no key
 uv run proofmotion --provider vllm     "..."   # local, on the A6000s
 PROOFMOTION_LLM_PROVIDER=openai uv run proofmotion "..."   # or set it once
 ```
@@ -102,7 +103,16 @@ PROOFMOTION_LLM_PROVIDER=openai uv run proofmotion "..."   # or set it once
 | `openai` | `OPENAI_API_KEY` | `OPENAI_MODEL` | `gpt-5.6-terra` |
 | `deepseek` | `DEEPSEEK_API_KEY` | `DEEPSEEK_MODEL` | `deepseek-v4-pro` |
 | `openrouter` | `OPENROUTER_API_KEY` | `OPENROUTER_MODEL` | `google/gemma-4-26b-a4b-it:free` |
+| `ollama` | not required | `OLLAMA_MODEL` | `gemma4:latest` (set `OLLAMA_BASE_URL`) |
 | `vllm` | not required | `VLLM_MODEL` | — (set `VLLM_BASE_URL`) |
+
+`ollama` needs no credentials, so it is judged available by the daemon
+answering rather than by a key being set. Reasoning models served this way need
+room: qwen3.6 spends its budget thinking and emits the tool call afterwards, so
+at 300 tokens it returned nothing at all and at 4000 it called correctly.
+Ollama's OpenAI endpoint ignores `think` and `reasoning_effort` — both were sent
+and the trace came back the same length — so the client raises the completion
+floor instead.
 
 The agent loop needs tool calling, so the provider must support it. OpenAI and
 DeepSeek both do. **OpenRouter `:free` endpoints generally do not** — they route
