@@ -174,6 +174,55 @@ class TestDigest(unittest.TestCase):
         self.assertEqual(before, {u.digest for u in units_of(p)})
 
 
+class TestHandWrittenCode(unittest.TestCase):
+    """Scene code reaches a slide from more than one place, so it is checked at use."""
+
+    BROKEN = (
+        "from manim import *\n"
+        "\\nclass SquareToCircle(Scene):\n"
+        "    def construct(self):\n"
+        "        self.play(Transform(Square(), Circle()))\n"
+    )
+
+    def test_escaping_and_the_class_name_are_repaired(self):
+        """Both are silent at render time and neither is worth losing work over."""
+        from proofmotion.studio.operations import usable_code
+
+        fixed = usable_code(self.BROKEN)
+        self.assertNotIn("\\n", fixed)
+        self.assertIn("class GeneratedScene(Scene):", fixed)
+        self.assertNotIn("SquareToCircle", fixed)
+
+    def test_code_that_cannot_render_is_refused_with_a_reason(self):
+        from proofmotion.studio.operations import usable_code
+
+        for label, source in (
+            ("empty", "   "),
+            ("no scene", "x = 1"),
+            ("bad api", (
+                "from manim import *\nclass GeneratedScene(Scene):\n"
+                "    def construct(self):\n        self.add(Dot(color=MAGENTA))\n"
+            )),
+        ):
+            with self.subTest(label=label), self.assertRaises(ToolError):
+                usable_code(source)
+
+    def test_a_slide_stored_before_the_check_existed_still_renders(self):
+        """Normalising only on write leaves old documents broken forever.
+
+        A project written by an earlier version carries the literal escape and
+        the wrong class name, and would fail on every render for its whole
+        life. The repair belongs at the point of use.
+        """
+        from proofmotion.studio.render import units_of
+
+        p = project(Slide(id="s1", title="Square to Circle", code=self.BROKEN))
+        unit = units_of(p)[0]
+        self.assertEqual(unit.ids, ["s1"])
+        # The document keeps exactly what was stored; the renderer copes.
+        self.assertIn("SquareToCircle", p.slides[0].code)
+
+
 class TestNotation(unittest.TestCase):
     """Unicode maths a model writes, turned into LaTeX that compiles.
 

@@ -125,7 +125,19 @@ def _render_one(unit: Unit, work: Path, clips: Path) -> Unit:
     if hand_written:
         # A slide with its own scene is that scene. It never shares a unit, so
         # there is exactly one and nothing to assemble around it.
-        code = hand_written[0].code
+        #
+        # Normalised here rather than only where it was written. Slides stored
+        # before that check existed still carry a literal backslash-n and a
+        # class the renderer never opens, and they would fail on every render
+        # for the life of the project. Repairing at the point of use makes a
+        # document written by an older version work.
+        from proofmotion.studio.operations import usable_code
+
+        try:
+            code = usable_code(hand_written[0].code)
+        except ToolError as error:
+            unit.error = f"{hand_written[0].id}: {error}"
+            return unit
     else:
         try:
             code = assemble(unit.plan())

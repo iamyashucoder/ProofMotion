@@ -321,7 +321,10 @@ class Studio:
         )
         if report["failed"]:
             first = report["problems"][0]
-            summary += f" · {report['failed']} failed on {','.join(first['slides'])}"
+            # The reason, not just the slide. "1 failed on s1" tells nobody
+            # anything they can act on, and the reason was already in hand.
+            reason = " ".join(str(first["error"]).split())[:180]
+            summary += f" · {report['failed']} failed on {','.join(first['slides'])}: {reason}"
         self.status = summary
         headline(summary)
         return report
