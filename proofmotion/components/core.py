@@ -155,6 +155,31 @@ def geometry_construction(p: GeometryConstructionParams) -> Built:
                  notes=f"{len(located)} points, {len(p.segments)} segments")
 
 
+def _streamline(fx, fy, x: float, y: float, extent: float, steps: int = 90) -> list[tuple[float, float]]:
+    """Follow the field from a point, by small steps.
+
+    Plain Euler is enough: the line only has to look like the arrows, and the
+    step is small relative to the plot. It stops at the edge rather than
+    wrapping, so a tracer never reappears somewhere it did not flow to.
+    """
+    step = extent / 45
+    trail = [(x, y)]
+    for _ in range(steps):
+        try:
+            vx, vy = float(fx(x, y)), float(fy(x, y))
+        except (ValueError, ZeroDivisionError, TypeError, OverflowError):
+            break
+        speed = math.hypot(vx, vy)
+        if speed < 1e-9 or not math.isfinite(speed):
+            break
+        x += step * vx / speed
+        y += step * vy / speed
+        if abs(x) > extent or abs(y) > extent:
+            break
+        trail.append((x, y))
+    return trail
+
+
 class VectorFieldParams(BaseModel):
     x_component: str = Field(description="i-component as a function of x and y, e.g. '-y'.")
     y_component: str = Field(description="j-component, e.g. 'x'.")
@@ -207,10 +232,41 @@ def vector_field(p: VectorFieldParams) -> Built:
     if not len(arrows):
         raise ToolError("the field vanished everywhere on the sampled grid")
 
+    # Tracers, so the field reads as a flow rather than a bed of nails. Each
+    # path is integrated through the field the component was given, so what
+    # drifts is what the arrows actually say — not a decorative loop.
+    from manim import Dot, VMobject
+
+    tracers, streams = VGroup(), []
+    for seed_x, seed_y in ((-p.extent * 0.6, p.extent * 0.5), (p.extent * 0.5, -p.extent * 0.55),
+                           (-p.extent * 0.5, -p.extent * 0.4)):
+        trail = _streamline(fx, fy, seed_x, seed_y, p.extent)
+        if len(trail) < 4:
+            continue
+        stream = VMobject()
+        stream.set_points_smoothly([plane.c2p(sx, sy) for sx, sy in trail])
+        streams.append(stream)
+        tracers.add(Dot(plane.c2p(*trail[0]), radius=0.07, color=HIGHLIGHT))
+
+    parts: dict[str, Any] = {"plane": plane, "arrows": arrows}
     group = VGroup(plane, arrows)
+    if len(tracers):
+        parts["tracers"] = tracers
+        group.add(tracers)
+
     place(group, layout("title_stage_caption")[p.region])
+
+    def drift() -> Any:
+        from manim import AnimationGroup, MoveAlongPath
+
+        return AnimationGroup(*[
+            MoveAlongPath(dot, stream) for dot, stream in zip(tracers, streams, strict=False)
+        ])
+
     return Built(
-        group=group, parts={"plane": plane, "arrows": arrows}, beats=[["plane"], ["arrows"]],
+        group=group, parts=parts,
+        beats=[["plane"], ["arrows"]] + ([["tracers"]] if len(tracers) else []),
+        motions=[drift] if len(tracers) else [],
         notes=f"{len(arrows)} arrows, |v| from {min(magnitudes):.3g} to {max(magnitudes):.3g}",
     )
 

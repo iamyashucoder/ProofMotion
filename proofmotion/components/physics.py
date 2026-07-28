@@ -13,7 +13,7 @@ up with "mg" written across the weight arrow.
 from __future__ import annotations
 
 import math
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -638,6 +638,23 @@ def wave_form(p: WaveParams) -> Built:
     group = VGroup(axes, wave)
     beats = [["axes"], ["wave"]]
 
+    # A wave that does not travel is a picture of a sine curve. Redrawing the
+    # phase rather than sliding the mobject keeps it inside its own axes:
+    # shifting would carry the crest off the end of the plot.
+    def travel() -> Any:
+        from manim import UpdateFromAlphaFunc
+
+        def at_phase(target: Any, alpha: float) -> None:
+            shifted = axes.plot(
+                lambda x: p.amplitude * math.sin(
+                    2 * math.pi * (x - alpha * p.wavelength) / p.wavelength
+                ),
+                x_range=[0, span], color=BODY_COLOR,
+            )
+            target.become(shifted)
+
+        return UpdateFromAlphaFunc(wave, at_phase)
+
     if p.annotate:
         crest = p.wavelength / 4
         lam = DoubleArrow(
@@ -664,7 +681,8 @@ def wave_form(p: WaveParams) -> Built:
                 group.add(result["leader"])
 
     place(group, layout("title_stage_caption")[p.region])
-    return Built(group=group, parts=parts, beats=beats, notes=f"lambda {p.wavelength}, amplitude {p.amplitude}")
+    return Built(group=group, parts=parts, beats=beats, motions=[travel],
+                 notes=f"lambda {p.wavelength}, amplitude {p.amplitude}")
 
 
 class MeterScaleFrictionParams(BaseModel):

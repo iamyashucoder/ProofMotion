@@ -100,8 +100,37 @@ def pendulum(p: PendulumParams) -> Built:
     beats.append(labels)
 
     place(group, layout("title_stage_caption")[p.region])
+
+    # A pendulum that does not swing is a diagram of a pendulum. It rotates
+    # about its own pivot, through twice the displacement and back, so what is
+    # animated is the amplitude the parameters actually describe.
+    #
+    # The angle mark and the force arrows are left out of the rotation and
+    # faded for its duration. Carrying them round would be worse than not
+    # moving at all: the weight arrow would stop pointing down, and an arrow
+    # labelled mg that does not point down is a lie about the physics. They
+    # belong to the displaced position the rest of the figure describes.
+    swinging = VGroup(rod, bob)
+    attached = VGroup(*[
+        parts[name] for name in
+        ("angle", "angle_label", "tension", "tension_label", "weight", "weight_label")
+        if name in parts
+    ])
+    turn = -2 * radians
+
+    def swing() -> Any:
+        from manim import FadeIn, FadeOut, Rotate, Succession
+
+        steps = [
+            Rotate(swinging, angle=turn, about_point=pivot),
+            Rotate(swinging, angle=-turn, about_point=pivot),
+        ]
+        if len(attached):
+            steps = [FadeOut(attached), *steps, FadeIn(attached)]
+        return Succession(*steps)
+
     return Built(
-        group=group, parts=parts, beats=beats,
+        group=group, parts=parts, beats=beats, motions=[swing],
         notes=(
             f"small-angle period {period:.6f} s; at {p.angle_deg:g} deg the true period is about "
             f"{correction:.4f} times that, so the approximation is off by {(correction - 1) * 100:.2f}%"
@@ -155,7 +184,22 @@ def spring_mass(p: SpringMassParams) -> Built:
     beats.append(labels)
 
     place(group, layout("title_stage_caption")[p.region])
-    return Built(group=group, parts=parts, beats=beats,
+
+    # The mass travels to the far side of rest and back, which is the
+    # oscillation the period underneath describes. The spring is stretched
+    # with it so the coils do not detach from the block.
+    travel = (rest_x - mass_x) * 2
+
+    def oscillate() -> Any:
+        from manim import RIGHT, Succession
+
+        moving = VGroup(spring, block, *[m for k, m in parts.items() if k == "mass_label"])
+        return Succession(
+            moving.animate.shift(RIGHT * travel).build(),
+            moving.animate.shift(RIGHT * -travel).build(),
+        )
+
+    return Built(group=group, parts=parts, beats=beats, motions=[oscillate],
                  notes=f"omega={omega:.6f} rad/s, T={period:.6f} s, stored energy {energy:.4f} J at this extension")
 
 

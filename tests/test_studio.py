@@ -364,6 +364,75 @@ class TestReveal(unittest.TestCase):
         self.assertEqual(manim_validate_code(code)["valid"], True)
 
 
+class TestPhysicsMotions(unittest.TestCase):
+    """Four components that now move, each through its own physics."""
+
+    def built(self, name, params):
+        from manim import tempconfig
+
+        from proofmotion.components import build as build_component
+
+        with tempconfig({"dry_run": True}):
+            return build_component(name, params)
+
+    def test_each_one_carries_a_motion_that_constructs(self):
+        from manim import tempconfig
+
+        for name, params in (
+            ("pendulum", {"length": 1.0, "angle_deg": 25}),
+            ("spring_mass", {"mass": 1, "stiffness": 10, "displacement": 1.0}),
+            ("wave_form", {"amplitude": 1, "wavelength": 2, "cycles": 3}),
+            ("vector_field", {"x_component": "-y", "y_component": "x"}),
+        ):
+            with self.subTest(component=name):
+                built = self.built(name, params)
+                self.assertTrue(built.motions, f"{name} still stands still")
+                with tempconfig({"dry_run": True}):
+                    self.assertIsNotNone(built.motions[0]())
+
+    def test_the_pendulum_withdraws_its_force_arrows_before_swinging(self):
+        """An arrow labelled mg that does not point down is a lie.
+
+        Carrying the vectors round with the bob would be worse than not moving
+        at all, so they belong to the displaced position and are faded for the
+        duration of the swing.
+        """
+        from manim import tempconfig
+
+        built = self.built("pendulum", {"length": 1.0, "angle_deg": 25})
+        with tempconfig({"dry_run": True}):
+            swing = built.motions[0]()
+        # FadeOut, two rotations, FadeIn.
+        self.assertEqual(len(swing.animations), 4)
+
+    def test_the_angle_mark_is_withdrawn_too(self):
+        """It marks the displaced angle, so it is as wrong mid-swing as mg is.
+
+        Turning show_forces off does not change this: the arc is still there
+        and still describes a position the bob has left.
+        """
+        from manim import tempconfig
+
+        built = self.built("pendulum", {"length": 1.0, "angle_deg": 25, "show_forces": False})
+        self.assertIn("angle", built.parts)
+        with tempconfig({"dry_run": True}):
+            swing = built.motions[0]()
+        self.assertEqual(len(swing.animations), 4)
+
+    def test_a_streamline_follows_the_field_and_stops_at_the_edge(self):
+        """A tracer must never reappear somewhere it did not flow to."""
+        from proofmotion.components.core import _streamline
+
+        trail = _streamline(lambda x, y: 1.0, lambda x, y: 0.0, 0.0, 0.0, extent=2.0)
+        self.assertGreater(len(trail), 3)
+        self.assertTrue(all(abs(x) <= 2.0 and abs(y) <= 2.0 for x, y in trail))
+
+    def test_a_field_that_vanishes_yields_no_tracer(self):
+        from proofmotion.components.core import _streamline
+
+        self.assertEqual(len(_streamline(lambda x, y: 0.0, lambda x, y: 0.0, 0.0, 0.0, 2.0)), 1)
+
+
 class TestPreamble(unittest.TestCase):
     def test_a_package_that_is_not_installed_is_never_added(self):
         """One missing package fails every compile, not just the ones using it.
