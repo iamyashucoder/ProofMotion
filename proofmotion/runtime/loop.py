@@ -336,6 +336,43 @@ def run_agent(
         [{k: v for k, v in m.items() if k != "_compacted"} for m in messages],
         tools=None, max_tokens=final_max_tokens or max_tokens,
     )
+    # A few DeepSeek routes ignore the tool-less final instruction and emit a
+    # DSML call as plain content.  The provider normalises it into tool_calls;
+    # execute one bounded recovery round, then ask for the required answer once
+    # more.  Without this, structured agents try to parse the XML-like call as
+    # JSON and fail even though the model was still asking for valid evidence.
+    final_calls = getattr(final, "tool_calls", None)
+    if final_calls:
+        messages.append(
+            {
+                "role": "assistant",
+                "content": final.content or "",
+                "tool_calls": [
+                    {
+                        "id": call.id,
+                        "type": "function",
+                        "function": {
+                            "name": call.function.name,
+                            "arguments": call.function.arguments,
+                        },
+                    }
+                    for call in final_calls
+                ],
+            }
+        )
+        for call in final_calls:
+            name = call.function.name
+            observation, failed, elapsed = _run_tool(registry, call)
+            performed.append({"name": name, "arguments": call.function.arguments, "failed": failed})
+            BUS.emit(
+                "tool", name=name, arguments=call.function.arguments[:400], failed=failed,
+                result=observation[:400], seconds=round(elapsed, 2), agent=agent_name,
+            )
+            messages.append({"role": "tool", "tool_call_id": call.id, "name": name, "content": observation})
+        final = client.chat(
+            [{k: v for k, v in m.items() if k != "_compacted"} for m in messages],
+            tools=None, max_tokens=final_max_tokens or max_tokens,
+        )
     return AgentResult(
         content=final.content or "",
         messages=messages,

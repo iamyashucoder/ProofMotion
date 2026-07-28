@@ -128,6 +128,38 @@ def _axis_config_label_errors(tree: ast.AST) -> list[dict[str, Any]]:
     return problems
 
 
+def _tex_text_mode_math_errors(tree: ast.AST) -> list[dict[str, Any]]:
+    """Catch superscripts/subscripts placed in text-mode ``Tex`` strings.
+
+    ``Tex("x^2")`` fails because the caret is not inside math mode.  Generated
+    subtitles often mix prose with an equation, so detect this before a costly
+    render and direct the coder to split prose/Text from ``MathTex``.
+    """
+    problems: list[dict[str, Any]] = []
+    for node in ast.walk(tree):
+        if not (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "Tex"
+        ):
+            continue
+        for argument in node.args:
+            if not isinstance(argument, ast.Constant) or not isinstance(argument.value, str):
+                continue
+            text = argument.value
+            if ("^" in text or "_" in text) and "$" not in text:
+                problems.append(
+                    {
+                        "line": node.lineno,
+                        "call": "Tex(...)",
+                        "problem": "text-mode Tex contains ^ or _ outside math mode",
+                        "fix": "use MathTex for the equation, or use Text for prose and keep any TeX equation in MathTex",
+                    }
+                )
+                break
+    return problems
+
+
 def _bound_names(tree: ast.AST) -> set[str]:
     """Every name the module binds anywhere.
 
@@ -334,6 +366,7 @@ def manim_validate_code(code: str) -> dict[str, Any]:
     problems: list[dict[str, Any]] = []
     problems.extend(_component_beat_animation_errors(tree))
     problems.extend(_axis_config_label_errors(tree))
+    problems.extend(_tex_text_mode_math_errors(tree))
 
     # A helper that builds a mobject and forgets to return it. The caller gets
     # None, and the failure surfaces far away — always_redraw reporting that

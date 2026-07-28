@@ -44,19 +44,24 @@ _TOPICS: dict[str, dict[str, Any]] = {
         "checks": ["show the structural formula or orbital diagram", "name every reagent and condition", "do not claim a reaction product without a verified chemistry reference"],
     },
     "calculus": {
-        "words": ("derivative", "integral", "limit", "differential", "area", "maxima", "minima", "continuity"),
-        "tools": ["symbolic_differentiate", "symbolic_integrate", "symbolic_limit", "symbolic_verify_equality", "component_search"],
-        "checks": ["state the domain", "show the graph or geometric interpretation", "check endpoints where relevant"],
+        "words": ("derivative", "integral", "limit", "differential", "area", "maxima", "minima", "continuity", "taylor", "maclaurin", "parametric", "gradient", "partial derivative", "ode", "differential equation"),
+        "tools": ["calculus_curve_analysis", "calculus_limit_continuity", "calculus_tangent_normal", "calculus_definite_integral", "calculus_area_between_curves", "calculus_taylor_approximation", "calculus_parametric_analysis", "calculus_multivariable_analysis", "calculus_autonomous_ode", "symbolic_ode", "numeric_ode", "symbolic_verify_equality", "component_search"],
+        "checks": ["state the domain", "show the graph or geometric interpretation", "check endpoints where relevant", "compare one-sided limits before claiming continuity", "separate signed integral from geometric area"],
+    },
+    "trigonometry": {
+        "words": ("trigonometry", "trig", "sine", "cosine", "tangent", "sin", "cos", "tan", "inverse trig", "principal value", "triangle", "angle of elevation", "angle of depression"),
+        "tools": ["trig_exact_values", "trig_identity_check", "trig_equation_solve", "trig_inverse_principal", "trig_law_of_cosines", "trig_law_of_sines", "trig_wave_analysis", "symbolic_verify_equality", "component_search"],
+        "checks": ["state degrees or radians before calculating", "show the principal range for inverse trig", "draw and label the triangle or unit circle", "verify every solution lies in the requested interval"],
     },
     "algebra": {
         "words": ("quadratic", "complex", "sequence", "series", "permutation", "combination", "probability", "matrix", "determinant", "vector"),
-        "tools": ["symbolic_algebra", "symbolic_solve", "symbolic_matrix", "combinatorics", "probability", "counterexample_search"],
+        "tools": ["symbolic_algebra", "symbolic_solve", "symbolic_matrix", "complex_number_analysis", "complex_number_operation", "complex_polynomial_roots", "roots_of_unity", "complex_locus", "matrix_arithmetic", "matrix_row_operation", "matrix_linear_system", "matrix_properties", "determinant_cofactor_expansion", "determinant_row_effect", "determinant_parameter_solve", "determinant_signed_area", "three_d_line_plane_intersection", "three_d_line_relation", "three_d_plane_relation", "three_d_point_distance", "three_d_plane_from_points", "combinatorics", "probability", "counterexample_search"],
         "checks": ["state restrictions before cancelling or squaring", "test roots in the original equation", "draw a diagram when a geometric interpretation exists"],
     },
     "coordinate_geometry": {
-        "words": ("circle", "parabola", "ellipse", "hyperbola", "coordinate", "triangle", "conic", "locus"),
-        "tools": ["geometry_solve", "conic_properties", "symbolic_solve", "component_search"],
-        "checks": ["draw and label the coordinate diagram", "state the coordinate convention", "verify the final point or locus"],
+        "words": ("circle", "parabola", "ellipse", "hyperbola", "coordinate", "triangle", "conic", "locus", "straight line", "section formula", "centroid", "orthocentre", "circumcentre", "focus", "directrix"),
+        "tools": ["coordinate_line_analysis", "coordinate_circle_analysis", "coordinate_conic_classify", "coordinate_triangle_centres", "coordinate_section_formula", "coordinate_transform", "coordinate_locus_ratio", "hyperbola_latus_rectum_right_angle", "geometry_solve", "conic_properties", "symbolic_solve", "component_search"],
+        "checks": ["draw and label the coordinate diagram", "state the coordinate convention", "substitute a claimed point into the original equation", "verify the final point or locus"],
     },
 }
 
@@ -69,8 +74,9 @@ _CATALOGUE: dict[str, dict[str, Any]] = {
     "chemistry_physical": {"coverage": "deterministic core", "tools": ["stoichiometry_limit", "ideal_gas_state", "weak_acid_ph", "chemical_equilibrium_direction", "thermodynamic_process"], "visuals": ["pv_diagram", "energy_bars"]},
     "chemistry_organic": {"coverage": "requires curated reaction database", "tools": ["competitive_exam_requirements"], "visuals": ["structural-formula and mechanism components: pending"]},
     "chemistry_inorganic": {"coverage": "requires curated periodic/reaction database", "tools": ["competitive_exam_requirements"], "visuals": ["orbital and coordination components: pending"]},
-    "math_algebra_calculus": {"coverage": "deterministic", "tools": ["symbolic_algebra", "symbolic_solve", "symbolic_differentiate", "symbolic_integrate", "symbolic_limit", "symbolic_series"], "visuals": ["function_plot", "tangent_secant", "riemann_area", "iteration_trace"]},
-    "math_coordinate_vector": {"coverage": "deterministic", "tools": ["geometry_solve", "conic_properties", "symbolic_matrix", "symbolic_vector_calculus"], "visuals": ["geometry_construction", "matrix_transform", "vector_field", "unit_circle"]},
+    "math_algebra_calculus": {"coverage": "deterministic", "tools": ["symbolic_algebra", "symbolic_solve", "symbolic_differentiate", "symbolic_integrate", "symbolic_limit", "symbolic_series", "calculus_curve_analysis", "calculus_limit_continuity", "calculus_tangent_normal", "calculus_definite_integral", "calculus_area_between_curves", "calculus_taylor_approximation", "calculus_parametric_analysis", "calculus_multivariable_analysis", "calculus_autonomous_ode", "symbolic_ode", "numeric_ode"], "visuals": ["function_plot", "tangent_secant", "limit_approach", "riemann_area", "area_between_curves", "taylor_comparison", "vector_field", "iteration_trace"]},
+    "math_trigonometry": {"coverage": "deterministic", "tools": ["trig_exact_values", "trig_identity_check", "trig_equation_solve", "trig_inverse_principal", "trig_law_of_cosines", "trig_law_of_sines", "trig_wave_analysis"], "visuals": ["unit_circle", "trig_triangle", "trig_wave"]},
+    "math_coordinate_vector": {"coverage": "deterministic", "tools": ["coordinate_line_analysis", "coordinate_circle_analysis", "coordinate_conic_classify", "coordinate_triangle_centres", "coordinate_section_formula", "coordinate_transform", "coordinate_locus_ratio", "hyperbola_latus_rectum_right_angle", "geometry_solve", "conic_properties", "symbolic_matrix", "symbolic_vector_calculus"], "visuals": ["coordinate_line_pair", "circle_coordinate_diagram", "conic_coordinate_diagram", "coordinate_triangle_centres", "coordinate_transformation", "geometry_construction", "matrix_transform", "vector_field", "unit_circle"]},
     "math_discrete_probability": {"coverage": "deterministic", "tools": ["combinatorics", "number_theory", "probability", "graph_algorithm"], "visuals": ["array_cells", "distribution_plot"]},
 }
 

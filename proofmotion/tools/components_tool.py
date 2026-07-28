@@ -14,7 +14,7 @@ from proofmotion.layout.collision import bounds, major_collisions, text_on_ink
 from proofmotion.runtime.registry import tool
 
 #: How many of the closest matches carry their full parameter schema.
-DETAILED = 6
+DETAILED = 2
 
 
 @tool
@@ -54,8 +54,8 @@ def component_search(query: str = "", domain: str = "") -> dict[str, Any]:
         matches.append((score, spec.name, spec))
     matches.sort(key=lambda triple: (-triple[0], triple[1]))
 
-    # Full parameter schemas for the closest few, one line for the rest. All 28
-    # schemas came to 19kB, which is 5k tokens on a tool the director calls
+    # Full parameter schemas for the closest few, one line for the rest. As the
+    # library grows, schemas become the dominant context cost on a tool the director calls
     # several times a run — enumerating the catalogue must not cost more than
     # the search it replaces.
     found, catalogue = [], []

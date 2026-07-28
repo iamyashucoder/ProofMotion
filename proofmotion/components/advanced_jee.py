@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from proofmotion.components.base import Built, component
 from proofmotion.layout.regions import layout, place
+from proofmotion.runtime.registry import ToolError
 
 
 class ACPhasorParams(BaseModel):
@@ -181,3 +182,66 @@ def vector_plane_3d(p: VectorPlane3DParams) -> Built:
     group = VGroup(*parts.values())
     place(group, layout("title_stage_caption")[p.region])
     return Built(group=group, parts=parts, beats=[["plane", "axes"], ["vector", "projection", "drop"], ["labels"]], notes="3D-style vector projection onto a plane")
+
+
+class ThreeDLinePlaneParams(BaseModel):
+    line_point: list[float] = Field(default=[0.0, 0.0, 2.0], min_length=3, max_length=3)
+    line_direction: list[float] = Field(default=[1.0, 1.0, -1.0], min_length=3, max_length=3)
+    plane: list[float] = Field(default=[0.0, 0.0, 1.0, 0.0], min_length=4, max_length=4)
+    region: str = "stage"
+
+
+@component(version=1, domain="three_d_geometry", params=ThreeDLinePlaneParams)
+def three_d_line_plane_diagram(p: ThreeDLinePlaneParams) -> Built:
+    """Labelled oblique 3D diagram of a line, plane, normal, and intersection state."""
+    import numpy as np
+    from manim import DOWN, LEFT, RIGHT, UP, Arrow, DashedLine, MathTex, Polygon, VGroup
+
+    origin = np.array([-0.65, -1.0, 0.0])
+
+    def project(values: list[float]) -> np.ndarray:
+        x, y, z = values
+        return origin + RIGHT * (0.62 * x + 0.28 * y) + UP * (0.34 * y + 0.52 * z)
+
+    a, b, c, d = p.plane
+    normal_norm2 = a * a + b * b + c * c
+    if normal_norm2 <= 1e-10:
+        raise ToolError("three_d_line_plane_diagram needs a nonzero plane normal")
+    direction_norm2 = sum(value * value for value in p.line_direction)
+    if direction_norm2 <= 1e-10:
+        raise ToolError("three_d_line_plane_diagram needs a nonzero line direction")
+    denominator = a * p.line_direction[0] + b * p.line_direction[1] + c * p.line_direction[2]
+    residual = a * p.line_point[0] + b * p.line_point[1] + c * p.line_point[2] - d
+    relation = "in plane" if abs(denominator) < 1e-10 and abs(residual) < 1e-10 else "parallel" if abs(denominator) < 1e-10 else "intersects"
+    parameter = 0.0 if relation != "intersects" else -residual / denominator
+    hit = [p.line_point[i] + parameter * p.line_direction[i] for i in range(3)]
+
+    ex, ey, ez = RIGHT * 2.85, RIGHT * 0.9 + UP * 1.65, UP * 2.65
+    axes = VGroup(Arrow(origin, origin + ex, buff=0, color="#f87171"), Arrow(origin, origin + ey, buff=0, color="#4ade80"), Arrow(origin, origin + ez, buff=0, color="#38bdf8"))
+    plane_shape = Polygon(origin + LEFT * 1.5 + DOWN * 0.15, origin + RIGHT * 2.4 + DOWN * 0.15, origin + RIGHT * 3.15 + UP * 1.35, origin + LEFT * 0.7 + UP * 1.35, color="#a855f7", fill_opacity=0.22)
+    start = [p.line_point[i] - 1.8 * p.line_direction[i] / math.sqrt(direction_norm2) for i in range(3)]
+    end = [p.line_point[i] + 1.8 * p.line_direction[i] / math.sqrt(direction_norm2) for i in range(3)]
+    line = Arrow(project(start), project(end), buff=0, color="#fbbf24", stroke_width=5)
+    normal = Arrow(origin, project([a / math.sqrt(normal_norm2), b / math.sqrt(normal_norm2), c / math.sqrt(normal_norm2)]), buff=0, color="#e2e8f0", stroke_width=3)
+    parts: dict[str, Any] = {"plane": plane_shape, "axes": axes, "line": line, "normal": normal}
+    group = VGroup(plane_shape, axes, line, normal)
+    beats = [["plane", "axes"], ["line", "normal"]]
+    labels = VGroup(
+        MathTex(r"x", font_size=21).next_to(axes[0], RIGHT, buff=0.05),
+        MathTex(r"y", font_size=21).next_to(axes[1], UP, buff=0.05),
+        MathTex(r"z", font_size=21).next_to(axes[2], UP, buff=0.05),
+        MathTex(r"\ell", font_size=25, color="#fbbf24").next_to(line, UP, buff=0.08),
+        MathTex(r"\vec n", font_size=23, color="#e2e8f0").next_to(normal, LEFT, buff=0.08),
+        MathTex(rf"{a:g}x+{b:g}y+{c:g}z={d:g}", font_size=23, color="#a855f7").move_to(DOWN * 2.35),
+    )
+    if relation == "intersects":
+        point = project(hit)
+        drop = DashedLine(point, origin + RIGHT * point[0] * 0.0, color="#94a3b8", stroke_width=2)
+        parts["intersection"] = drop
+        group.add(drop)
+        beats.append(["intersection"])
+    parts["labels"] = labels
+    group.add(labels)
+    beats.append(["labels"])
+    place(group, layout("title_stage_caption")[p.region])
+    return Built(group=group, parts=parts, beats=beats, notes=f"3D line-plane diagram: line {relation} plane")

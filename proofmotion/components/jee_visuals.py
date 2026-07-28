@@ -223,3 +223,37 @@ def complex_plane_vector(p: ComplexPlaneParams) -> Built:
     group = VGroup(*parts.values())
     place(group, layout("title_stage_caption")[p.region])
     return Built(group=group, parts=parts, beats=[["axes"], ["vector", "point", "projections"], ["label"]], notes=f"complex number {p.real:g}{p.imag:+g}i")
+
+
+class RootsOfUnityParams(BaseModel):
+    order: int = Field(default=4, ge=2, le=12)
+    radius: float = Field(default=2.0, gt=0.4, le=3.2)
+    region: str = "stage"
+
+
+@component(version=1, domain="mathematics", params=RootsOfUnityParams)
+def roots_of_unity_polygon(p: RootsOfUnityParams) -> Built:
+    """Argand plane with nth roots of unity as a labelled regular polygon."""
+    from manim import UP, Circle, Dot, Line, MathTex, NumberPlane, VGroup
+
+    plane = NumberPlane(
+        x_range=[-3.5, 3.5, 1], y_range=[-3.0, 3.0, 1], x_length=6.4, y_length=4.7,
+        background_line_style={"stroke_color": "#334155", "stroke_width": 1, "stroke_opacity": 0.55},
+    )
+    circle = Circle(radius=p.radius * (6.4 / 7.0), color="#64748b", stroke_width=2).move_to(plane.c2p(0, 0))
+    points, spokes, labels = VGroup(), VGroup(), VGroup()
+    centre = plane.c2p(0, 0)
+    for index in range(p.order):
+        angle = 2 * math.pi * index / p.order
+        coordinate = plane.c2p(p.radius * math.cos(angle), p.radius * math.sin(angle))
+        dot = Dot(coordinate, radius=0.07, color="#fbbf24")
+        points.add(dot)
+        spokes.add(Line(centre, coordinate, color="#475569", stroke_width=2))
+        label = MathTex(rf"\omega^{index}", font_size=20, color="#e2e8f0").next_to(dot, coordinate - centre, buff=0.12)
+        labels.add(label)
+    polygon = VGroup(*[Line(points[index].get_center(), points[(index + 1) % p.order].get_center(), color="#a855f7", stroke_width=3) for index in range(p.order)])
+    title = MathTex(rf"z^{p.order}=1", font_size=28, color="#4ade80").next_to(plane, UP, buff=0.18)
+    parts: dict[str, Any] = {"axes": plane, "unit_circle": circle, "spokes": spokes, "polygon": polygon, "roots": points, "labels": labels, "equation": title}
+    group = VGroup(*parts.values())
+    place(group, layout("title_stage_caption")[p.region])
+    return Built(group=group, parts=parts, beats=[["axes", "unit_circle"], ["spokes", "polygon", "roots"], ["labels", "equation"]], notes=f"{p.order} roots of unity on the Argand plane")

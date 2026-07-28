@@ -14,8 +14,31 @@ import sympy as sp
 
 from proofmotion.knowledge.jee_cases import CHAPTER_CASES, execute_case
 from proofmotion.runtime.registry import ToolError
-from proofmotion.tools.algebra import symbolic_algebra, symbolic_matrix, symbolic_vector_calculus
+from proofmotion.tools.algebra import (
+    determinant_cofactor_expansion,
+    determinant_parameter_solve,
+    determinant_row_effect,
+    determinant_signed_area,
+    matrix_arithmetic,
+    matrix_linear_system,
+    matrix_properties,
+    matrix_row_operation,
+    symbolic_algebra,
+    symbolic_matrix,
+    symbolic_vector_calculus,
+)
 from proofmotion.tools.analysis import numeric_interpolate, numeric_ode, numeric_optimize, symbolic_ode
+from proofmotion.tools.calculus import (
+    calculus_area_between_curves,
+    calculus_autonomous_ode,
+    calculus_curve_analysis,
+    calculus_definite_integral,
+    calculus_limit_continuity,
+    calculus_multivariable_analysis,
+    calculus_parametric_analysis,
+    calculus_tangent_normal,
+    calculus_taylor_approximation,
+)
 from proofmotion.tools.competitive import (
     ac_phasor_analysis,
     calorimetry_mix,
@@ -56,15 +79,136 @@ from proofmotion.tools.competitive import (
     wave_optics,
     weak_acid_ph,
 )
+from proofmotion.tools.complex_numbers import (
+    complex_locus,
+    complex_number_analysis,
+    complex_number_operation,
+    complex_polynomial_roots,
+    roots_of_unity,
+)
+from proofmotion.tools.coordinate_geometry import (
+    coordinate_circle_analysis,
+    coordinate_conic_classify,
+    coordinate_line_analysis,
+    coordinate_locus_ratio,
+    coordinate_section_formula,
+    coordinate_transform,
+    coordinate_triangle_centres,
+    hyperbola_latus_rectum_right_angle,
+)
 from proofmotion.tools.creator import motion_design_audit, study_animation_brief, study_animation_timing
 from proofmotion.tools.discrete import combinatorics, graph_algorithm, logic_table, number_theory
 from proofmotion.tools.geometry import conic_properties, geometry_solve
 from proofmotion.tools.jee_experts import jee_chapter_case, jee_chapter_coverage, jee_chapter_expert
 from proofmotion.tools.statistics import linear_regression, monte_carlo, probability, statistics_summary
+from proofmotion.tools.three_d_geometry import (
+    three_d_line_plane_intersection,
+    three_d_line_relation,
+    three_d_plane_from_points,
+    three_d_plane_relation,
+    three_d_point_distance,
+)
+from proofmotion.tools.trigonometry import (
+    trig_equation_solve,
+    trig_exact_values,
+    trig_identity_check,
+    trig_inverse_principal,
+    trig_law_of_cosines,
+    trig_law_of_sines,
+    trig_wave_analysis,
+)
 
 
 def equivalent(left: str, right: str) -> bool:
     return sp.simplify(sp.sympify(left) - sp.sympify(right)) == 0
+
+
+class CalculusTests(unittest.TestCase):
+    def test_curve_analysis_finds_and_classifies_the_quadratic_minimum(self):
+        result = calculus_curve_analysis("(x-2)**2+1")
+        self.assertEqual(result["first_derivative"]["result"], "2*x - 4")
+        self.assertEqual(result["stationary_points"][0]["x"], "2")
+        self.assertEqual(result["stationary_points"][0]["classification"], "local minimum")
+
+    def test_limit_continuity_compares_both_sides(self):
+        continuous = calculus_limit_continuity("sin(x)/x", "0")
+        jump = calculus_limit_continuity("1/x", "0")
+        self.assertFalse(continuous["continuous"])  # removable hole: f(0) is undefined
+        self.assertFalse(jump["continuous"])
+        self.assertEqual(continuous["two_sided_limit"]["result"], "1")
+
+    def test_tangent_and_definite_integral_are_exact(self):
+        tangent = calculus_tangent_normal("x**2", "2")
+        integral = calculus_definite_integral("x", "0", "2")
+        self.assertEqual(tangent["tangent"]["result"], "Eq(y, 4*x - 4)")
+        self.assertEqual(integral["value"]["result"], "2")
+        self.assertEqual(integral["average_value"]["result"], "1")
+
+    def test_area_series_parametric_multivariable_and_phase_line(self):
+        area = calculus_area_between_curves("x", "x**2", "0", "1")
+        series = calculus_taylor_approximation("exp(x)", "0", 2, "1")
+        parametric = calculus_parametric_analysis("cos(t)", "sin(t)", "0")
+        multi = calculus_multivariable_analysis("x**2+y**2", ["x", "y"], ["0", "0"])
+        phase = calculus_autonomous_ode("y*(1-y)")
+        self.assertEqual(area["geometric_area"]["result"], "1/6")
+        self.assertEqual(series["polynomial"]["result"], "x**2/2 + x + 1")
+        self.assertEqual(parametric["speed"]["result"], "1")
+        self.assertEqual(multi["second_derivative_test"]["classification"], "local minimum")
+        self.assertEqual([item["stability"] for item in phase["equilibria"]], ["unstable", "stable"])
+
+
+class CoordinateGeometryTests(unittest.TestCase):
+    def test_lines_and_circle_have_exact_intersection_and_tangent(self):
+        lines = coordinate_line_analysis("x+y-3=0", "x-y-1=0")
+        circle = coordinate_circle_analysis("x**2+y**2-4*x+6*y-12=0", [5, 1])
+        self.assertEqual(lines["intersection"], {"x": "2", "y": "1"})
+        self.assertTrue(lines["perpendicular"])
+        self.assertEqual(circle["centre"], ["2", "-3"])
+        self.assertEqual(circle["radius"]["result"], "5")
+        self.assertTrue(circle["point_on_circle"])
+
+    def test_conic_triangle_section_transform_and_locus(self):
+        conic = coordinate_conic_classify("x**2/4 + y**2/9 - 1 = 0")
+        triangle = coordinate_triangle_centres([[0, 0], [6, 0], [0, 8]])
+        section = coordinate_section_formula([0, 0], [6, 3], "1", "2")
+        transformed = coordinate_transform([[1, 0]], "rotate", [90])
+        locus = coordinate_locus_ratio([0, 0], [4, 0], "1")
+        self.assertEqual(conic["classification"], "ellipse or circle")
+        self.assertEqual(triangle["centroid"], ["2", "8/3"])
+        self.assertEqual(triangle["orthocentre"], ["0", "0"])
+        self.assertEqual(section["point"], ["2", "1"])
+        self.assertEqual(transformed["transformed"], [["0", "1"]])
+        self.assertEqual(locus["classification"], "perpendicular bisector line")
+
+    def test_hyperbola_latus_rectum_right_angle_has_a_checked_final_answer(self):
+        result = hyperbola_latus_rectum_right_angle("3")
+        self.assertTrue(equivalent(result["a_squared_b_squared"]["result"], "810*sqrt(2) - 1134"))
+        self.assertEqual(result["alpha"], "810")
+        self.assertEqual(result["beta"], "1134")
+        self.assertEqual(result["alpha_plus_beta"], "1944")
+        self.assertTrue(result["verification"]["equals_c_squared"])
+
+
+class TrigonometryTests(unittest.TestCase):
+    def test_exact_values_identity_and_interval_equation(self):
+        values = trig_exact_values("30")
+        identity = trig_identity_check("sin(x)**2 + cos(x)**2", "1")
+        roots = trig_equation_solve("sin(x)=1/2", lower_degrees=0, upper_degrees=360)
+        self.assertEqual(values["sin"]["result"], "1/2")
+        self.assertEqual(values["tan"]["result"], "sqrt(3)/3")
+        self.assertTrue(identity["valid"])
+        self.assertEqual(roots["solutions_degrees"], ["30", "150"])
+
+    def test_inverse_triangle_rules_and_wave_transform(self):
+        inverse = trig_inverse_principal("acos", "1/2")
+        cosine = trig_law_of_cosines("3", "4", "90")
+        sine = trig_law_of_sines("5", "30", "90")
+        wave = trig_wave_analysis("2*sin(3*(x-1))+4")
+        self.assertEqual(inverse["degrees"]["result"], "60")
+        self.assertEqual(cosine["third_side"]["result"], "5")
+        self.assertEqual(sine["target_side"]["result"], "10")
+        self.assertEqual(wave["period"]["result"], "2*pi/3")
+        self.assertEqual(wave["phase_shift"]["result"], "1")
 
 
 class AlgebraTests(unittest.TestCase):
@@ -95,6 +239,57 @@ class MatrixTests(unittest.TestCase):
     def test_singular_matrix_has_no_inverse(self):
         with self.assertRaises(ToolError):
             symbolic_matrix([[1, 2], [2, 4]], "inverse")
+
+    def test_matrix_chapter_operations_have_exact_steps(self):
+        self.assertEqual(matrix_arithmetic([[1, 2]], [[3], [4]], "multiply")["result"], "[[11]]")
+        step = matrix_row_operation([[1, 2], [3, 4]], "add_multiple", 1, 0, "-3")
+        self.assertEqual(step["after"], "[[1, 2], [0, -2]]")
+        solution = matrix_linear_system([[2, 1], [1, -1]], [5, 1], "cramer")
+        self.assertEqual(solution["solution"], "[[2], [1]]")
+        self.assertTrue(matrix_properties([[1, 2], [3, 4]])["cayley_hamilton_verified"])
+
+    def test_determinant_chapter_tools_show_rules_and_geometry(self):
+        expansion = determinant_cofactor_expansion([[1, 2], [3, 4]], "row", 0)
+        self.assertEqual(expansion["determinant"], "-2")
+        effect = determinant_row_effect([[1, 2], [3, 4]], "swap", 0, 1)
+        self.assertEqual(effect["after_determinant"], "2")
+        solved = determinant_parameter_solve([["a", 1], [2, 3]], "a")
+        self.assertEqual(solved["solutions"], ["2/3"])
+        self.assertEqual(determinant_signed_area([[1, 0], [0, -2]])["orientation"], "reversed")
+
+
+class ThreeDGeometryTests(unittest.TestCase):
+    def test_line_plane_intersection_and_point_distances(self):
+        hit = three_d_line_plane_intersection([0, 0, 0], [1, 1, 1], [1, 1, 1, 3])
+        self.assertEqual(hit["relation"], "intersects")
+        self.assertEqual(hit["intersection"], ["1", "1", "1"])
+        plane_distance = three_d_point_distance([1, 2, 5], plane=[0, 0, 1, 1])
+        self.assertEqual(plane_distance["distance"], "4")
+
+    def test_skew_lines_and_plane_relations(self):
+        lines = three_d_line_relation([0, 0, 0], [1, 0, 0], [0, 1, 1], [0, 1, 0])
+        self.assertEqual(lines["relation"], "skew")
+        planes = three_d_plane_relation([1, 0, 0, 0], [0, 1, 0, 0])
+        self.assertEqual(planes["relation"], "intersecting")
+        built = three_d_plane_from_points([[0, 0, 0], [1, 0, 0], [0, 1, 0]])
+        self.assertEqual(built["plane"], ["0", "0", "1", "0"])
+
+
+class ComplexNumberTests(unittest.TestCase):
+    def test_analysis_and_operation_match_argand_geometry(self):
+        analysed = complex_number_analysis("3+4*I")
+        self.assertEqual(analysed["modulus"], "5")
+        self.assertEqual(analysed["conjugate"], "3 - 4*I")
+        product = complex_number_operation("1+I", "1-I", "multiply")
+        self.assertEqual(product["result"], "2")
+
+    def test_roots_and_locus_tools(self):
+        roots = complex_polynomial_roots("z**2+1=0")
+        self.assertEqual(roots["count"], 2)
+        unity = roots_of_unity(4)
+        self.assertEqual(unity["geometry"], "regular 4-gon on the unit circle")
+        locus = complex_locus("equidistant", "1+I", "3+I")
+        self.assertEqual(locus["locus"], "perpendicular bisector of the segment joining a and b")
 
     def test_non_square_is_rejected_for_square_only_operations(self):
         with self.assertRaises(ToolError):

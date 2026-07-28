@@ -59,6 +59,9 @@ The usual causes, in order of how often they are the answer:
     show them one at a time.
   - font_size is too small to read. Raise it, or shorten the text.
   - Something sits past the frame edge. Move it in, or scale the group down.
+  - Text sits on a curve, line, axis, or diagram. This is a hard defect: move
+    the label into empty space with next_to/shift, or give it an opaque
+    background rectangle. Do not merely measure it again.
 
 Re-run inspect_scene after your changes and keep going until it reports ok.
 
@@ -75,6 +78,7 @@ def polish_scene(client: Any, code: str, report: dict[str, Any], *, max_iteratio
             "text_overlaps": report.get("text_overlaps", [])[:12],
             "out_of_frame": report.get("out_of_frame", [])[:12],
             "unreadable_text": report.get("unreadable_text", [])[:12],
+            "text_on_ink": report.get("text_on_ink", [])[:12],
             "advice": report.get("advice", ""),
         },
         indent=2,

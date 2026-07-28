@@ -225,6 +225,19 @@ class TestEmission(unittest.TestCase):
         self.assertEqual(code.count("FadeOut(m) for m in chrome"), 2)  # once per scene
         self.assertIn("FadeOut(m) for m in leaving", code)  # and everything at the end
 
+    def test_bridge_text_uses_the_region_width_api(self):
+        """Region is a dataclass, not the old tuple-based layout representation."""
+        bridged = assemble(
+            plan(
+                SceneAssignment(
+                    title="First", component="function_plot", parameters=PLOT,
+                    caption="f(x)=x^2", bridge_text="Keep the curve in view",
+                )
+            )
+        )
+        self.assertIn("regions['caption'].width", bridged)
+        self.assertNotIn("regions['caption'][2]", bridged)
+
     def test_a_changed_picture_is_replaced(self):
         code = self.scene()
         self.assertEqual(code.count("self.play(FadeOut(stage), run_time=0.4)"), 2)

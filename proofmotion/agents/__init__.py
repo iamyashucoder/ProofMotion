@@ -13,6 +13,7 @@ from proofmotion.agents.completeness import (
 )
 from proofmotion.agents.director import direct_storyboard
 from proofmotion.agents.intent import understand_request
+from proofmotion.agents.layout_reviewer import validate_and_repair_text_layout
 from proofmotion.agents.planner import plan_mathematics
 from proofmotion.agents.verifier import verify_plan
 
@@ -23,6 +24,7 @@ __all__ = [
     "ensure_storyboard_final_answer",
     "plan_mathematics",
     "understand_request",
+    "validate_and_repair_text_layout",
     "verify_plan",
     "write_scene",
 ]

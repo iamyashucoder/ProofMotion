@@ -9,6 +9,7 @@ Select a provider with PROOFMOTION_LLM_PROVIDER, or call get_client("deepseek").
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import re
@@ -149,7 +150,17 @@ class OpenAICompatibleClient:
                 raise LLMError(f"{self.name} chat failed (model={self.model}): {error}") from error
             if response.choices:
                 self._record_usage(response)
-                return response.choices[0].message
+                message = response.choices[0].message
+                # Some DeepSeek-family routes emit tool calls in their native
+                # DSML tags inside `content`, even though the request used the
+                # OpenAI `tools` schema.  Normalise that response here so the
+                # agent loop receives the same shaped call it receives from a
+                # standards-compliant endpoint.
+                if not getattr(message, "tool_calls", None):
+                    decoded = _decode_dsml_tool_calls(getattr(message, "content", None) or "")
+                    if decoded:
+                        return _Message(content="", tool_calls=decoded)
+                return message
             log.warning("%s returned no choices (attempt %s/3, model=%s)", self.name, attempt + 1, self.model)
         raise LLMError(f"{self.name} returned no choices after 3 attempts (model={self.model})")
 
@@ -426,6 +437,58 @@ class _Message:
     content: str
     tool_calls: list[_ToolCall] | None = None
     reasoning: str | None = None
+
+
+_DSML_INVOKE = re.compile(
+    r'<｜｜DSML｜｜invoke\s+name="(?P<name>[^"]+)">(?P<body>.*?)(?:</｜｜DSML｜｜invoke>|(?=<｜｜DSML｜｜invoke)|\Z)',
+    re.DOTALL,
+)
+_DSML_PARAMETER = re.compile(
+    r'<｜｜DSML｜｜parameter\s+(?P<attributes>[^>]*)>(?P<value>.*?)(?:</｜｜DSML｜｜parameter>|(?=<｜｜DSML｜｜parameter)|\Z)',
+    re.DOTALL,
+)
+_DSML_NAME = re.compile(r'\bname="(?P<name>[^"]+)"')
+_DSML_TRUE = re.compile(r'\b(?P<kind>string|number|boolean|json)="true"')
+
+
+def _decode_dsml_tool_calls(content: str) -> list[_ToolCall]:
+    """Translate DeepSeek's DSML-in-content calls to OpenAI-style calls.
+
+    DeepSeek sometimes produces these tags despite accepting a regular
+    chat-completions tools request.  The parameter values are intentionally
+    kept as strings unless DSML explicitly marks another primitive type; the
+    existing registry/Pydantic validation remains the authority on whether a
+    tool call is valid.
+    """
+    calls: list[_ToolCall] = []
+    for index, invoke in enumerate(_DSML_INVOKE.finditer(content), start=1):
+        arguments: dict[str, Any] = {}
+        for parameter in _DSML_PARAMETER.finditer(invoke.group("body")):
+            name = _DSML_NAME.search(parameter.group("attributes"))
+            if not name:
+                continue
+            value = parameter.group("value").strip()
+            kind = _DSML_TRUE.search(parameter.group("attributes"))
+            try:
+                if kind and kind.group("kind") == "number":
+                    arguments[name.group("name")] = float(value) if "." in value else int(value)
+                elif kind and kind.group("kind") == "boolean":
+                    arguments[name.group("name")] = value.lower() == "true"
+                elif kind and kind.group("kind") == "json":
+                    arguments[name.group("name")] = json.loads(value)
+                else:
+                    arguments[name.group("name")] = value
+            except (TypeError, ValueError, json.JSONDecodeError):
+                # Preserve malformed data for normal tool validation to report
+                # back to the model rather than silently changing the request.
+                arguments[name.group("name")] = value
+        calls.append(
+            _ToolCall(
+                id=f"dsml-{index}",
+                function=_ToolFunction(name=invoke.group("name"), arguments=json.dumps(arguments)),
+            )
+        )
+    return calls
 
 
 class OpenAIResponsesClient(OpenAIClient):

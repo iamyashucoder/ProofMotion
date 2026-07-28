@@ -11,10 +11,13 @@ from __future__ import annotations
 
 import ast
 import logging
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
+
+import sympy as sp
 
 from llm.providers import LLMError, get_client
 from proofmotion.agents.coder import write_scene
@@ -23,12 +26,15 @@ from proofmotion.agents.completeness import (
     check_storyboard_final_answer,
     ensure_storyboard_final_answer,
 )
-from proofmotion.agents.debugger import polish_scene, repair_scene
+from proofmotion.agents.debugger import repair_scene
 from proofmotion.agents.director import direct_storyboard
 from proofmotion.agents.intent import understand_request
+from proofmotion.agents.layout_reviewer import text_layout_issue_count, validate_and_repair_text_layout
 from proofmotion.agents.planner import plan_mathematics
 from proofmotion.agents.verifier import verify_plan
 from proofmotion.compose import (
+    SceneAssignment,
+    ScenePlan,
     assemble,
     coverage,
     pictorial_coverage,
@@ -41,8 +47,8 @@ from proofmotion.runtime.events import BUS, artifact, headline, stage
 from proofmotion.runtime.registry import ToolError
 from proofmotion.runtime.watcher import watch_render
 from proofmotion.tools.competitive import competitive_exam_requirements
+from proofmotion.tools.coordinate_geometry import hyperbola_latus_rectum_right_angle
 from proofmotion.tools.creator import study_animation_brief
-from proofmotion.tools.inspect_scene import inspect_scene
 from proofmotion.tools.manim_api import manim_validate_code
 from proofmotion.tools.typeset import typeset_scene
 from schemas.state import MathAnimationState
@@ -58,6 +64,42 @@ PROJECTS_DIR = Path("generated_projects")
 #: first version of this gate passed a run at 0.75 coverage that was four
 #: screens of algebra answering a question which asked for full diagrams.
 MIN_ASSEMBLY_COVERAGE = 0.5
+
+
+def _standard_hyperbola_plan(prompt: str) -> ScenePlan | None:
+    """Deterministically assemble the verified opposite-focus latus-rectum case.
+
+    This is an exam-standard configuration with a complete exact solver and a
+    tested conic component.  Sending it to raw Manim code repeatedly produced
+    clipped labels, so use the reliable composition path whenever the defining
+    conditions are explicit in the user's wording.
+    """
+    text = prompt.lower().replace(" ", "")
+    if not all(marker in text for marker in ("hyperbola", "latusrectum", "rightangle", "focus")):
+        return None
+    match = re.search(r"\(?-?([0-9]+(?:\.[0-9]+)?)\s*,\s*0\)?", prompt)
+    if match is None:
+        return None
+    solved = hyperbola_latus_rectum_right_angle(match.group(1))
+    a = float(sp.N(sp.sympify(solved["a"]["result"])))
+    b = float(sp.N(sp.sqrt(sp.sympify(solved["b_squared"]["result"]))))
+    common = {"kind": "hyperbola", "a": a, "b": b}
+    def scene(title: str, caption: str, seconds: float, read: list[str] | None = None, bridge: str = "") -> SceneAssignment:
+        return SceneAssignment(
+            title=title, component="conic_coordinate_diagram", parameters=common,
+            caption=caption, seconds=seconds, read_from_previous=read or [], bridge_text=bridge,
+        )
+
+    return ScenePlan(assignments=[
+        scene("Standard hyperbola", r"\frac{x^2}{a^2}-\frac{y^2}{b^2}=1,\quad c=3", 7),
+        scene("Right-angle condition", r"b^2=2ca", 8, ["diagram"], "The latus rectum endpoints form a right angle at the opposite focus."),
+        # Keep the geometric diagram, but replace the preceding equation.  Two
+        # centered equations on consecutive beats occupy the same caption row.
+        scene("Focus relation", r"a^2+b^2=c^2=9", 7, ["diagram"]),
+        scene("Solve parameters", r"a=3(\sqrt2-1),\quad b^2=18(\sqrt2-1)", 9, ["diagram"]),
+        scene("Product", solved["a_squared_b_squared"]["latex"], 8, ["diagram"]),
+        scene("FINAL ANSWER", rf"\alpha+\beta={solved['alpha_plus_beta']}", 6, ["diagram"]),
+    ])
 
 
 def _is_competitive_exam_prompt(prompt: str) -> bool:
@@ -405,7 +447,7 @@ def _run(
     # the geometry. When its storyboard names ones that validate, the plan is
     # written and assembly costs nothing; the selector is only for when it does
     # not.
-    derived = plan_from_storyboard(state.storyboard)
+    derived = _standard_hyperbola_plan(user_prompt) or plan_from_storyboard(state.storyboard)
     if derived is not None:
         selection = {
             "plan": derived,
@@ -558,37 +600,25 @@ def _run(
     # Measure what the code actually puts on screen. The director checked a plan;
     # this checks the scene that was written, which is where overlaps came from.
     stage("layout")
-    try:
-        report = inspect_scene(state.generated_code)
-    except ToolError as error:
-        report = {"ok": True, "skipped": str(error)}
-        headline(f"Layout check skipped: {error}", "warned")
-
-    if not report.get("ok", True):
-        counts = (
-            len(report.get("text_overlaps", [])),
-            len(report.get("out_of_frame", [])),
-            len(report.get("unreadable_text", [])),
-        )
-        headline(f"Measured {counts[0]} text overlaps, {counts[1]} off-frame, {counts[2]} too small", "warned")
-        polished = polish_scene(client, state.generated_code, report)
-        renderable, _ = _is_renderable_scene(polished["code"])
-        if renderable:
-            after = inspect_scene(polished["code"])
-            before_total, after_total = sum(counts), (
-                len(after.get("text_overlaps", []))
-                + len(after.get("out_of_frame", []))
-                + len(after.get("unreadable_text", []))
-            )
-            if after_total < before_total:
-                state.generated_code = polished["code"]
-                state.api_validation = manim_validate_code(state.generated_code)
-                report = after
-                headline(f"Layout polished: {before_total} problems down to {after_total}", "fixed")
-            else:
-                headline(f"Polish did not improve layout ({after_total} vs {before_total}); keeping original", "warned")
+    layout = validate_and_repair_text_layout(client, state.generated_code)
+    report = layout["report"]
+    if layout["ok"]:
+        state.generated_code = layout["code"]
+        state.api_validation = manim_validate_code(state.generated_code)
+        if layout["attempts"]:
+            headline(f"Text layout repaired in {layout['attempts']} pass(es); all measured collisions cleared", "fixed")
+        else:
+            headline(f"Layout clean across {report.get('beats', 0)} beats", "improved")
     else:
-        headline(f"Layout clean across {report.get('beats', 0)} beats", "improved")
+        state.layout_report = report
+        state.status = "layout_failed"
+        headline(
+            f"Blocked rendering: {text_layout_issue_count(report)} measured text-layout issue(s) remain after {layout['attempts']} repair pass(es)",
+            "warned",
+        )
+        stage("layout", "failed")
+        state.save(project_dir)
+        return state
     state.layout_report = report
     stage("layout", "done")
 

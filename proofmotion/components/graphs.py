@@ -253,3 +253,100 @@ def _f(expr: str):
     from sympy.parsing.sympy_parser import parse_expr
 
     return sp.lambdify(sp.Symbol("x"), parse_expr(expr), "math")
+
+
+class LimitApproachParams(BaseModel):
+    expr: str
+    point: float
+    x_min: float
+    x_max: float
+    region: str = "stage"
+
+
+@component(version=1, domain="calculus", params=LimitApproachParams)
+def limit_approach(p: LimitApproachParams) -> Built:
+    """A curve with left/right approach points and a clearly marked limiting x-value."""
+    from manim import BLUE, DOWN, RED, YELLOW, DashedLine, Dot, MathTex, VGroup
+
+    axes, _ = _axes(p.expr, (p.x_min, p.x_max), None)
+    f = _f(p.expr)
+    gap = max((p.x_max - p.x_min) * 0.012, 1e-3)
+    curve = VGroup(
+        axes.plot(f, x_range=[p.x_min, p.point - gap], color=BLUE),
+        axes.plot(f, x_range=[p.point + gap, p.x_max], color=BLUE),
+    )
+    epsilons = [(p.x_max - p.x_min) * fraction for fraction in (0.16, 0.08, 0.035)]
+    left_points = VGroup()
+    right_points = VGroup()
+    for epsilon in epsilons:
+        for points, x_value in ((left_points, p.point - epsilon), (right_points, p.point + epsilon)):
+            try:
+                points.add(Dot(axes.c2p(x_value, f(x_value)), radius=0.045, color=YELLOW))
+            except (ArithmeticError, ValueError, TypeError):
+                continue
+    marker = DashedLine(axes.c2p(p.point, axes.y_range[0]), axes.c2p(p.point, axes.y_range[1]), color=RED)
+    label = MathTex(rf"x\to {p.point:g}", font_size=26, color=RED).next_to(marker, DOWN)
+    group = VGroup(axes, curve, marker, left_points, right_points, label)
+    place(group, layout("title_stage_caption")[p.region])
+    return Built(group=group, parts={"axes": axes, "curve": curve, "limit_marker": marker, "left_points": left_points, "right_points": right_points, "label": label}, beats=[["axes", "curve"], ["limit_marker", "label"], ["left_points", "right_points"]], notes="left and right samples visibly approach the same x-value")
+
+
+class AreaBetweenCurvesParams(BaseModel):
+    upper_expr: str
+    lower_expr: str
+    a: float
+    b: float
+    region: str = "stage"
+
+
+@component(version=1, domain="calculus", params=AreaBetweenCurvesParams)
+def area_between_curves(p: AreaBetweenCurvesParams) -> Built:
+    """Two labelled curves with their bounded region shaded from exact input bounds."""
+    from manim import BLUE, DOWN, GREEN, UP, MathTex, VGroup
+
+    span = abs(p.b - p.a)
+    xs = (p.a - span * 0.15, p.b + span * 0.15)
+    top, bottom = _f(p.upper_expr), _f(p.lower_expr)
+    # Derive a common y range from both sampled curves so the shaded region is never clipped.
+    values = [top(x) for x in [p.a + span * i / 80 for i in range(81)]] + [bottom(x) for x in [p.a + span * i / 80 for i in range(81)]]
+    low, high, _ = _nice_range(min(values), max(values))
+    axes, _ = _axes(p.upper_expr, xs, (low, high))
+    top_curve = axes.plot(top, x_range=list(xs), color=BLUE)
+    bottom_curve = axes.plot(bottom, x_range=list(xs), color=GREEN)
+    region = axes.get_area(top_curve, x_range=[p.a, p.b], bounded_graph=bottom_curve, color=GREEN, opacity=0.45)
+    labels = VGroup(
+        MathTex(r"f(x)", color=BLUE, font_size=26).next_to(top_curve.get_end(), UP),
+        MathTex(r"g(x)", color=GREEN, font_size=26).next_to(bottom_curve.get_end(), DOWN),
+    )
+    group = VGroup(axes, top_curve, bottom_curve, region, labels)
+    place(group, layout("title_stage_caption")[p.region])
+    return Built(group=group, parts={"axes": axes, "upper_curve": top_curve, "lower_curve": bottom_curve, "area": region, "labels": labels}, beats=[["axes"], ["upper_curve", "lower_curve"], ["area"], ["labels"]], notes=f"shaded interval [{p.a:g}, {p.b:g}]")
+
+
+class TaylorComparisonParams(BaseModel):
+    expr: str
+    polynomial: str
+    x_min: float
+    x_max: float
+    region: str = "stage"
+
+
+@component(version=1, domain="calculus", params=TaylorComparisonParams)
+def taylor_comparison(p: TaylorComparisonParams) -> Built:
+    """A function and its Taylor polynomial on common, automatically fitted axes."""
+    from manim import BLUE, DOWN, ORANGE, UP, MathTex, VGroup
+
+    f, polynomial = _f(p.expr), _f(p.polynomial)
+    samples = [p.x_min + (p.x_max - p.x_min) * i / 100 for i in range(101)]
+    values = [f(x) for x in samples] + [polynomial(x) for x in samples]
+    low, high, _ = _nice_range(min(values), max(values))
+    axes, _ = _axes(p.expr, (p.x_min, p.x_max), (low, high))
+    curve = axes.plot(f, x_range=[p.x_min, p.x_max], color=BLUE)
+    approx = axes.plot(polynomial, x_range=[p.x_min, p.x_max], color=ORANGE)
+    labels = VGroup(
+        MathTex(r"f(x)", color=BLUE, font_size=26).next_to(curve.get_end(), UP),
+        MathTex(r"P_n(x)", color=ORANGE, font_size=26).next_to(approx.get_end(), DOWN),
+    )
+    group = VGroup(axes, curve, approx, labels)
+    place(group, layout("title_stage_caption")[p.region])
+    return Built(group=group, parts={"axes": axes, "function": curve, "polynomial": approx, "labels": labels}, beats=[["axes"], ["function"], ["polynomial", "labels"]], notes="blue exact function; orange Taylor polynomial")

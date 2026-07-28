@@ -85,6 +85,18 @@ class ManimApiTests(unittest.TestCase):
         self.assertFalse(report["valid"])
         self.assertIn("axis configuration does not accept", report["problems"][0]["problem"])
 
+    def test_catches_math_syntax_inside_text_mode_tex(self):
+        code = (
+            "from manim import *\n"
+            "class GeneratedScene(Scene):\n"
+            "    def construct(self):\n"
+            "        subtitle = Tex(\"so that x^4 - a x^2 + 9 = 0 has roots\")\n"
+            "        self.add(subtitle)\n"
+        )
+        report = manim_validate_code(code)
+        self.assertFalse(report["valid"])
+        self.assertIn("outside math mode", report["problems"][0]["problem"])
+
     def test_does_not_flag_manims_own_example_scenes(self):
         example = Path("vendor/manim/example_scenes/basic.py")
         if not example.exists():
@@ -210,6 +222,50 @@ class ProviderTests(unittest.TestCase):
         self.assertEqual(_unsupported_parameter("Unsupported value: 'temperature' does not support 0.2"), "temperature")
         self.assertIsNone(_unsupported_parameter("some unrelated failure"))
 
+    def test_deepseek_dsml_tool_calls_are_normalized(self):
+        from llm.providers import _decode_dsml_tool_calls
+
+        response = (
+            'I will calculate it.\n<｜｜DSML｜｜tool_calls>\n'
+            '<｜｜DSML｜｜invoke name="symbolic_solve">\n'
+            '<｜｜DSML｜｜parameter name="equation" string="true">x**2-4=0</｜｜DSML｜｜parameter>\n'
+            '<｜｜DSML｜｜parameter name="variable" string="true">x</｜｜DSML｜｜parameter>\n'
+            '</｜｜DSML｜｜invoke>\n</｜｜DSML｜｜tool_calls>'
+        )
+        calls = _decode_dsml_tool_calls(response)
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0].function.name, "symbolic_solve")
+        self.assertEqual(calls[0].function.arguments, '{"equation": "x**2-4=0", "variable": "x"}')
+
+    def test_forced_final_recovers_one_normalized_dsml_tool_call(self):
+        from llm.providers import _Message, _ToolCall, _ToolFunction
+        from proofmotion.runtime.loop import run_agent
+        from proofmotion.runtime.registry import ToolRegistry
+
+        registry = ToolRegistry()
+
+        @registry.register
+        def echo(value: str) -> dict[str, str]:
+            """Return the supplied value."""
+            return {"value": value}
+
+        class Client:
+            def __init__(self):
+                self.messages = []
+                self.responses = [
+                    _Message("", [_ToolCall("normal", _ToolFunction("echo", '{"value":"first"}'))]),
+                    _Message("", [_ToolCall("dsml-1", _ToolFunction("echo", '{"value":"second"}'))]),
+                    _Message("{\"done\": true}"),
+                ]
+
+            def chat(self, messages, **kwargs):
+                self.messages.append(messages)
+                return self.responses.pop(0)
+
+        result = run_agent(Client(), "system", "user", registry, max_iterations=1)
+        self.assertEqual(result.content, '{"done": true}')
+        self.assertEqual([call["name"] for call in result.tool_calls], ["echo", "echo"])
+
     def test_responses_tool_schema_is_flattened(self):
         from llm.providers import OpenAIResponsesClient
 
@@ -305,6 +361,18 @@ class PacingTests(unittest.TestCase):
         self.assertTrue(_is_worked_problem_prompt("A 2 kg mass moves under a force. Find its acceleration."))
         self.assertTrue(_is_worked_problem_prompt("Derive the time period of small oscillations."))
         self.assertFalse(_is_worked_problem_prompt("Visualize a sine wave."))
+
+    def test_standard_hyperbola_prompt_uses_a_component_plan(self):
+        from proofmotion.pipeline import _standard_hyperbola_plan
+
+        plan = _standard_hyperbola_plan(
+            "For the hyperbola x^2/a^2-y^2/b^2=1, one focus is (-3, 0), and "
+            "the latus rectum subtends a right angle at the other focus. Find alpha + beta."
+        )
+        self.assertIsNotNone(plan)
+        assert plan is not None
+        self.assertTrue(all(scene.component == "conic_coordinate_diagram" for scene in plan.assignments))
+        self.assertEqual(plan.assignments[-1].caption, r"\alpha+\beta=1944")
 
 
 class RepairExtractionTests(unittest.TestCase):

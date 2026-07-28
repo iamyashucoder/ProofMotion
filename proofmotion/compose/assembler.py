@@ -202,7 +202,7 @@ def assemble(plan: ScenePlan) -> str:
                 write("            caption.shift(DOWN * 0.22)")
             if scene.bridge_text:
                 write(f"        bridge = Text({scene.bridge_text!r}, font_size=24, color=GREY_B)")
-                write("        bridge.scale_to_fit_width(regions['caption'][2] * 0.92)")
+                write("        bridge.scale_to_fit_width(regions['caption'].width * 0.92)")
                 write("        place(bridge, regions['caption'])")
                 write("        bridge.shift(UP * 0.26)")
                 write("        self.play(FadeIn(bridge, shift=UP * 0.08), run_time=0.35)")

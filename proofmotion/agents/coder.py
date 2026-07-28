@@ -75,6 +75,10 @@ y_axis_config. Those dictionaries configure the axis line and Manim will crash
 on that key. Make labels as separate Mobjects with
 axes.get_axis_labels(x_label=..., y_label=...).
 
+Use MathTex for every equation, superscript, subscript, or mathematical symbol.
+Tex is text mode: never put raw ^ or _ inside Tex("..."). For a sentence that
+contains a formula, split it into Text/Tex prose and a separate MathTex object.
+
 Ask for several lookups in one turn rather than one at a time. Independent
 lookups run concurrently, so six signatures in a single turn cost about what one
 costs, while six separate turns burn six round trips of your iteration budget.
