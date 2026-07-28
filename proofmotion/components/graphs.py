@@ -20,6 +20,45 @@ from proofmotion.tools.numeric import numeric_sample
 AXIS_COLOR = "#9aa7bd"
 
 
+def tick_decimals(step: float) -> int:
+    """Decimal places that suit a tick step.
+
+    A fixed count reads the axis wrongly at both ends. An exponential plotted
+    to x=15 has ticks in the millions, and one decimal place labelled them
+    "3300000.0" — six digits of magnitude plus a decimal that says nothing. A
+    tick step below one needs the opposite.
+    """
+    step = abs(step)
+    if step >= 1:
+        return 0
+    if step >= 0.1:
+        return 1
+    return 2
+
+
+def compact(value: float) -> str:
+    """A tick label a person can read at a glance.
+
+    Beyond five digits the number stops being read and starts being counted,
+    so it is written as a power of ten instead: 800000 as 8 x 10^5.
+    """
+    import math
+
+    if value == 0:
+        return "0"
+    magnitude = math.floor(math.log10(abs(value)))
+    if -3 < magnitude < 5:
+        # Four significant figures, with the trailing zeros a fixed width would
+        # add taken back off: 12.5 stays 12.5 and 3.0 becomes 3.
+        text = f"{value:.4g}"
+        return text
+    mantissa = value / (10**magnitude)
+    lead = f"{mantissa:.2f}".rstrip("0").rstrip(".")
+    return (r"10^{%d}" % magnitude) if lead in ("1", "-1") and mantissa > 0 else (
+        r"%s \times 10^{%d}" % (lead, magnitude)
+    )
+
+
 def _nice_range(low: float, high: float, *, pad: float = 0.12) -> tuple[float, float, float]:
     """A padded range and a sensible tick step.
 
@@ -54,8 +93,39 @@ def _axes(expr: str, x_range: tuple[float, float], y_range: tuple[float, float] 
         y_length=4.4,
         tips=False,
         axis_config={"include_numbers": True, "color": AXIS_COLOR, "font_size": 22},
+        x_axis_config={"decimal_number_config": {"num_decimal_places": tick_decimals(x_step)}},
+        y_axis_config={"decimal_number_config": {"num_decimal_places": tick_decimals(y_step)}},
     )
+    _relabel_extremes(axes.y_axis, [low, high])
     return axes, sample
+
+
+def _relabel_extremes(axis, span: list[float]) -> None:
+    """Rewrite tick labels as powers of ten when the plain digits stop being read.
+
+    Only when they do. An axis running to three decimal places or to three
+    million is unreadable as digits; an axis running from 0 to 10 is perfectly
+    clear and a power of ten would be pretentious.
+    """
+    from manim import DecimalNumber, MathTex
+
+    biggest = max(abs(v) for v in span) or 1.0
+    if 1e-3 < biggest < 1e5:
+        return
+
+    # The numbers hang in a nested group, not off the axis directly, so the
+    # parent has to be found before either of them can be swapped.
+    def swap(parent) -> None:
+        for number in [m for m in (parent.submobjects or []) if isinstance(m, DecimalNumber)]:
+            replacement = MathTex(compact(float(number.get_value())), font_size=20, color=AXIS_COLOR)
+            replacement.move_to(number)
+            parent.remove(number)
+            parent.add(replacement)
+        for child in list(parent.submobjects or []):
+            if not isinstance(child, DecimalNumber | MathTex):
+                swap(child)
+
+    swap(axis)
 
 
 class FunctionPlotParams(BaseModel):

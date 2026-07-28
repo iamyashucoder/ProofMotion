@@ -106,8 +106,10 @@ def to_latex(text: str) -> str:
     return _SYMBOL.sub(lambda m: _spell(m, result), result)
 
 
-#: A LaTeX command, or the notation that only means something in math mode.
-_MATHS = re.compile(r"\\[A-Za-z]+|[\^_]|\\\\|[=<>≤≥≈]")
+#: An actual LaTeX command. Only LaTeX can set these.
+_COMMAND = re.compile(r"\\[A-Za-z]+")
+#: Notation that only means something in math mode.
+_MATHS = re.compile(r"[\^_]|[=<>≤≥≈]")
 #: Three or more ordinary words in a row reads as a sentence.
 _PROSE = re.compile(r"(?:\b[A-Za-z]{2,}\b[ ,]+){3,}")
 
@@ -115,21 +117,87 @@ _PROSE = re.compile(r"(?:\b[A-Za-z]{2,}\b[ ,]+){3,}")
 def looks_like_maths(text: str) -> bool:
     """Whether this caption should be set as mathematics rather than as text.
 
-    Captions arrive as either — ``R_6 = 11.375`` or "A projectile launched at
-    76.5 degrees follows a parabolic arc" — and putting the second through
-    MathTex sets an English sentence in italic maths with the spaces stripped
-    out. It is unreadable when it compiles and it is a LaTeX error when it does
-    not, which is how a caption about a projectile took a render down.
+    A LaTeX command decides it, before anything else is considered. Text cannot
+    set ``\\sin`` or ``\\theta`` at all — it draws the backslash — and that is
+    the gibberish that reached finished videos: ``x\\text{-axis: down the
+    incline}`` has three ordinary words in it, so a prose-first rule sent
+    correct LaTeX to a mobject with no LaTeX in it.
 
-    Prose wins ties. Text sets mathematics passably; MathTex sets prose
-    terribly, and Text has no LaTeX to fail in.
+    The author already said which they meant. ``\\text{}`` around words *is* the
+    instruction to set them upright inside mathematics, and MathTex honours it.
+
+    With no commands present the question is real, and prose wins: MathTex sets
+    an English sentence in italic maths with the spaces stripped out.
     """
     stripped = (text or "").strip()
     if not stripped:
         return False
+    if _COMMAND.search(stripped):
+        return True
     if _PROSE.search(stripped):
         return False
     return bool(_MATHS.search(stripped)) or " " not in stripped
+
+
+#: The reverse of SYMBOLS, for showing LaTeX to a person instead of setting it.
+#: Built from the same table so the two cannot describe different notation.
+_FROM_LATEX = {
+    latex: char
+    for char, latex in SYMBOLS.items()
+    if latex.startswith("\\") and char not in SPACES
+}
+#: Commands that decorate their argument. The decoration is not worth a
+#: mangled word in a chat line, so the argument is kept and the wrapper goes.
+_WRAPPER = re.compile(
+    r"\\(?:text|mathrm|mathbf|mathit|mathsf|operatorname|vec|hat|bar|dot|ddot|tilde)\s*\{([^{}]*)\}"
+)
+_FRACTION = re.compile(r"\\[dt]?frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}")
+_SQRT = re.compile(r"\\sqrt\s*\{([^{}]*)\}")
+_SCRIPT = re.compile(r"([_^])\{([^{}]*)\}|([_^])([0-9A-Za-z+\-])")
+_SPACING = re.compile(r"\\(?:,|;|:|!|quad|qquad|left|right|displaystyle|;)")
+_COMMAND_LEFT = re.compile(r"\\([A-Za-z]+)")
+
+
+def readable(latex: str) -> str:
+    """Turn LaTeX back into something a person reads in a chat window.
+
+    The chat had been showing raw source — ``\\sum F_x = mg\\sin\\theta`` — which
+    is exactly the gibberish complained about on screen, in the one place where
+    there is no renderer to set it. This is the inverse of `to_latex`, built
+    from the same table so the two cannot drift into describing different
+    notation.
+    """
+    if not latex:
+        return ""
+    text = _SPACING.sub(" ", latex)
+    text = _WRAPPER.sub(r"\1", text)
+    text = _FRACTION.sub(r"(\1)/(\2)", text)
+    text = _SQRT.sub(r"√(\1)", text)
+    for command, char in _FROM_LATEX.items():
+        text = text.replace(command, char)
+    # Degrees before the script pass, or "^\circ" becomes "^°" with the caret
+    # stranded: the degree sign already carries the raised position.
+    text = re.sub(r"\^\s*\{?\s*\\circ\s*\}?", "°", text)
+    text = text.replace(r"\circ", "°")
+    # Scripts after the symbols, so \theta^{2} has already become θ. Braced and
+    # bare forms both, because "x^2" is as common as "x^{2}".
+    def script(match: re.Match[str]) -> str:
+        mark = match.group(1) or match.group(3)
+        body = match.group(2) if match.group(2) is not None else match.group(4)
+        table = SUPERSCRIPTS_OUT if mark == "^" else SUBSCRIPTS_OUT
+        return "".join(table.get(c, c) for c in body)
+
+    text = _SCRIPT.sub(script, text)
+    # Anything left keeps its name and loses the backslash, with a space so a
+    # function does not weld itself to its argument: "mg\sin\theta" reads as
+    # "mg sin θ" rather than "mgsinθ".
+    text = _COMMAND_LEFT.sub(r"\1 ", text)
+    return re.sub(r"\s{2,}", " ", text.replace("{", "").replace("}", "")).strip()
+
+
+#: Digits back to the superscript and subscript characters, for `readable`.
+SUPERSCRIPTS_OUT = {v: k for k, v in SUPERSCRIPTS.items()}
+SUBSCRIPTS_OUT = {v: k for k, v in SUBSCRIPTS.items()}
 
 
 def unsupported(text: str) -> list[str]:

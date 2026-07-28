@@ -181,6 +181,50 @@ class TestNotation(unittest.TestCase):
         self.assertEqual(to_latex("α+β≥γ"), r"\alpha+\beta\geq \gamma")
         self.assertNotIn(r"\alph ", to_latex("α"))
 
+    def test_latex_commands_decide_the_mobject(self):
+        """The gibberish that reached finished videos.
+
+        ``x\\text{-axis: down the incline}`` has three ordinary words in it, so
+        a prose-first rule sent correct LaTeX to Text — which cannot set it and
+        draws the backslashes instead.
+        """
+        from proofmotion.layout.notation import looks_like_maths
+
+        for latex in (
+            r"x\text{-axis: down the incline}",
+            r"\sum F_x = mg\sin\theta = m a",
+            r"a = (9.8\,\text{m/s}^2)\sin 30^\circ",
+            r"\vec{W} = m\vec{g}",
+        ):
+            with self.subTest(latex=latex):
+                self.assertTrue(looks_like_maths(latex), "LaTeX must go to MathTex")
+
+    def test_latex_reads_back_as_mathematics(self):
+        """The chat had been showing raw source, with no renderer to set it."""
+        from proofmotion.layout.notation import readable
+
+        self.assertEqual(readable(r"\theta = 30^\circ"), "θ = 30°")
+        self.assertEqual(readable(r"\int_{0}^{3} x^{2}\,dx = 9"), "∫₀³ x² dx = 9")
+        self.assertEqual(readable(r"R_{6} = 11.375"), "R₆ = 11.375")
+        self.assertEqual(readable(r"\vec{W} = m\vec{g}"), "W = mg")
+        self.assertEqual(readable(""), "")
+        for latex in (r"\sum F_x = mg\sin\theta", r"\frac{1}{2}mv^2"):
+            with self.subTest(latex=latex):
+                self.assertNotIn("\\", readable(latex))
+
+    def test_axis_labels_stop_being_digits_when_nobody_could_read_them(self):
+        """An exponential to x=15 labelled its ticks 3300000.0."""
+        from proofmotion.components.graphs import compact, tick_decimals
+
+        self.assertEqual(tick_decimals(10), 0)
+        self.assertEqual(tick_decimals(0.05), 2)
+        self.assertEqual(compact(800000), r"8 \times 10^{5}")
+        self.assertEqual(compact(0.00042), r"4.2 \times 10^{-4}")
+        # An ordinary axis stays ordinary.
+        self.assertEqual(compact(12.5), "12.5")
+        self.assertEqual(compact(3), "3")
+        self.assertEqual(compact(0), "0")
+
     def test_nothing_untranslatable_survives(self):
         from proofmotion.layout.notation import unsupported
 

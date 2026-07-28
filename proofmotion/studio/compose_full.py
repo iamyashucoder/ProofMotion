@@ -24,6 +24,7 @@ from proofmotion.compose import (
     plan_from_storyboard,
     select_components,
 )
+from proofmotion.layout.notation import readable
 from proofmotion.runtime.events import headline
 from proofmotion.studio.document import Project
 from proofmotion.studio.operations import Operation
@@ -117,10 +118,53 @@ def answer_fully(client: Any, project: Project, question: str) -> tuple[list[Ope
         )
         after = ""  # the rest append in order
 
-    steps = len(state.get("math_plan", {}).get("concept_sequence", []) or [])
-    reply = (
-        f"Worked it through in {steps} verified steps and built {len(operations)} slides"
-        f"{f', {drawn:.0%} of them drawing a figure' if drawn < 1 else ''}. "
-        "Tell me what to change, or ask for more."
-    )
-    return operations, reply
+    return operations, written_answer(state, len(operations), drawn)
+
+
+def written_answer(state: dict[str, Any], slides: int, drawn: float) -> str:
+    """The worked solution, in words, for the conversation.
+
+    The deck is the answer for someone watching it. Someone reading the chat
+    got "built 11 slides", which is a receipt rather than a reply — the
+    reasoning had been derived, verified and then thrown away because only the
+    renderer was looking at it.
+    """
+    plan = state.get("math_plan") or {}
+    steps = plan.get("concept_sequence") or []
+    lines: list[str] = []
+
+    given = plan.get("given_quantities") or []
+    if given:
+        lines.append("Given: " + ", ".join(str(g) for g in given))
+    if plan.get("unknown"):
+        lines.append(f"Find: {plan['unknown']}")
+    if lines:
+        lines.append("")
+
+    for step in steps:
+        head = f"{step.get('index', '?')}. {step.get('concept', '')}".strip()
+        lines.append(head)
+        equation = step.get("equation_latex")
+        if equation:
+            lines.append(f"   {readable(equation)}")
+        explanation = (step.get("explanation") or "").strip()
+        if explanation:
+            lines.append(f"   {explanation}")
+        lines.append("")
+
+    answer = plan.get("final_answer_latex")
+    if answer:
+        lines.append(f"Answer: {readable(answer)}")
+    if plan.get("final_answer_explanation"):
+        lines.append(plan["final_answer_explanation"].strip())
+
+    verification = state.get("verified_math") or {}
+    failures = len(verification.get("failures") or [])
+    lines.append("")
+    note = f"{len(steps)} steps, {slides} slides"
+    if failures:
+        note += f" — {failures} step(s) sympy could not prove"
+    if drawn < 1:
+        note += f" — {drawn:.0%} of slides draw a figure"
+    lines.append(note)
+    return "\n".join(lines).strip()
