@@ -180,9 +180,15 @@ class TestComponentSearch(unittest.TestCase):
         """Enumerating must not cost more than the search it replaced."""
         import json
 
+        # Scaled to the catalogue rather than fixed: the brief entries are one
+        # line each, so the bound has to grow with the library or it fails on
+        # the day someone adds a component rather than on the day the payload
+        # becomes expensive.
+        from proofmotion.components import COMPONENTS
         from proofmotion.tools.components_tool import component_search
 
-        self.assertLess(len(json.dumps(component_search("tangent"))), 12_000)
+        payload = len(json.dumps(component_search("tangent")))
+        self.assertLess(payload, 4_000 + 200 * len(COMPONENTS))
 
     def test_a_component_that_draws_nothing_says_so(self):
         from proofmotion.tools.components_tool import component_search
@@ -436,7 +442,14 @@ class TestEveryComponentAssembles(unittest.TestCase):
                 # exercises those at their extremes.
                 continue
             with self.subTest(component=name):
-                defaults = {field: info.default for field, info in fields.items()}
+                # `default` is PydanticUndefined for a field with a
+                # default_factory, and that sentinel reached the emitted scene
+                # as an undefined name. The first component to use a factory
+                # exposed it.
+                defaults = {
+                    field: (info.default_factory() if info.default_factory else info.default)
+                    for field, info in fields.items()
+                }
                 code = assemble(plan(SceneAssignment(title=name, component=name, parameters=defaults)))
                 ast.parse(code)
                 self.assertEqual(manim_validate_code(code)["valid"], True, name)

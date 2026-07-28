@@ -30,6 +30,17 @@ class Built:
     parts: dict[str, Any] = field(default_factory=dict)
     #: Reveal order, as part names. The scene animates these in sequence.
     beats: list[list[str]] = field(default_factory=list)
+    #: Movement, as factories the scene plays after the reveal.
+    #:
+    #: Beats are a reveal, not a movement: they fade pieces in and leave them
+    #: there. Every figure the library produced was therefore static, and a
+    #: question about a ball bouncing got a picture of a ball. A component that
+    #: has something happen in it says so here.
+    #:
+    #: Factories rather than Animation objects, because an Animation binds to
+    #: its mobject when constructed and cannot be built before the scene that
+    #: will play it exists.
+    motions: list[Callable[[], Any]] = field(default_factory=list)
     notes: str = ""
 
 

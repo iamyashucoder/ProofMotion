@@ -69,6 +69,11 @@ Adding a slide that repeats a figure already on screen with different
 parameters is an edit. Adding a slide about mathematics nobody has derived is
 not.
 
+When a scene needs something drawn or moved that no component expresses,
+describe it in needs_hand_drawn and leave operations empty. The coder writes
+it with the Manim API available to look up and the layout checker to measure
+against, none of which you have here. Do not write scene code yourself.
+
 Give a `reason` of a few words on each operation, and a `reply` of one or two
 sentences to the person. Say what you changed, not what you were asked."""
 

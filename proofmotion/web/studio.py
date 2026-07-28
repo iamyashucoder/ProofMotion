@@ -473,7 +473,10 @@ def serve_studio(root: Path, client: Any, *, port: int = 8780, host: str = "127.
                         # verified steps and ten slides that drew nothing.
                         headline("Designing scenes for it")
                         edit = propose(studio.client, project, message)
-                        if not edit.operations:
+                        if edit.needs_hand_drawn:
+                            operations, reply = draw_by_hand(studio.client, edit.needs_hand_drawn)
+                            edit = Edit(operations=operations, reply=reply)
+                        elif not edit.operations:
                             # The catalogue is finite and the agent said so.
                             # Refusing is honest and useless; the coder draws it.
                             operations, reply = draw_by_hand(studio.client, message)

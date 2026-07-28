@@ -223,6 +223,63 @@ class TestHandWrittenCode(unittest.TestCase):
         self.assertIn("SquareToCircle", p.slides[0].code)
 
 
+class TestMotionComponents(unittest.TestCase):
+    """Components where something happens, rather than a picture of it.
+
+    Every component drew a state, and beats only reveal the pieces of a state,
+    so a question about a ball bouncing got a picture of a ball. Convergence and
+    divergence look identical in a table of numbers and obvious on a graph,
+    which is the entire reason to draw them.
+    """
+
+    def build(self, name, params):
+        from manim import tempconfig
+
+        from proofmotion.components import build as build_component
+
+        with tempconfig({"dry_run": True}):
+            return build_component(name, params)
+
+    def test_a_bouncing_ball_actually_moves(self):
+        built = self.build("bouncing_trajectory", {"height": 8, "ratio": 0.75, "bounces": 5})
+        self.assertTrue(built.motions, "a bouncing ball with no motion is a picture of a ball")
+        self.assertIn("ball", built.parts)
+        self.assertIn("path", built.parts)
+
+    def test_the_heights_are_the_geometric_sequence(self):
+        """The arcs are drawn from the numbers, so the two cannot disagree."""
+        built = self.build("bouncing_trajectory", {"height": 8, "ratio": 0.75, "bounces": 4})
+        for expected in ("8", "6", "4.5", "3.38"):
+            self.assertIn(expected, built.notes)
+
+    def test_a_rebound_above_one_is_reported_as_unbounded(self):
+        built = self.build("bouncing_trajectory", {"height": 8, "ratio": 1.05, "bounces": 5})
+        self.assertIn("without bound", built.notes)
+
+    def test_partial_sums_are_computed_not_taken_on_trust(self):
+        built = self.build("partial_sums", {"terms": [8, 12, 9, 6.75], "limit": 56})
+        self.assertIn("8.00, 20.00, 29.00, 35.75", built.notes)
+        self.assertTrue(built.motions)
+        self.assertIn("limit", built.parts)
+
+    def test_divergence_says_so_instead_of_drawing_a_limit(self):
+        built = self.build("partial_sums", {"terms": [8, 8.4, 8.82, 9.26]})
+        self.assertIn("diverges", built.parts)
+        self.assertNotIn("limit", built.parts)
+
+    def test_the_assembler_plays_what_a_component_moves(self):
+        """A motion nothing plays is a motion that did not happen."""
+        from proofmotion.compose import SceneAssignment, ScenePlan, assemble
+        from proofmotion.tools.manim_api import manim_validate_code
+
+        code = assemble(ScenePlan(assignments=[
+            SceneAssignment(title="Bounce", component="bouncing_trajectory",
+                            parameters={"height": 8, "ratio": 0.75, "bounces": 5}, seconds=9),
+        ]))
+        self.assertIn("for motion in built.motions", code)
+        self.assertEqual(manim_validate_code(code)["valid"], True)
+
+
 class TestNotation(unittest.TestCase):
     """Unicode maths a model writes, turned into LaTeX that compiles.
 

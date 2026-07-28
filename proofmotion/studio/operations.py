@@ -69,6 +69,13 @@ class Edit(BaseModel):
         default=False,
         description="True when the ask needs mathematics worked out, not a slide edited.",
     )
+    #: Set when a scene needs motion or drawing no component can express. The
+    #: coder writes it, with the API available to look up and the layout
+    #: checker to measure against — none of which this agent has.
+    needs_hand_drawn: str = Field(
+        default="",
+        description="Describe the scene to draw by hand when no component can express it.",
+    )
 
 
 def _check_component(name: str | None, parameters: dict[str, Any]) -> None:

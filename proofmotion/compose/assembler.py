@@ -179,6 +179,8 @@ def assemble(plan: ScenePlan) -> str:
             write("        place(built.group, regions['stage'])")
             write(f"        self.play(Transform(stage, built.group), run_time={max(0.8, beat_time * 2)})")
             write("        # `stage` keeps the identity Transform mutated in place")
+            write("        for motion in built.motions:")
+            write(f"            self.play(motion(), run_time={max(1.0, round(scene.seconds / 3, 2))})")
         elif scene.component:
             write("        if stage is not None:")
             write("            self.play(FadeOut(stage), run_time=0.4)")
@@ -194,6 +196,11 @@ def assemble(plan: ScenePlan) -> str:
             write(f"                self.play(*[FadeIn(p) for p in parts], run_time={beat_time})")
             write("        if not built.beats:")
             write(f"            self.play(FadeIn(built.group), run_time={beat_time})")
+            # Whatever the component says happens in it. Beats only reveal, so
+            # without this every figure in the library stood still and a
+            # question about a ball bouncing got a picture of a ball.
+            write("        for motion in built.motions:")
+            write(f"            self.play(motion(), run_time={max(1.0, round(scene.seconds / 3, 2))})")
         else:
             # An equation scene needs the stage to itself.
             write("        if stage is not None:")
