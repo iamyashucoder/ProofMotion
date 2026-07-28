@@ -614,6 +614,7 @@ class ComponentTests(unittest.TestCase):
             dict(expr="(x-2)**2+1", update_rule="x - 0.05*2*(x-2)", start=5.5, steps=40, x_min=-3, x_max=6),
             dict(expr="x**2", update_rule="x - 1.1*2*x", start=0.5, steps=12, x_min=-3, x_max=3),
         ],
+        "pi_character": [dict()],
     }
 
     def test_every_component_is_registered_with_a_schema(self):
@@ -674,8 +675,10 @@ class ComponentTests(unittest.TestCase):
         with tempconfig({"dry_run": True}):
             traffic = build("traffic_story", {"vehicle": "car"})
             chase = build("police_bicycle_chase", {"road_turns": 4})
+            pi = build("pi_character", {})
         self.assertTrue({"road", "vehicle"} <= traffic.parts.keys())
         self.assertTrue({"zigzag_road", "thief_bicycle", "police_runner"} <= chase.parts.keys())
+        self.assertTrue({"pi_glyph", "face", "resting_arm", "scratch_arm_pose", "confusion_marks"} <= pi.parts.keys())
 
     def test_transport_and_road_safety_objects_are_available(self):
         with tempconfig({"dry_run": True}):

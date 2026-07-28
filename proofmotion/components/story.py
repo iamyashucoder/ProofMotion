@@ -67,6 +67,77 @@ def _runner(colour: str, label: str = ""):
     return person
 
 
+class PiCharacterParams(BaseModel):
+    """Parameters for an expressive, high-visibility pi character."""
+
+    colour: str = "#a855f7"
+    region: str = "stage"
+
+
+@component(version=1, domain="story", params=PiCharacterParams)
+def pi_character(p: PiCharacterParams) -> Built:
+    """Large expressive π character with a hidden stretch-to-head scratch pose."""
+    from manim import DOWN, LEFT, RIGHT, UP, Arc, Circle, Dot, Line, MathTex, VGroup
+
+    # This deliberately fills most of the stage: π is the subject of the beat,
+    # not a tiny decorative label beside an equation.
+    glyph = MathTex(r"\pi", font_size=370, color=p.colour)
+    glyph._layout_decorative_text = True
+    glyph.shift(DOWN * 0.22)
+    head = glyph.get_center() + UP * 1.22
+    eye_left = Dot(head + LEFT * 0.26, radius=0.075, color="#f8fafc")
+    eye_right = Dot(head + RIGHT * 0.26, radius=0.075, color="#f8fafc")
+    pupil_left = Dot(eye_left.get_center() + DOWN * 0.012, radius=0.028, color="#111827")
+    pupil_right = Dot(eye_right.get_center() + DOWN * 0.012, radius=0.028, color="#111827")
+    mouth = Arc(radius=0.2, start_angle=0.15, angle=2.84, color="#f8fafc", stroke_width=3).move_to(head + DOWN * 0.28)
+    eyebrow_left = Line(head + LEFT * 0.42 + UP * 0.19, head + LEFT * 0.10 + UP * 0.11, color="#f8fafc", stroke_width=4)
+    eyebrow_right = Line(head + RIGHT * 0.10 + UP * 0.11, head + RIGHT * 0.42 + UP * 0.19, color="#f8fafc", stroke_width=4)
+    face = VGroup(eye_left, eye_right, pupil_left, pupil_right, mouth, eyebrow_left, eyebrow_right)
+
+    shoulder = glyph.get_center() + RIGHT * 0.72 + UP * 0.25
+    hand_rest = shoulder + RIGHT * 0.72 + DOWN * 0.52
+    arm_rest = Line(shoulder, hand_rest, color="#f8fafc", stroke_width=10)
+    hand = Circle(radius=0.105, color="#f8fafc", fill_opacity=1).move_to(hand_rest)
+    resting_arm = VGroup(arm_rest, hand)
+
+    # A two-segment arm can visibly lengthen, then reach the top of the glyph.
+    elbow = shoulder + RIGHT * 0.88 + UP * 0.45
+    scratch_hand = head + UP * 0.5 + RIGHT * 0.08
+    scratch_arm = VGroup(
+        Line(shoulder, elbow, color="#f8fafc", stroke_width=10),
+        Line(elbow, scratch_hand, color="#f8fafc", stroke_width=10),
+        Circle(radius=0.11, color="#f8fafc", fill_opacity=1).move_to(scratch_hand),
+    )
+    scratch_arm.set_opacity(0)
+    confusion_marks = VGroup(
+        MathTex("?", font_size=50, color="#fbbf24").move_to(head + LEFT * 0.78 + UP * 0.7),
+        MathTex("?", font_size=34, color="#fbbf24").move_to(head + RIGHT * 0.72 + UP * 0.98),
+    )
+    confusion_marks.set_opacity(0)
+
+    parts: dict[str, Any] = {
+        "pi_glyph": glyph,
+        "face": face,
+        "resting_arm": resting_arm,
+        "scratch_arm_pose": scratch_arm,
+        "confusion_marks": confusion_marks,
+    }
+    group = VGroup(*parts.values())
+    place(group, layout("title_stage_caption")[p.region])
+    return Built(
+        group=group,
+        parts=parts,
+        beats=[["pi_glyph"], ["face", "resting_arm"]],
+        notes=(
+            "Start with the very large pi_glyph. To show confusion, transform "
+            "resting_arm into scratch_arm_pose.copy().set_opacity(1), fade in "
+            "confusion_marks, then rotate the scratch pose a few degrees about "
+            "the hand. Keep the pi character on screen first; only then draw any "
+            "ThreeDAxes, after moving the character to a side of the frame."
+        ),
+    )
+
+
 def _city():
     from manim import Rectangle, Text, VGroup
 

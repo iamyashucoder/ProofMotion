@@ -49,6 +49,11 @@ def text_units(mobject: Any, found: list[Any] | None = None) -> list[Any]:
     overlapping itself.
     """
     found = [] if found is None else found
+    # A mathematical glyph can be the illustrated character itself (for
+    # example an expressive π with eyes and arms). It is not a label competing
+    # with nearby geometry, so a component may opt it out explicitly.
+    if getattr(mobject, "_layout_decorative_text", False):
+        return found
     if is_text(mobject):
         found.append(mobject)
         return found

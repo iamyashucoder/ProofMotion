@@ -122,6 +122,14 @@ motion needs a named teaching purpose; never add spinning, bouncing, flashing,
 or camera movement merely as decoration. This is an independent clarity-first
 study style, not an imitation of any creator's visual identity.
 
+For a π (pi) character request, use the pi_character component instead of a
+small MathTex label. Reveal its large pi_glyph and face first, then animate the
+stretchable arm into scratch_arm_pose when the character is confused: transform
+the resting arm, fade in the question marks, and make a small hand-scrubbing
+motion. Do not draw 3D axes beside or behind the initial character reveal.
+First let π occupy the stage, then move it to one side and draw ThreeDAxes in a
+later beat. This order is mandatory when the prompt asks for both π and 3D axes.
+
 Requirements:
   - exactly one Scene subclass, named GeneratedScene
   - start with: from manim import *
