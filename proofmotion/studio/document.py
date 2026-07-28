@@ -55,6 +55,7 @@ class Slide(BaseModel):
             parameters=self.parameters,
             caption=self.caption,
             seconds=self.seconds,
+            overrides=self.overrides,
         )
 
 

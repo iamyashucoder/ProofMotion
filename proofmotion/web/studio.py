@@ -60,7 +60,8 @@ body{margin:0;height:100vh;display:flex;font:14px/1.55 -apple-system,Segoe UI,Ro
 button{background:var(--accent);color:#04121e;border:0;border-radius:9px;padding:0 15px;font-weight:600;cursor:pointer}
 button:disabled{opacity:.4;cursor:default}
 #right{flex:1;display:flex;flex-direction:column;min-width:0}
-video{width:100%;background:#000;max-height:48vh}
+#stage{background:#000;display:flex;align-items:center;justify-content:center;padding:6px}
+video{max-width:100%;max-height:46vh;width:auto;height:auto;display:block}
 #status{padding:8px 14px;font-size:12px;color:var(--dim);border-top:1px solid var(--line);border-bottom:1px solid var(--line);min-height:32px}
 #deck{flex:1;overflow-y:auto;padding:13px}
 .slide{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:10px 12px;margin-bottom:9px}
@@ -88,7 +89,7 @@ video{width:100%;background:#000;max-height:48vh}
   </div>
 </div>
 <div id="right">
-  <video id="v" controls></video>
+  <div id="stage"><video id="v" controls></video></div>
   <div id="status">Ready.</div>
   <div id="deck"></div>
 </div>
@@ -142,6 +143,22 @@ function draw(s){
     d.innerHTML=`<h4>${sl.title||'(untitled)'}</h4><div class="meta">${sl.id} · ${sl.component||'text only'} · ${sl.seconds}s${sl.locked?' · locked':''}</div>`;
     const schema=(s.schemas||{})[sl.component]||{};
     Object.entries(schema).forEach(([n,spec])=>{ if(n in sl.parameters) d.appendChild(control(sl,n,spec)); });
+    ['title','caption','built.group'].forEach(what=>{
+      const cur=((sl.overrides||{}).shift||{})[what]||{dx:0,dy:0};
+      const row=document.createElement('div'); row.className='row';
+      const lab=document.createElement('label'); lab.textContent='move '+what.replace('built.group','figure');
+      row.appendChild(lab);
+      ['dx','dy'].forEach(axis=>{
+        const i=document.createElement('input'); i.type='range'; i.min=-3; i.max=3; i.step=0.05;
+        i.value=cur[axis]||0; i.title=axis;
+        const out=document.createElement('span'); out.className='meta'; out.textContent=axis+' '+(cur[axis]||0);
+        i.oninput=()=>out.textContent=axis+' '+i.value;
+        i.onchange=()=>{ const shift={dx:+cur.dx||0, dy:+cur.dy||0}; shift[axis]=parseFloat(i.value);
+          post('/api/nudge',{slide_id:sl.id,name:what,value:{shift}}); };
+        row.appendChild(i); row.appendChild(out);
+      });
+      d.appendChild(row);
+    });
     const redo=document.createElement('div'); redo.className='row';
     const box=document.createElement('input'); box.className='remake'; box.type='text';
     box.placeholder='remake this slide: what should change?';
@@ -518,6 +535,11 @@ def serve_studio(root: Path, client: Any, *, port: int = 8780, host: str = "127.
                 operation = Operation(
                     kind="set_parameter", slide_id=body["slide_id"],
                     name=body["name"], value=body.get("value"),
+                )
+            elif path == "/api/nudge":
+                operation = Operation(
+                    kind="nudge", slide_id=body["slide_id"],
+                    name=body.get("name") or "caption", value=body.get("value") or {},
                 )
             elif path == "/api/lock":
                 operation = Operation(kind="lock", slide_id=body["slide_id"], locked=bool(body.get("locked")))

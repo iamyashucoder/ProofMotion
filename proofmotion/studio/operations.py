@@ -34,7 +34,7 @@ MAX_OPERATIONS = MAX_SCENES + 10
 class Operation(BaseModel):
     """One edit. `kind` decides which fields matter."""
 
-    kind: Literal["add", "edit", "set_parameter", "reorder", "delete", "lock"]
+    kind: Literal["add", "edit", "set_parameter", "reorder", "delete", "lock", "nudge"]
     #: The slide acted on. Empty for `add`.
     slide_id: str = ""
     #: For `add`: place after this slide, or at the end when empty.
@@ -217,6 +217,20 @@ def apply(project: Project, operation: Operation) -> Project:
         project.slides.remove(slide)
         position = project.index_of(operation.after) + 1 if operation.after else len(project.slides)
         project.slides.insert(position, slide)
+        return project
+
+    if kind == "nudge":
+        # A checker can measure that a label overlaps. It cannot know the label
+        # reads better slightly left, which is the whole reason a person is
+        # looking at this. `name` is what to move, `value` how far.
+        if not operation.name:
+            raise ToolError("nudge needs the name of what to move: title, caption, or built.group")
+        moves = dict(operation.value or {})
+        overrides = {k: dict(v) for k, v in slide.overrides.items()}
+        for axis in ("shift", "scale"):
+            if axis in moves:
+                overrides.setdefault(axis, {})[operation.name] = moves[axis]
+        slide.overrides = overrides
         return project
 
     if kind == "set_parameter":

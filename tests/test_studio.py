@@ -256,6 +256,68 @@ class TestHandWrittenCode(unittest.TestCase):
         self.assertIn("SquareToCircle", p.slides[0].code)
 
 
+class TestOverrides(unittest.TestCase):
+    """Hand corrections, because a checker cannot know what reads better.
+
+    inspect_scene can measure that a label overlaps a curve. It cannot know the
+    label reads better slightly left, and until now there was nowhere for a
+    person to say so.
+    """
+
+    def test_a_nudge_is_recorded_on_the_slide(self):
+        p = project(slide("s1"))
+        apply(p, Operation(kind="nudge", slide_id="s1", name="caption",
+                           value={"shift": {"dx": -0.4, "dy": 0.15}}))
+        self.assertEqual(p.slides[0].overrides["shift"]["caption"], {"dx": -0.4, "dy": 0.15})
+
+    def test_nudges_accumulate_across_objects(self):
+        p = project(slide("s1"))
+        apply(p, Operation(kind="nudge", slide_id="s1", name="caption", value={"shift": {"dx": -0.4}}))
+        apply(p, Operation(kind="nudge", slide_id="s1", name="title", value={"shift": {"dy": 0.2}}))
+        self.assertEqual(sorted(p.slides[0].overrides["shift"]), ["caption", "title"])
+
+    def test_a_nudge_needs_something_to_move(self):
+        p = project(slide("s1"))
+        with self.assertRaises(ToolError):
+            apply(p, Operation(kind="nudge", slide_id="s1", value={"shift": {"dx": 1}}))
+
+    def test_a_locked_slide_refuses_a_nudge(self):
+        p = project(slide("s1", locked=True))
+        with self.assertRaises(ToolError):
+            apply(p, Operation(kind="nudge", slide_id="s1", name="caption", value={"shift": {"dx": 1}}))
+
+    def test_an_override_reaches_the_emitted_scene(self):
+        from proofmotion.compose import SceneAssignment, ScenePlan, assemble
+        from proofmotion.tools.manim_api import manim_validate_code
+
+        code = assemble(ScenePlan(assignments=[SceneAssignment(
+            title="T", component="function_plot", parameters=PLOT, caption="f(x)=x^2",
+            overrides={"shift": {"caption": {"dx": -0.4, "dy": 0.15}}, "scale": {"caption": 0.9}},
+        )]))
+        self.assertIn("caption.shift(RIGHT * -0.4 + UP * 0.15)", code)
+        self.assertIn("caption.scale(0.9)", code)
+        self.assertEqual(manim_validate_code(code)["valid"], True)
+
+    def test_a_nudge_re_renders_the_slide(self):
+        """It changes the pixels, so it has to change the cache key."""
+        plain = slide("s1")
+        nudged = slide("s1")
+        nudged.overrides = {"shift": {"caption": {"dx": -0.4}}}
+        self.assertNotEqual(digest_of([plain]), digest_of([nudged]))
+
+
+class TestPreamble(unittest.TestCase):
+    def test_a_package_that_is_not_installed_is_never_added(self):
+        """One missing package fails every compile, not just the ones using it.
+
+        Adding three of them blind broke "a = 4.9", which had nothing to do
+        with any of them.
+        """
+        from proofmotion.layout.preamble import installed
+
+        self.assertFalse(installed("definitely_not_a_real_package_xyz"))
+
+
 class TestMotionComponents(unittest.TestCase):
     """Components where something happens, rather than a picture of it.
 

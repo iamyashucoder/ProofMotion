@@ -28,7 +28,10 @@ from schemas.storyboard import MAX_SCENES
 HEADER = '''from manim import *
 
 from proofmotion.components import build
+from proofmotion.layout.preamble import ensure_packages
 from proofmotion.layout.regions import layout, place
+
+ensure_packages()
 
 
 class GeneratedScene(Scene):
@@ -54,6 +57,10 @@ class SceneAssignment(BaseModel):
     bridge_text: str = Field(default="", description="Short visual connection from the retained board item to this step.")
     forget_after: list[str] = Field(default_factory=list, description="Board items cleared after this step is read.")
     seconds: float = Field(default=6.0, gt=0.5, le=40.0, description="Target length of this scene.")
+    #: Hand corrections applied after the layout engine has placed everything.
+    #: A checker can measure that a label overlaps; it cannot know the label
+    #: reads better slightly left. See PLAN-STUDIO §7.
+    overrides: dict[str, Any] = Field(default_factory=dict)
 
 
 class ScenePlan(BaseModel):
@@ -117,6 +124,24 @@ def check(plan: ScenePlan) -> list[str]:
     return problems
 
 
+def _nudge(name: str, overrides: dict[str, Any]) -> list[str]:
+    """Emit the hand corrections for one placed object, if there are any.
+
+    Applied after `place`, so an override moves what the engine decided rather
+    than fighting it. Nothing here guesses: an override exists only because a
+    person dragged something.
+    """
+    lines: list[str] = []
+    shift = (overrides.get("shift") or {}).get(name) or {}
+    dx, dy = float(shift.get("dx", 0.0)), float(shift.get("dy", 0.0))
+    if dx or dy:
+        lines.append(f"        {name}.shift(RIGHT * {dx} + UP * {dy})")
+    scale = (overrides.get("scale") or {}).get(name)
+    if scale:
+        lines.append(f"        {name}.scale({float(scale)})")
+    return lines
+
+
 def assemble(plan: ScenePlan) -> str:
     """Turn chosen components into complete, runnable source.
 
@@ -158,6 +183,7 @@ def assemble(plan: ScenePlan) -> str:
         if scene.title:
             write(f"        title = Text({scene.title!r}, font_size=40)")
             write("        place(title, regions['title'])")
+            lines.extend(_nudge("title", scene.overrides))
             write("        self.play(Write(title), run_time=0.7)")
             write("        chrome.append(title)")
 
@@ -186,6 +212,7 @@ def assemble(plan: ScenePlan) -> str:
             write("            self.play(FadeOut(stage), run_time=0.4)")
             write(f"        built = build({scene.component!r}, {scene.parameters!r})")
             write("        place(built.group, regions['stage'])")
+            lines.extend(_nudge("built.group", scene.overrides))
             write("        stage = built.group")
 
             # Components declare their own reveal order. Reading it at runtime
@@ -224,6 +251,7 @@ def assemble(plan: ScenePlan) -> str:
                 write(f"        caption = Text({scene.caption!r}, font_size={min(size, 30)})")
                 write("        caption.scale_to_fit_width(min(caption.width, regions['caption'].width))")
             write(f"        place(caption, regions[{region!r}])")
+            lines.extend(_nudge("caption", scene.overrides))
             if read_equation:
                 write("        if equation_memory is not None:")
                 write("            self.play(equation_memory.animate.scale(0.72).shift(UP * 0.28), run_time=0.35)")
