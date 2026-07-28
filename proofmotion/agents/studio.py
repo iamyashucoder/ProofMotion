@@ -47,6 +47,18 @@ A slide with no component is allowed when the mathematics genuinely has no
 picture, and then it needs a title and a caption. It is the exception, not the
 habit.
 
+Connect the slides. Explaining is mostly showing how one step follows from the
+last, and a deck of true statements in a row is not an explanation. Give a
+slide a `bridge` — a few words carrying the previous step into this one:
+"halve the width again", "substituting that back", "so the total is". A slide
+that opens a new idea needs none; a slide continuing an argument almost always
+does.
+
+Consecutive slides on the same figure keep it on screen with the previous
+equation beside them, so build a run when the argument stays with one picture
+rather than restating it. Changing the parameters of the figure you are
+already on is what makes it move.
+
 Operations:
   add            — a new slide; `after` places it, empty means at the end
                    You cannot know the id of a slide you are adding: ids belong

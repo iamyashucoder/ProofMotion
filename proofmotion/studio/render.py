@@ -54,7 +54,27 @@ class Unit:
         return [s.id for s in self.slides]
 
     def plan(self) -> ScenePlan:
-        return ScenePlan(assignments=[s.as_assignment() for s in self.slides])
+        """The run as a scene plan, with everything after the first continuing.
+
+        A run is consecutive slides on one figure, which is the same thing as
+        a continuing thought. Saying so keeps the figure on screen and the
+        previous equation with it, instead of clearing the board between two
+        steps of one argument — every slide starting from nothing is what
+        makes a deck read as statements rather than an explanation.
+        """
+        assignments = []
+        for position, slide in enumerate(self.slides):
+            assignment = slide.as_assignment()
+            if position:
+                # The figure only. Carrying the previous equation as well put
+                # three items into a caption strip under an inch tall — the
+                # bridge landed across the equation it was carrying, each
+                # correctly placed and collectively unreadable. Continuity of
+                # the picture is what connects the steps; the equation for the
+                # step just made is not needed beside the one replacing it.
+                assignment.read_from_previous = ["diagram"]
+            assignments.append(assignment)
+        return ScenePlan(assignments=assignments)
 
 
 def _figure(slide: Slide) -> tuple[str, str] | None:

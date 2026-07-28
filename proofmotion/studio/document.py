@@ -37,6 +37,11 @@ class Slide(BaseModel):
     seconds: float = Field(default=6.0, gt=0.5, le=40.0)
     #: Hand placement applied after the layout engine. See PLAN-STUDIO §7.
     overrides: dict[str, Any] = Field(default_factory=dict)
+    #: A sentence connecting this slide to the one before it — "so the height
+    #: after n bounces is", "substituting that back". Explaining is mostly
+    #: connecting one step to the next, and a deck of unrelated statements is
+    #: what you get when nothing carries.
+    bridge: str = ""
     #: Manim written for this slide when nothing in the catalogue fits. The
     #: studio could only compose components, so a request to animate a square
     #: morphing into a circle produced an honest refusal and no slides at all —
@@ -56,6 +61,7 @@ class Slide(BaseModel):
             caption=self.caption,
             seconds=self.seconds,
             overrides=self.overrides,
+            bridge_text=self.bridge,
         )
 
 

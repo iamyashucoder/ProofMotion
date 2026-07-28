@@ -44,6 +44,8 @@ class Operation(BaseModel):
     parameters: dict[str, Any] | None = None
     caption: str | None = None
     seconds: float | None = None
+    #: A few words carrying the previous slide into this one.
+    bridge: str | None = None
     #: Manim for this slide when nothing in the catalogue fits. Written by the
     #: coder, never by the edit agent — which has no way to check it.
     code: str | None = None
@@ -191,6 +193,7 @@ def apply(project: Project, operation: Operation) -> Project:
             caption=operation.caption or "",
             seconds=operation.seconds or 6.0,
             code=usable_code(operation.code) if operation.code else "",
+            bridge=operation.bridge or "",
         )
         if not slide.component and not slide.caption and not slide.title and not slide.code:
             raise ToolError("a slide needs a component, a caption, or a title")
@@ -252,6 +255,8 @@ def apply(project: Project, operation: Operation) -> Project:
             slide.caption = operation.caption
         if operation.seconds is not None:
             slide.seconds = operation.seconds
+        if operation.bridge is not None:
+            slide.bridge = operation.bridge
         if operation.code is not None:
             slide.code = usable_code(operation.code) if operation.code else ""
         return project

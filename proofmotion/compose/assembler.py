@@ -254,20 +254,24 @@ def assemble(plan: ScenePlan) -> str:
             else:
                 write(f"        caption = Text({scene.caption!r}, font_size={min(size, 30)})")
                 write("        caption.scale_to_fit_width(min(caption.width, regions['caption'].width))")
-            write(f"        place(caption, regions[{region!r}])")
             lines.extend(_nudge("caption", scene.overrides))
-            if read_equation:
-                write("        if equation_memory is not None:")
-                write("            self.play(equation_memory.animate.scale(0.72).shift(UP * 0.28), run_time=0.35)")
-                write("            caption.shift(DOWN * 0.22)")
             if scene.bridge_text:
-                write(f"        bridge = Text({scene.bridge_text!r}, font_size=24, color=GREY_B)")
-                write("        bridge.scale_to_fit_width(regions['caption'][2] * 0.92)")
-                write("        place(bridge, regions['caption'])")
-                write("        bridge.shift(UP * 0.26)")
-                write("        self.play(FadeIn(bridge, shift=UP * 0.08), run_time=0.35)")
+                write(f"        bridge = Text({scene.bridge_text!r}, font_size=22, color=GREY_B)")
+            # The carried equation, the bridge and the new line are stacked and
+            # placed as one group. Positioning them separately and nudging by
+            # hand put "halve the width again" straight across the equation it
+            # was carrying — three things arranged into one strip, each
+            # correctly placed and collectively unreadable. Arranging first
+            # lets `place` scale the lot to fit whatever is there.
+            if scene.bridge_text:
+                write("        strip = VGroup(bridge, caption)")
+                write("        strip.arrange(DOWN, buff=0.12)")
+                write(f"        place(strip, regions[{region!r}])")
+            else:
+                write(f"        place(caption, regions[{region!r}])")
+            if scene.bridge_text:
+                write("        self.play(FadeIn(bridge, shift=UP * 0.06), run_time=0.3)")
                 write("        chrome.append(bridge)")
-                write("        caption.shift(DOWN * 0.2)")
             write(f"        self.play(Write(caption), run_time={max(0.6, beat_time)})")
             write("        chrome.append(caption)")
             write("        equation_memory = caption")
