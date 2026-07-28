@@ -433,6 +433,35 @@ class TestPhysicsMotions(unittest.TestCase):
         self.assertEqual(len(_streamline(lambda x, y: 0.0, lambda x, y: 0.0, 0.0, 0.0, 2.0)), 1)
 
 
+class TestNeuralNetwork(unittest.TestCase):
+    """A network with the data actually crossing it."""
+
+    def built(self, params):
+        from manim import tempconfig
+
+        from proofmotion.components import build as build_component
+
+        with tempconfig({"dry_run": True}):
+            return build_component("neural_network", params)
+
+    def test_the_activation_flows(self):
+        built = self.built({"layers": [3, 5, 5, 2], "labels": ["x", "h", "h", "y"], "highlight": "x"})
+        self.assertTrue(built.motions)
+        self.assertIn("edges", built.parts)
+        self.assertIn("units", built.parts)
+
+    def test_the_weight_count_is_the_real_one(self):
+        built = self.built({"layers": [3, 5, 5, 2]})
+        self.assertIn("50 weights", built.notes)  # 3*5 + 5*5 + 5*2
+
+    def test_a_two_layer_network_still_flows(self):
+        from manim import tempconfig
+
+        built = self.built({"layers": [2, 2]})
+        with tempconfig({"dry_run": True}):
+            self.assertIsNotNone(built.motions[0]())
+
+
 class TestPreamble(unittest.TestCase):
     def test_a_package_that_is_not_installed_is_never_added(self):
         """One missing package fails every compile, not just the ones using it.

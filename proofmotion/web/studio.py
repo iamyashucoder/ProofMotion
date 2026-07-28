@@ -501,7 +501,18 @@ def serve_studio(root: Path, client: Any, *, port: int = 8780, host: str = "127.
                 else:
                     headline("Thinking about what to change")
                     edit = propose(studio.client, project, message)
-                    if edit.needs_full_derivation and path == "/api/message":
+                    if edit.needs_hand_drawn:
+                        # Honoured on an existing deck too. It was only checked
+                        # when the deck was empty, so on a deck with slides the
+                        # agent raised the flag, nothing read it, and its reply
+                        # went out unchanged: "I'll flag this for a hand-drawn
+                        # scene" — four times in a row, to someone asking four
+                        # times for the same drawing.
+                        operations, reply = draw_by_hand(
+                            studio.client, edit.needs_hand_drawn, existing=edit.operations,
+                        )
+                        edit = Edit(operations=operations, reply=reply)
+                    elif edit.needs_full_derivation and path == "/api/message":
                         # The ask needs mathematics worked out, not a slide
                         # tweaked. A tweak agent inventing derivations is how a
                         # deck becomes confident and wrong.

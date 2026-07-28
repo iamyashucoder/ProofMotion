@@ -200,7 +200,9 @@ def written_answer(state: dict[str, Any], slides: int, drawn: float) -> str:
     return "\n".join(lines).strip()
 
 
-def draw_by_hand(client: Any, question: str, seconds: int = 12) -> tuple[list[Operation], str]:
+def draw_by_hand(
+    client: Any, question: str, seconds: int = 12, existing: list[Operation] | None = None
+) -> tuple[list[Operation], str]:
     """Have the coder write a scene when nothing in the catalogue fits.
 
     The studio composes components, and a catalogue is finite. Asked to animate
@@ -223,17 +225,22 @@ def draw_by_hand(client: Any, question: str, seconds: int = 12) -> tuple[list[Op
     )
     code = written.get("code") or ""
     if not code.strip():
-        return [], "I could not draw that. Try describing what should be on screen."
+        return list(existing or []), "I could not draw that. Try describing what should be on screen."
 
     report = written.get("validation") or {}
     if not report.get("valid", True):
         problems = report.get("problems") or [{}]
         headline(f"The scene has {len(problems)} invalid API call(s)", "warned")
 
-    return [Operation(
+    drawn = Operation(
         kind="add",
         title=question[:56],
         seconds=float(seconds),
         code=code,
         reason="written by hand; no component fits",
-    )], "Nothing in the catalogue fits, so I wrote the scene. Tell me what to change."
+    )
+    # Edits the agent asked for alongside the drawing are kept: a turn that
+    # fixes a title and wants a figure should do both.
+    return [*(existing or []), drawn], (
+        "Nothing in the catalogue fits, so I wrote the scene. Tell me what to change."
+    )

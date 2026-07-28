@@ -17,6 +17,7 @@ on trust from whoever chose the parameters.
 from __future__ import annotations
 
 import math
+from itertools import pairwise
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -209,4 +210,111 @@ def partial_sums(p: PartialSumsParams) -> Built:
             f"partial sums {', '.join(f'{s:.2f}' for s in sums[:4])}...; "
             + (f"limit {p.limit:g}" if p.limit is not None else "no limit given")
         ),
+    )
+
+
+class NeuralNetworkParams(BaseModel):
+    """A feedforward network, with data flowing through it."""
+
+    layers: list[int] = Field(
+        default_factory=lambda: [3, 5, 5, 2],
+        min_length=2, max_length=6,
+        description="Units per layer, input first, e.g. [3, 5, 5, 2].",
+    )
+    labels: list[str] = Field(
+        default_factory=list,
+        description="Optional name under each layer, e.g. ['x', 'hidden', 'hidden', 'y'].",
+    )
+    highlight: str = Field(default="", description="LaTeX for the value entering, e.g. 'x'.")
+    region: str = "stage"
+
+
+@component(version=1, domain="machine_learning", params=NeuralNetworkParams)
+def neural_network(p: NeuralNetworkParams) -> Built:
+    """A feedforward network with activation flowing from input to output.
+
+    The flow is the point. A diagram of circles and lines says what a network
+    is made of; watching a value enter on the left and arrive on the right is
+    what the layers are actually doing.
+    """
+    import numpy as np
+    from manim import Circle, Dot, Line, MathTex, Succession, Text, VGroup
+
+    width, height = 8.0, 3.6
+    tallest = max(p.layers)
+    gap_x = width / max(1, len(p.layers) - 1)
+    radius = min(0.24, height / (tallest * 3.2))
+
+    columns: list[list[Any]] = []
+    nodes = VGroup()
+    for index, count in enumerate(p.layers):
+        column = []
+        x = -width / 2 + index * gap_x
+        spread = height / max(1, count)
+        for unit in range(count):
+            y = (unit - (count - 1) / 2) * spread
+            circle = Circle(radius=radius, color=ACCENT, fill_opacity=0.25, stroke_width=2)
+            circle.move_to(np.array([x, y, 0.0]))
+            column.append(circle)
+            nodes.add(circle)
+        columns.append(column)
+
+    edges = VGroup()
+    for left, right in pairwise(columns):
+        for source in left:
+            for target in right:
+                edges.add(Line(
+                    source.get_center(), target.get_center(),
+                    stroke_width=1.1, color="#3a4a5e",
+                ))
+
+    captions = VGroup()
+    for index, name in enumerate(p.labels[: len(p.layers)]):
+        if not name:
+            continue
+        text = Text(name, font_size=20, color=AXIS_COLOR)
+        text.next_to(columns[index][-1], np.array([0, 1, 0]), buff=0.22)
+        captions.add(text)
+
+    parts: dict[str, Any] = {"edges": edges, "units": nodes}
+    group = VGroup(edges, nodes, captions)
+    if len(captions):
+        parts["layer_labels"] = captions
+
+    entering = None
+    if p.highlight:
+        entering = MathTex(p.highlight, font_size=28, color=HIGHLIGHT)
+        entering.next_to(columns[0][len(columns[0]) // 2], np.array([-1, 0, 0]), buff=0.3)
+        parts["input"] = entering
+        group.add(entering)
+
+    place(group, layout("title_stage_caption")[p.region])
+
+    def flow() -> Any:
+        """One pulse per layer, so the value is watched crossing the network."""
+        from manim import AnimationGroup, FadeOut, MoveAlongPath
+
+        stages: list[Any] = []
+        for left, right in pairwise(columns):
+            pulses, paths = VGroup(), []
+            for position, source in enumerate(left):
+                # Fanned across the next layer rather than funnelled into its
+                # middle. Every pulse converging on one node reads as a
+                # bottleneck, which is the opposite of what a dense layer does.
+                share = position / max(1, len(left) - 1)
+                target = right[round(share * (len(right) - 1))]
+                pulses.add(Dot(source.get_center(), radius=0.055, color=HIGHLIGHT))
+                paths.append(Line(source.get_center(), target.get_center()))
+            stages.append(AnimationGroup(*[
+                MoveAlongPath(dot, path) for dot, path in zip(pulses, paths, strict=False)
+            ]))
+            stages.append(FadeOut(pulses, run_time=0.12))
+        return Succession(*stages) if stages else FadeOut(nodes, run_time=0.1)
+
+    return Built(
+        group=group, parts=parts,
+        beats=[["edges"], ["units"]] + ([["layer_labels"]] if len(captions) else [])
+        + ([["input"]] if entering is not None else []),
+        motions=[flow],
+        notes=f"layers {p.layers}; {sum(a * b for a, b in zip(p.layers, p.layers[1:], strict=False))} weights",
     )
