@@ -127,6 +127,29 @@ def usable_code(code: str) -> str:
     except SyntaxError as error:
         raise ToolError(f"the scene does not parse: {error}") from error
 
+    # A scene that composes components needs their import. `from manim import *`
+    # does not bring `build` in, and the coder — shown component usage in its
+    # own brief — writes the call and omits the import, which the validator
+    # correctly refuses. The omission is mechanical, so it is repaired here
+    # alongside the class name rather than costing the whole slide.
+    needed = [
+        ("build(", "from proofmotion.components import build"),
+        ("layout(", "from proofmotion.layout.regions import layout"),
+        ("place(", "from proofmotion.layout.regions import place"),
+    ]
+    missing = sorted({
+        line for call, line in needed
+        if call in text and line.rsplit(" import ", 1)[-1] not in _imported(tree)
+    })
+    if missing:
+        lines = text.splitlines()
+        cut = max(
+            (i for i, line in enumerate(lines) if line.startswith(("import ", "from "))),
+            default=-1,
+        ) + 1
+        text = "\n".join(lines[:cut] + missing + lines[cut:])
+        tree = ast.parse(text)
+
     scenes = [n for n in ast.walk(tree) if isinstance(n, ast.ClassDef)]
     if not scenes:
         raise ToolError("the scene defines no Scene subclass")
@@ -140,6 +163,17 @@ def usable_code(code: str) -> str:
         first = report["problems"][0]
         raise ToolError(f"the scene calls something Manim does not have: {first.get('problem', first)}")
     return text
+
+
+def _imported(tree: Any) -> set[str]:
+    """Every name an import statement binds, so a repair does not duplicate one."""
+    import ast
+
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import | ast.ImportFrom):
+            names.update(a.asname or a.name.split(".")[0] for a in node.names)
+    return names
 
 
 def apply(project: Project, operation: Operation) -> Project:
@@ -220,9 +254,19 @@ def apply_all(project: Project, operations: list[Operation]) -> dict[str, Any]:
     """
     applied, refused = [], []
     before = {s.id for s in project.slides}
+    just_added: str | None = None
     for operation in operations:
+        if operation.kind == "add" and operation.after and operation.after not in {s.id for s in project.slides}:
+            # The agent cannot know the id of a slide it is adding in this same
+            # turn — ids are the document's to give — so asked for four slides
+            # it invented slide_1..slide_4 to chain them, and three of the four
+            # were refused for naming slides that never existed. Chaining was
+            # exactly what it meant; the ids were the only thing wrong.
+            operation = operation.model_copy(update={"after": just_added or ""})
         try:
             apply(project, operation)
+            if operation.kind == "add":
+                just_added = project.slides[-1].id if not operation.after else _after(project, operation.after)
             applied.append(operation)
         except ToolError as error:
             refused.append({"operation": operation.kind, "slide": operation.slide_id, "problem": str(error)})
@@ -235,6 +279,11 @@ def apply_all(project: Project, operations: list[Operation]) -> dict[str, Any]:
         "added": sorted(after - before),
         "removed": sorted(before - after),
     }
+
+
+def _after(project: Project, previous: str) -> str:
+    """The id of the slide sitting just after `previous`, which is the new one."""
+    return project.slides[project.index_of(previous) + 1].id
 
 
 def touched(operations: list[Operation]) -> list[str]:

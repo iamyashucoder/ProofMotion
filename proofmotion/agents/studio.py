@@ -49,6 +49,9 @@ habit.
 
 Operations:
   add            — a new slide; `after` places it, empty means at the end
+                   You cannot know the id of a slide you are adding: ids belong
+                   to the deck. Adding several? Leave `after` empty on all of
+                   them and they land in the order you wrote them.
   edit           — change a slide's title, component, parameters, caption, seconds
   set_parameter  — change one parameter, leaving the rest alone
   reorder        — move a slide after another, or to the end

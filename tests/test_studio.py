@@ -193,6 +193,39 @@ class TestHandWrittenCode(unittest.TestCase):
         self.assertIn("class GeneratedScene(Scene):", fixed)
         self.assertNotIn("SquareToCircle", fixed)
 
+    def test_a_missing_component_import_is_supplied(self):
+        """`from manim import *` does not bring `build` in.
+
+        The coder is shown component usage in its own brief, writes the call,
+        and omits the import — which the validator correctly refuses, costing
+        the whole slide for a mechanical omission.
+        """
+        from proofmotion.studio.operations import usable_code
+
+        fixed = usable_code(
+            "from manim import *\n"
+            "class GeneratedScene(Scene):\n"
+            "    def construct(self):\n"
+            '        built = build("function_plot", {"expr": "x**2", "x_min": 0, "x_max": 3})\n'
+            "        place(built.group, layout('title_stage_caption')['stage'])\n"
+            "        self.play(FadeIn(built.group))\n"
+        )
+        self.assertIn("from proofmotion.components import build", fixed)
+        self.assertIn("from proofmotion.layout.regions import place", fixed)
+
+    def test_an_import_already_there_is_not_duplicated(self):
+        from proofmotion.studio.operations import usable_code
+
+        fixed = usable_code(
+            "from manim import *\n"
+            "from proofmotion.components import build\n"
+            "class GeneratedScene(Scene):\n"
+            "    def construct(self):\n"
+            '        built = build("function_plot", {"expr": "x**2", "x_min": 0, "x_max": 3})\n'
+            "        self.add(built.group)\n"
+        )
+        self.assertEqual(fixed.count("from proofmotion.components import build"), 1)
+
     def test_code_that_cannot_render_is_refused_with_a_reason(self):
         from proofmotion.studio.operations import usable_code
 
@@ -493,6 +526,29 @@ class TestOperations(unittest.TestCase):
         self.assertEqual(p.revision, 0)
         apply_all(p, [Operation(kind="edit", slide_id="s1", title="x")])
         self.assertEqual(p.revision, 1)
+
+    def test_a_chain_of_adds_lands_in_order(self):
+        """The agent cannot know the id of a slide it is adding this turn.
+
+        Asked for four slides it invented slide_1..slide_4 to chain them and
+        three of the four were refused for naming slides that never existed.
+        Chaining was exactly what it meant; the ids were the only thing wrong.
+        """
+        p = project()
+        out = apply_all(p, [
+            Operation(kind="add", title="one", component="function_plot", parameters=PLOT),
+            Operation(kind="add", after="slide_1", title="two", component="function_plot", parameters=PLOT),
+            Operation(kind="add", after="slide_2", title="three", component="function_plot", parameters=PLOT),
+        ])
+        self.assertEqual(out["applied"], 3)
+        self.assertEqual(out["refused"], [])
+        self.assertEqual([s.title for s in p.slides], ["one", "two", "three"])
+
+    def test_a_real_slide_named_in_after_is_still_honoured(self):
+        p = project(slide("s1", title="first"), slide("s2", title="last"))
+        apply_all(p, [Operation(kind="add", after="s1", title="middle",
+                                component="function_plot", parameters=PLOT)])
+        self.assertEqual([s.title for s in p.slides], ["first", "middle", "last"])
 
     def test_a_full_answer_fits_in_one_edit(self):
         """Two ceilings that did not know about each other.
