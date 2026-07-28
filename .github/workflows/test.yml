@@ -9,8 +9,47 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+
+      # manimpango and pycairo compile against system Pango and Cairo. Without
+      # the headers pip cannot even read their build requirements, which is
+      # what "Failed to build 'manimpango' when getting requirements to build
+      # wheel" means: a missing pkg-config, not a broken package.
+      #
+      # dvisvgm and the TeX packages are what MathTex compiles through, and
+      # ffmpeg is what Manim writes video with. Five of the twelve test files
+      # set real LaTeX, so leaving TeX out only moves the failure one step on.
+      - name: System libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config \
+            libcairo2-dev libpango1.0-dev \
+            ffmpeg \
+            texlive-latex-base texlive-latex-extra texlive-fonts-recommended \
+            texlive-science dvisvgm
+
+      # Manim is vendored so improvements land as tracked patches, and
+      # vendor/manim is gitignored — so CI has to clone it at the pinned commit
+      # or it tests a different Manim from the one developed against.
+      # pyproject's [tool.uv.sources] points at this path.
+      - name: Vendored Manim
+        run: |
+          git clone --filter=blob:none https://github.com/ManimCommunity/manim.git vendor/manim
+          git -C vendor/manim checkout "$(cat vendor/MANIM_PINNED_COMMIT.txt)"
+
+      - uses: astral-sh/setup-uv@v5
         with:
-          python-version: "3.12"
-      - run: python -m pip install -e ".[dev]"
-      - run: python -m pytest
+          enable-cache: true
+
+      # 3.11 is what the project is developed against. The previous workflow
+      # asked for 3.12 and installed with pip, which ignores
+      # [tool.uv.sources] — so it would have pulled Manim from PyPI even once
+      # the vendored clone existed.
+      - name: Install
+        run: uv sync --python 3.11 --all-extras
+
+      - name: Lint
+        run: uv run ruff check proofmotion schemas llm tests tools scripts
+
+      - name: Test
+        run: uv run python -m pytest tests -q
