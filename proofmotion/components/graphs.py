@@ -54,9 +54,9 @@ def compact(value: float) -> str:
         return text
     mantissa = value / (10**magnitude)
     lead = f"{mantissa:.2f}".rstrip("0").rstrip(".")
-    return (r"10^{%d}" % magnitude) if lead in ("1", "-1") and mantissa > 0 else (
-        r"%s \times 10^{%d}" % (lead, magnitude)
-    )
+    if lead == "1":
+        return f"10^{{{magnitude}}}"
+    return rf"{lead} \times 10^{{{magnitude}}}"
 
 
 def _nice_range(low: float, high: float, *, pad: float = 0.12) -> tuple[float, float, float]:
