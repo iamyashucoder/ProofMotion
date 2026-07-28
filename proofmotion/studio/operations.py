@@ -50,6 +50,14 @@ class Edit(BaseModel):
 
     operations: list[Operation] = Field(default_factory=list, max_length=20)
     reply: str = Field(default="", description="One or two sentences for the person.")
+    #: Set when the message asks for something that needs deriving rather than
+    #: editing — a new part of the problem, a fresh question. The caller then
+    #: runs the full pipeline instead of applying these operations, because a
+    #: tweak agent inventing mathematics is how a deck gets confident and wrong.
+    needs_full_derivation: bool = Field(
+        default=False,
+        description="True when the ask needs mathematics worked out, not a slide edited.",
+    )
 
 
 def _check_component(name: str | None, parameters: dict[str, Any]) -> None:

@@ -58,6 +58,17 @@ Operations:
 Prefer set_parameter to edit when only one value changes: it is clearer in the
 transcript and it says exactly what you meant.
 
+Some asks are not edits. "Now do the second part", "explain why that is true",
+a fresh question — those need the mathematics worked out and verified before
+any slide can be right, and you do not have the tools to do that here. Set
+needs_full_derivation and leave operations empty; the full pipeline runs
+instead. Guessing at mathematics you have not derived is how a deck becomes
+confident and wrong.
+
+Adding a slide that repeats a figure already on screen with different
+parameters is an edit. Adding a slide about mathematics nobody has derived is
+not.
+
 Give a `reason` of a few words on each operation, and a `reply` of one or two
 sentences to the person. Say what you changed, not what you were asked."""
 

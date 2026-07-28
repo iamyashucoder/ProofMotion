@@ -409,6 +409,8 @@ def serve_studio(root: Path, client: Any, *, port: int = 8780, host: str = "127.
 
         def _act(self, path: str, body: dict[str, Any]) -> dict[str, Any]:
             from proofmotion.agents.studio import propose
+            from proofmotion.studio.compose_full import answer_fully
+            from proofmotion.studio.operations import Edit
 
             if path == "/api/new":
                 studio.current = _new_id()
@@ -452,8 +454,35 @@ def serve_studio(root: Path, client: Any, *, port: int = 8780, host: str = "127.
                     )
                     studio.remember("you", f"↻ {slide_id}: {instruction}")
 
-                headline("Thinking about what to change")
-                edit = propose(studio.client, project, message)
+                # An opening question gets the whole pipeline: read it, derive
+                # the mathematics with symbolic tools, verify, storyboard, and
+                # map every scene onto a component. The edit agent answers an
+                # opening question with one slide, and one slide is not an
+                # explanation. After that the deck exists and edits are edits.
+                if not project.slides:
+                    operations, reply = answer_fully(studio.client, project, message)
+                    edit = Edit(operations=operations, reply=reply)
+                else:
+                    headline("Thinking about what to change")
+                    edit = propose(studio.client, project, message)
+                    if edit.needs_full_derivation and path == "/api/message":
+                        # The ask needs mathematics worked out, not a slide
+                        # tweaked. A tweak agent inventing derivations is how a
+                        # deck becomes confident and wrong.
+                        headline("This needs working out; running the full pipeline")
+                        operations, reply = answer_fully(studio.client, project, message)
+                        edit = Edit(operations=operations, reply=reply)
+                    elif edit.needs_full_derivation:
+                        # Escalating from a remake box loses the one thing that
+                        # box means. Asked "how do we find pi?" on slide 4, it
+                        # derived pi and appended nine slides about Monte Carlo
+                        # to the end of a deck about a ramp — every operation
+                        # valid, the slide untouched, the deck ruined.
+                        return studio.snapshot(project, reply=(
+                            "That needs working out from scratch rather than editing this slide. "
+                            "Ask it in the main box to add it here, or start a new chat for a "
+                            "separate explanation."
+                        ))
                 outcome = apply_all(project, edit.operations)
                 project.save(studio.directory())
                 studio.rebuild(project, only=touched(edit.operations))
