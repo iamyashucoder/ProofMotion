@@ -30,6 +30,7 @@ HEADER = '''from manim import *
 from proofmotion.components import build
 from proofmotion.layout.preamble import ensure_packages
 from proofmotion.layout.regions import layout, place
+from proofmotion.layout.reveal import reveal_all
 
 ensure_packages()
 
@@ -184,7 +185,7 @@ def assemble(plan: ScenePlan) -> str:
             write(f"        title = Text({scene.title!r}, font_size=40)")
             write("        place(title, regions['title'])")
             lines.extend(_nudge("title", scene.overrides))
-            write("        self.play(Write(title), run_time=0.7)")
+            write("        self.play(Write(title, run_time=0.7))")
             write("        chrome.append(title)")
 
         beat_time = max(0.4, round(scene.seconds / 8, 2))
@@ -220,9 +221,12 @@ def assemble(plan: ScenePlan) -> str:
             write("        for beat in built.beats:")
             write("            parts = [built.parts[name] for name in beat if name in built.parts]")
             write("            if parts:")
-            write(f"                self.play(*[FadeIn(p) for p in parts], run_time={beat_time})")
+            # Drawn, not faded in. A curve traced from one end reads as a curve
+            # being drawn; the same curve at full opacity reads as a photograph
+            # of one, and that was every beat of every component.
+            write(f"                self.play(reveal_all(parts, run_time={max(0.8, beat_time)}))")
             write("        if not built.beats:")
-            write(f"            self.play(FadeIn(built.group), run_time={beat_time})")
+            write(f"            self.play(reveal_all([built.group], run_time={max(0.8, beat_time)}))")
             # Whatever the component says happens in it. Beats only reveal, so
             # without this every figure in the library stood still and a
             # question about a ball bouncing got a picture of a ball.

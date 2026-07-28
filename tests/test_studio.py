@@ -306,6 +306,64 @@ class TestOverrides(unittest.TestCase):
         self.assertNotEqual(digest_of([plain]), digest_of([nudged]))
 
 
+class TestReveal(unittest.TestCase):
+    """How a piece of a figure arrives, which is most of whether it feels alive.
+
+    Every beat played FadeIn, so everything blinked into existence at full
+    opacity — a curve that appears has no more life than a photograph of one,
+    and thirty-two of thirty-four components only ever appeared.
+    """
+
+    def animation(self, mobject):
+        from manim import tempconfig
+
+        from proofmotion.layout.reveal import reveal
+
+        with tempconfig({"dry_run": True}):
+            return type(reveal(mobject)).__name__
+
+    def test_a_curve_is_drawn(self):
+        from manim import Line, tempconfig
+
+        with tempconfig({"dry_run": True}):
+            self.assertEqual(self.animation(Line([0, 0, 0], [1, 1, 0])), "Create")
+
+    def test_text_is_written(self):
+        from manim import MathTex, Text, tempconfig
+
+        with tempconfig({"dry_run": True}):
+            self.assertEqual(self.animation(Text("hello")), "Write")
+            self.assertEqual(self.animation(MathTex("x^2")), "Write")
+
+    def test_a_group_reveals_its_parts_in_sequence(self):
+        """A diagram should look assembled, not pasted."""
+        from manim import Line, VGroup, tempconfig
+
+        with tempconfig({"dry_run": True}):
+            group = VGroup(Line([0, 0, 0], [1, 0, 0]), Line([0, 0, 0], [0, 1, 0]))
+            self.assertEqual(self.animation(group), "AnimationGroup")
+
+    def test_stroke_width_stored_per_point_does_not_raise(self):
+        """`width or 0` on a numpy array is ambiguous, three frames into a render."""
+        from manim import Circle, tempconfig
+
+        from proofmotion.layout.reveal import _has_stroke
+
+        with tempconfig({"dry_run": True}):
+            self.assertIsInstance(_has_stroke(Circle()), bool)
+
+    def test_the_assembler_draws_instead_of_fading(self):
+        from proofmotion.compose import SceneAssignment, ScenePlan, assemble
+        from proofmotion.tools.manim_api import manim_validate_code
+
+        code = assemble(ScenePlan(assignments=[
+            SceneAssignment(title="T", component="function_plot", parameters=PLOT, seconds=8),
+        ]))
+        self.assertIn("reveal_all(parts", code)
+        self.assertNotIn("FadeIn(p) for p in parts", code)
+        self.assertEqual(manim_validate_code(code)["valid"], True)
+
+
 class TestPreamble(unittest.TestCase):
     def test_a_package_that_is_not_installed_is_never_added(self):
         """One missing package fails every compile, not just the ones using it.
