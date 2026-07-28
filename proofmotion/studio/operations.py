@@ -44,6 +44,9 @@ class Operation(BaseModel):
     parameters: dict[str, Any] | None = None
     caption: str | None = None
     seconds: float | None = None
+    #: Manim for this slide when nothing in the catalogue fits. Written by the
+    #: coder, never by the edit agent — which has no way to check it.
+    code: str | None = None
     #: For `set_parameter`.
     name: str = ""
     value: Any = None
@@ -86,6 +89,52 @@ def _check_component(name: str | None, parameters: dict[str, Any]) -> None:
         raise ToolError(f"{name}: {error}") from error
 
 
+def usable_code(code: str) -> str:
+    """Make scene source renderable, or say why it is not.
+
+    Code reaches a slide from two places and only one of them checks anything.
+    The edit agent saw a `code` field in its schema and filled it in, producing
+    source with a literal backslash-n where the newlines should have been and a
+    class called SquareToCircle — while the renderer looks for GeneratedScene.
+    Neither is a reason to lose the work, and both are silent at render time.
+
+    So whatever wrote it, the same three things happen: the escaping is undone,
+    the class is named what the renderer opens, and the result is checked
+    against the installed Manim before it is stored.
+    """
+    import ast
+    import re
+
+    from proofmotion.tools.manim_api import manim_validate_code
+
+    text = (code or "").strip()
+    if not text:
+        raise ToolError("the scene is empty")
+    if "\\n" in text and "\n" not in text.strip("\n"):
+        # JSON escaping that survived being parsed, which is not source at all.
+        text = text.encode().decode("unicode_escape")
+    text = text.replace("\\n", "\n") if "\\n" in text else text
+
+    try:
+        tree = ast.parse(text)
+    except SyntaxError as error:
+        raise ToolError(f"the scene does not parse: {error}") from error
+
+    scenes = [n for n in ast.walk(tree) if isinstance(n, ast.ClassDef)]
+    if not scenes:
+        raise ToolError("the scene defines no Scene subclass")
+    if not any(n.name == "GeneratedScene" for n in scenes):
+        # The renderer opens GeneratedScene by name; anything else renders
+        # nothing at all and reports success doing it.
+        text = re.sub(rf"\b{re.escape(scenes[0].name)}\b", "GeneratedScene", text)
+
+    report = manim_validate_code(text)
+    if not report["valid"]:
+        first = report["problems"][0]
+        raise ToolError(f"the scene calls something Manim does not have: {first.get('problem', first)}")
+    return text
+
+
 def apply(project: Project, operation: Operation) -> Project:
     """Apply one operation, returning the same project mutated in place."""
     kind = operation.kind
@@ -100,8 +149,9 @@ def apply(project: Project, operation: Operation) -> Project:
             parameters=parameters,
             caption=operation.caption or "",
             seconds=operation.seconds or 6.0,
+            code=usable_code(operation.code) if operation.code else "",
         )
-        if not slide.component and not slide.caption and not slide.title:
+        if not slide.component and not slide.caption and not slide.title and not slide.code:
             raise ToolError("a slide needs a component, a caption, or a title")
         position = project.index_of(operation.after) + 1 if operation.after else len(project.slides)
         project.slides.insert(position, slide)
@@ -147,6 +197,8 @@ def apply(project: Project, operation: Operation) -> Project:
             slide.caption = operation.caption
         if operation.seconds is not None:
             slide.seconds = operation.seconds
+        if operation.code is not None:
+            slide.code = usable_code(operation.code) if operation.code else ""
         return project
 
     raise ToolError(f"unknown operation {kind!r}")

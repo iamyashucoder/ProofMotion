@@ -409,7 +409,7 @@ def serve_studio(root: Path, client: Any, *, port: int = 8780, host: str = "127.
 
         def _act(self, path: str, body: dict[str, Any]) -> dict[str, Any]:
             from proofmotion.agents.studio import propose
-            from proofmotion.studio.compose_full import answer_fully
+            from proofmotion.studio.compose_full import answer_fully, draw_by_hand
             from proofmotion.studio.operations import Edit
 
             if path == "/api/new":
@@ -461,7 +461,20 @@ def serve_studio(root: Path, client: Any, *, port: int = 8780, host: str = "127.
                 # explanation. After that the deck exists and edits are edits.
                 if not project.slides:
                     operations, reply = answer_fully(studio.client, project, message)
-                    edit = Edit(operations=operations, reply=reply)
+                    if operations:
+                        edit = Edit(operations=operations, reply=reply)
+                    else:
+                        # Nothing to derive, or nothing came of it. A request to
+                        # animate something has no mathematics behind it, and
+                        # forcing the pipeline through anyway produced eight
+                        # verified steps and ten slides that drew nothing.
+                        headline("Designing scenes for it")
+                        edit = propose(studio.client, project, message)
+                        if not edit.operations:
+                            # The catalogue is finite and the agent said so.
+                            # Refusing is honest and useless; the coder draws it.
+                            operations, reply = draw_by_hand(studio.client, message)
+                            edit = Edit(operations=operations, reply=reply)
                 else:
                     headline("Thinking about what to change")
                     edit = propose(studio.client, project, message)

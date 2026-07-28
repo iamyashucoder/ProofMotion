@@ -169,6 +169,16 @@ def assemble(plan: ScenePlan) -> str:
             # — four times over, in the run that prompted this. Leave it up and
             # let the words change around it.
             write("        # unchanged from the previous scene; left on screen")
+        elif scene.component and standing and standing[0] == scene.component:
+            # Same figure, different numbers: the rectangles get narrower, the
+            # tangent slides along the curve. Fading one out and the next in
+            # shows two pictures; transforming between them shows the thing
+            # happening, which is the whole reason to animate this rather than
+            # print it. This is where the motion is.
+            write(f"        built = build({scene.component!r}, {scene.parameters!r})")
+            write("        place(built.group, regions['stage'])")
+            write(f"        self.play(Transform(stage, built.group), run_time={max(0.8, beat_time * 2)})")
+            write("        # `stage` keeps the identity Transform mutated in place")
         elif scene.component:
             write("        if stage is not None:")
             write("            self.play(FadeOut(stage), run_time=0.4)")

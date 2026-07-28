@@ -58,10 +58,15 @@ class Unit:
 
 
 def _figure(slide: Slide) -> tuple[str, str] | None:
-    """What is drawn on the stage, or None for a text-only slide."""
-    if not slide.component:
+    """What is drawn on the stage, or None for a text-only or hand-written slide."""
+    if slide.code or not slide.component:
         return None
-    return (slide.component, json.dumps(slide.parameters, sort_keys=True, default=str))
+    # The component alone, not its parameters. Consecutive slides on one figure
+    # with different numbers are a single animation — the rectangles narrowing,
+    # the tangent sliding — and the assembler transforms between them. Split
+    # into separate clips they become two pictures with a cut between, which is
+    # the static feel this is meant to remove. The cost is a wider cache unit.
+    return (slide.component, "")
 
 
 def group(slides: list[Slide]) -> list[list[Slide]]:
@@ -99,6 +104,7 @@ def digest_of(slides: list[Slide]) -> str:
             "caption": slide.caption,
             "seconds": slide.seconds,
             "overrides": slide.overrides,
+            "code": slide.code,
         })
     blob = json.dumps({"slides": payload, "quality": QUALITY, "fps": FPS}, sort_keys=True, default=str)
     return hashlib.sha256(blob.encode()).hexdigest()[:16]
@@ -115,11 +121,17 @@ def _render_one(unit: Unit, work: Path, clips: Path) -> Unit:
         unit.clip, unit.cached = destination, True
         return unit
 
-    try:
-        code = assemble(unit.plan())
-    except ToolError as error:
-        unit.error = f"could not assemble {unit.ids}: {error}"
-        return unit
+    hand_written = [s for s in unit.slides if s.code]
+    if hand_written:
+        # A slide with its own scene is that scene. It never shares a unit, so
+        # there is exactly one and nothing to assemble around it.
+        code = hand_written[0].code
+    else:
+        try:
+            code = assemble(unit.plan())
+        except ToolError as error:
+            unit.error = f"could not assemble {unit.ids}: {error}"
+            return unit
 
     work.mkdir(parents=True, exist_ok=True)
     source = work / f"unit_{unit.digest}.py"

@@ -44,6 +44,15 @@ def _plan_for(client: Any, question: str, state: dict[str, Any]) -> ScenePlan | 
     state["intent"] = intent.model_dump()
     headline(f"Read it as: {intent.topic} ({intent.domain})")
 
+    if not intent.requires_derivation:
+        # Not every request is a problem to be solved. "Make a circle morph out
+        # of a square" has nothing to derive, and deriving anyway produced
+        # eight verified steps about superellipses and ten slides, none of
+        # which drew anything. The intent agent already answers this; nobody
+        # was reading its answer.
+        headline("Nothing to derive here — going straight to the scenes")
+        return None
+
     headline("Deriving the mathematics")
     plan = plan_mathematics(client, intent)
     state["math_plan"] = plan.model_dump()
@@ -77,6 +86,27 @@ def _plan_for(client: Any, question: str, state: dict[str, Any]) -> ScenePlan | 
     return selection["plan"]
 
 
+def _usable_assignment(assignment):
+    """Fix the one mapping a component will refuse outright.
+
+    equation_chain morphs one expression into the next and needs at least two
+    to do it. A scene carrying a single equation was still being mapped onto it,
+    and the component rejected every one — the slides simply went missing, with
+    a pydantic error where the mathematics should have been. A lone equation is
+    a caption, so it becomes one.
+    """
+    if assignment.component != "equation_chain":
+        return assignment
+    steps = [s for s in (assignment.parameters.get("steps") or []) if str(s).strip()]
+    if len(steps) >= 2:
+        return assignment
+    return assignment.model_copy(update={
+        "component": None,
+        "parameters": {},
+        "caption": assignment.caption or (steps[0] if steps else ""),
+    })
+
+
 def answer_fully(client: Any, project: Project, question: str) -> tuple[list[Operation], str]:
     """Turn an opening question into a deck, as operations.
 
@@ -103,7 +133,7 @@ def answer_fully(client: Any, project: Project, question: str) -> tuple[list[Ope
 
     after = project.slides[-1].id if project.slides else ""
     operations = []
-    for assignment in plan.assignments:
+    for assignment in map(_usable_assignment, plan.assignments):
         operations.append(
             Operation(
                 kind="add",
@@ -168,3 +198,42 @@ def written_answer(state: dict[str, Any], slides: int, drawn: float) -> str:
         note += f" — {drawn:.0%} of slides draw a figure"
     lines.append(note)
     return "\n".join(lines).strip()
+
+
+def draw_by_hand(client: Any, question: str, seconds: int = 12) -> tuple[list[Operation], str]:
+    """Have the coder write a scene when nothing in the catalogue fits.
+
+    The studio composes components, and a catalogue is finite. Asked to animate
+    a square morphing into a circle it searched, found nothing, and honestly
+    said so — delivering no slides at all, for a request the pipeline it
+    replaced would simply have drawn.
+
+    So the coder comes back for exactly that case. The slide carries its own
+    scene, renders like any other clip, and is cached like any other clip.
+    """
+    from proofmotion.agents.coder import write_scene
+
+    headline("Nothing in the catalogue fits; writing the scene by hand")
+    written = write_scene(
+        client,
+        {
+            "intent": {"topic": question, "duration_seconds": seconds},
+            "storyboard": {"scenes": [{"purpose": question, "duration_seconds": seconds}]},
+        },
+    )
+    code = written.get("code") or ""
+    if not code.strip():
+        return [], "I could not draw that. Try describing what should be on screen."
+
+    report = written.get("validation") or {}
+    if not report.get("valid", True):
+        problems = report.get("problems") or [{}]
+        headline(f"The scene has {len(problems)} invalid API call(s)", "warned")
+
+    return [Operation(
+        kind="add",
+        title=question[:56],
+        seconds=float(seconds),
+        code=code,
+        reason="written by hand; no component fits",
+    )], "Nothing in the catalogue fits, so I wrote the scene. Tell me what to change."

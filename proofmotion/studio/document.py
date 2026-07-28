@@ -37,6 +37,11 @@ class Slide(BaseModel):
     seconds: float = Field(default=6.0, gt=0.5, le=40.0)
     #: Hand placement applied after the layout engine. See PLAN-STUDIO §7.
     overrides: dict[str, Any] = Field(default_factory=dict)
+    #: Manim written for this slide when nothing in the catalogue fits. The
+    #: studio could only compose components, so a request to animate a square
+    #: morphing into a circle produced an honest refusal and no slides at all —
+    #: while the pipeline it replaced would have drawn it.
+    code: str = ""
     #: "agent" or "human" — who last set this slide.
     origin: str = "agent"
     #: A slide the person has settled. An agent may propose, never overwrite.
