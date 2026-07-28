@@ -72,12 +72,26 @@ class TestRunGrouping(unittest.TestCase):
         ])
         self.assertEqual([[s.id for s in r] for r in runs], [["s1", "s2", "s3"]])
 
-    def test_a_changed_parameter_starts_a_new_run(self):
-        runs = group([
-            slide("s1"),
-            slide("s2", parameters={**PLOT, "x_max": 5.0}),
-        ])
+    def test_one_figure_with_changing_numbers_stays_a_single_run(self):
+        """So it can morph. This is where the motion comes from.
+
+        Split into separate clips these become two pictures with a cut between
+        — the static feel the studio was reported for. Together, the assembler
+        transforms one into the other and the rectangles visibly narrow. The
+        cost is a wider cache unit, taken deliberately.
+        """
+        runs = group([slide("s1"), slide("s2", parameters={**PLOT, "x_max": 5.0})])
+        self.assertEqual([[x.id for x in r] for r in runs], [["s1", "s2"]])
+
+    def test_a_different_component_starts_a_new_run(self):
+        runs = group([slide("s1"), slide("s2", component="tangent_secant",
+                                         parameters={**PLOT, "at": 3.0})])
         self.assertEqual(len(runs), 2)
+
+    def test_a_hand_written_slide_never_shares_a_run(self):
+        """It owns the whole frame; there is nothing to assemble around it."""
+        runs = group([slide("s1"), Slide(id="s2", code="from manim import *"), slide("s3")])
+        self.assertEqual([[x.id for x in r] for r in runs], [["s1"], ["s2"], ["s3"]])
 
     def test_a_text_slide_never_joins_a_run(self):
         runs = group([slide("s1"), slide("s2", component=None, parameters={}, caption="x=1"), slide("s3")])
@@ -123,19 +137,37 @@ class TestDigest(unittest.TestCase):
         plain, locked = slide("s1"), slide("s1", locked=True)
         self.assertEqual(digest_of([plain]), digest_of([locked]))
 
-    def test_editing_one_slide_leaves_the_other_digests_alone(self):
-        """The whole claim: one edit, one re-render."""
-        p = project(slide("s1", title="a"), slide("s2", title="b", parameters={**PLOT, "x_max": 4.0}),
-                    slide("s3", title="c", parameters={**PLOT, "x_max": 5.0}))
+    def test_editing_one_slide_leaves_the_other_units_alone(self):
+        """One edit, one unit re-rendered — the claim, at unit granularity.
+
+        Units widened when slides on one figure were grouped so they could
+        morph, so the guarantee is per unit rather than per slide. Everything
+        the edit did not touch still keeps its clip.
+        """
+        p = project(
+            slide("s1", title="a"),
+            slide("s2", title="b", component="tangent_secant", parameters={**PLOT, "at": 3.0}),
+            slide("s3", title="c", component="riemann_area",
+                  parameters={"expr": "x**2", "a": 0, "b": 3, "rectangles": 6}),
+        )
         before = [u.digest for u in units_of(p)]
+        self.assertEqual(len(before), 3, "three components, three units")
         apply(p, Operation(kind="edit", slide_id="s2", title="changed"))
         after = [u.digest for u in units_of(p)]
         self.assertEqual(before[0], after[0])
         self.assertEqual(before[2], after[2])
         self.assertNotEqual(before[1], after[1])
 
-    def test_reordering_re_renders_nothing(self):
-        p = project(slide("s1", title="a"), slide("s2", title="b", parameters={**PLOT, "x_max": 4.0}))
+    def test_reordering_whole_units_re_renders_nothing(self):
+        """Moving a figure past another figure is a re-cut, not a re-render.
+
+        Reordering *within* a unit does change it, because the unit is now the
+        animation and its order is what the animation does.
+        """
+        p = project(
+            slide("s1", title="a"),
+            slide("s2", title="b", component="tangent_secant", parameters={**PLOT, "at": 3.0}),
+        )
         before = {u.digest for u in units_of(p)}
         apply(p, Operation(kind="reorder", slide_id="s1"))
         self.assertEqual([s.id for s in p.slides], ["s2", "s1"])
