@@ -312,6 +312,20 @@ class TestOperations(unittest.TestCase):
         apply_all(p, [Operation(kind="edit", slide_id="s1", title="x")])
         self.assertEqual(p.revision, 1)
 
+    def test_a_full_answer_fits_in_one_edit(self):
+        """Two ceilings that did not know about each other.
+
+        A storyboard may hold MAX_SCENES scenes and a full derivation emits one
+        `add` per scene, but the operation list was capped at a hand-picked 20 —
+        so a valid 23-slide answer was rejected outright by its own schema.
+        """
+        from proofmotion.studio.operations import MAX_OPERATIONS, Edit
+        from schemas.storyboard import MAX_SCENES
+
+        self.assertGreaterEqual(MAX_OPERATIONS, MAX_SCENES)
+        full = Edit(operations=[Operation(kind="add", title=f"scene {i}") for i in range(MAX_SCENES)])
+        self.assertEqual(len(full.operations), MAX_SCENES)
+
     def test_touched_reports_what_needs_re_rendering(self):
         self.assertEqual(
             touched([

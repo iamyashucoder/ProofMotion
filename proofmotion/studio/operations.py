@@ -21,6 +21,14 @@ from pydantic import BaseModel, Field
 from proofmotion.components import COMPONENTS
 from proofmotion.runtime.registry import ToolError
 from proofmotion.studio.document import Project, Slide
+from schemas.storyboard import MAX_SCENES
+
+#: Ceiling on one turn's operations. Derived from the scene ceiling rather than
+#: picked, because a full derivation emits one `add` per scene and a hand-picked
+#: 20 rejected a valid 23-slide answer outright — the same two-limits-drifting
+#: mistake as the three separate scene counts this is now tied to. The headroom
+#: is for edits accompanying the adds.
+MAX_OPERATIONS = MAX_SCENES + 10
 
 
 class Operation(BaseModel):
@@ -48,7 +56,7 @@ class Operation(BaseModel):
 class Edit(BaseModel):
     """What a turn proposes."""
 
-    operations: list[Operation] = Field(default_factory=list, max_length=20)
+    operations: list[Operation] = Field(default_factory=list, max_length=MAX_OPERATIONS)
     reply: str = Field(default="", description="One or two sentences for the person.")
     #: Set when the message asks for something that needs deriving rather than
     #: editing — a new part of the problem, a fresh question. The caller then
