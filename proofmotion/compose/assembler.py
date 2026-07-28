@@ -263,7 +263,22 @@ def assemble(plan: ScenePlan) -> str:
             # was carrying — three things arranged into one strip, each
             # correctly placed and collectively unreadable. Arranging first
             # lets `place` scale the lot to fit whatever is there.
-            if scene.bridge_text:
+            if read_equation:
+                # A carried equation is already sitting in this region, so it
+                # is shrunk and lifted to make room rather than being arranged
+                # with the new line — the strip below only works when the
+                # region is empty.
+                write(f"        place(caption, regions[{region!r}])")
+                write("        if equation_memory is not None:")
+                write("            self.play(equation_memory.animate.scale(0.72).shift(UP * 0.28), run_time=0.35)")
+                write("            caption.shift(DOWN * 0.22)")
+                if scene.bridge_text:
+                    write("        bridge.next_to(caption, UP, buff=0.1)")
+            elif scene.bridge_text:
+                # Nothing carried, so the bridge and the line are arranged as
+                # one block and placed together. Positioning them separately
+                # and nudging by hand put the bridge across the line it
+                # introduced.
                 write("        strip = VGroup(bridge, caption)")
                 write("        strip.arrange(DOWN, buff=0.12)")
                 write(f"        place(strip, regions[{region!r}])")
