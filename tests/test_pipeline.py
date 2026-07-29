@@ -167,7 +167,12 @@ class ManimApiTests(unittest.TestCase):
         if not rendered:
             self.skipTest("no rendered projects available")
         for scene in rendered:
-            report = manim_validate_code(scene.read_text(encoding="utf-8"))
+            source = scene.read_text(encoding="utf-8")
+            # ManimGL templates deliberately use the separate ``manimlib`` API;
+            # this validator introspects only the Manim Community package.
+            if "from manimlib import" in source:
+                continue
+            report = manim_validate_code(source)
             self.assertTrue(report["valid"], f"false positive in {scene}: {report['problems']}")
 
 

@@ -13,6 +13,9 @@ class MathAnimationState:
     pedagogy_plan: dict[str, Any] = field(default_factory=dict)
     storyboard: dict[str, Any] = field(default_factory=dict)
     selected_tools: list[str] = field(default_factory=list)
+    render_backend: str = "community"
+    render_reason: str = ""
+    render_template: str = ""
     tool_results: dict[str, Any] = field(default_factory=dict)
     retrieved_examples: list[dict[str, Any]] = field(default_factory=list)
     generated_code: str = ""

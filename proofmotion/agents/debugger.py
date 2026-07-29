@@ -71,6 +71,14 @@ mathematics was verified, so altering it is a regression, not a fix.
 Return the complete corrected Python source and nothing else."""
 
 
+DIRECT_POLISH_SYSTEM = """Return a complete corrected Manim scene, code only.
+
+There is exactly one measured layout defect. Make the smallest possible layout
+edit that clears it: move, scale, or reflow only the named object. Do not call
+tools, do not rewrite the teaching content, and do not add prose. Preserve the
+single GeneratedScene class and every mathematical expression."""
+
+
 def polish_scene(client: Any, code: str, report: dict[str, Any], *, max_iterations: int = 8) -> dict[str, Any]:
     """Fix measured layout defects in a scene that renders but reads badly."""
     summary = json.dumps(
@@ -98,6 +106,29 @@ def polish_scene(client: Any, code: str, report: dict[str, Any], *, max_iteratio
     )
     fixed = _strip_fences(result.content)
     return {"code": fixed, "tools_used": result.tools_used}
+
+
+def polish_scene_direct(client: Any, code: str, report: dict[str, Any]) -> dict[str, Any]:
+    """Fix one simple layout defect without wasting an agent turn on discovery."""
+    summary = json.dumps(
+        {
+            "text_overlaps": report.get("text_overlaps", [])[:4],
+            "out_of_frame": report.get("out_of_frame", [])[:4],
+            "unreadable_text": report.get("unreadable_text", [])[:4],
+            "text_on_ink": report.get("text_on_ink", [])[:4],
+        },
+        indent=2,
+    )
+    result = run_agent(
+        client,
+        DIRECT_POLISH_SYSTEM,
+        f"Measured layout defect:\n{summary}\n\nCURRENT SOURCE:\n{code}",
+        toolset("manim").subset([]),
+        max_iterations=1,
+        max_tokens=12000,
+        agent_name="polisher-direct",
+    )
+    return {"code": _strip_fences(result.content), "tools_used": result.tools_used}
 
 
 def repair_scene(client: Any, code: str, error: str, *, max_iterations: int = 10) -> dict[str, Any]:

@@ -12,6 +12,7 @@ from __future__ import annotations
 import ast
 import logging
 import re
+import shutil
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -43,6 +44,7 @@ from proofmotion.compose import (
 )
 from proofmotion.knowledge.answer_oracle import audit_final_answer
 from proofmotion.learned import load_all as load_learned
+from proofmotion.rendering import choose_renderer
 from proofmotion.runtime.events import BUS, artifact, headline, stage
 from proofmotion.runtime.registry import ToolError
 from proofmotion.runtime.watcher import watch_render
@@ -274,6 +276,7 @@ def create_math_animation(
     provider: str | None = None,
     model: str | None = None,
     duration_seconds: int | None = None,
+    renderer: str = "auto",
 ) -> MathAnimationState:
     """Plan, verify, compose, code, and render an animation for any request.
 
@@ -287,6 +290,7 @@ def create_math_animation(
         provider=provider,
         model=model,
         duration_seconds=duration_seconds,
+        renderer=renderer,
     )
     try:
         state.stage_seconds = _stage_seconds()
@@ -308,6 +312,7 @@ def _run(
     provider: str | None = None,
     model: str | None = None,
     duration_seconds: int | None = None,
+    renderer: str = "auto",
 ) -> MathAnimationState:
     client = get_client(provider, model)
     if client is None:
@@ -323,6 +328,57 @@ def _run(
     project_dir.mkdir(parents=True, exist_ok=False)
     BUS.reset()
     BUS.emit("run", prompt=user_prompt, project=state.project_id, model=f"{client.name}/{client.model}")
+
+    choice = choose_renderer(user_prompt, requested=renderer)  # type: ignore[arg-type]
+    state.render_backend = choice.backend
+    state.render_reason = choice.reason
+    state.render_template = choice.template or ""
+    state.selected_tools.append(f"renderer:{choice.backend}")
+    artifact("renderer", {"backend": choice.backend, "reason": choice.reason, "template": choice.template})
+    headline(f"Renderer: {choice.backend} — {choice.reason}", "improved")
+
+    if choice.template:
+        template_family = "manimgl" if choice.backend == "manimgl" else "community"
+        template = Path(__file__).resolve().parents[1] / "demo" / template_family / choice.template
+        if not template.is_file():
+            raise FileNotFoundError(f"Renderer template is missing: {template}")
+        scene_file = project_dir / "generated_scene.py"
+        shutil.copyfile(template, scene_file)
+        state.generated_code = scene_file.read_text(encoding="utf-8")
+        state.scene_file = str(scene_file)
+        stage("render")
+        preview_dir = project_dir / "preview"
+        with watch_render(preview_dir):
+            rendered = render_manim_scene(
+                scene_file, preview_dir, quality="h" if render_final else "l", timeout_seconds=300,
+                backend=choice.backend,
+            )
+        error = _render_failure(rendered, preview_dir)
+        if error and choice.backend == "community-opengl":
+            # OpenGL may be unavailable in a headless runner or on a machine
+            # without a compatible pixel format. The template is still valid
+            # Manim Community code, so preserve the run with Cairo.
+            headline("OpenGL context unavailable; retrying the compatible Community renderer", "warned")
+            state.render_backend = "community"
+            state.render_reason += "; OpenGL unavailable, fell back to Community"
+            with watch_render(preview_dir, label="community fallback"):
+                rendered = render_manim_scene(
+                    scene_file, preview_dir, quality="h" if render_final else "l", timeout_seconds=300,
+                    backend="community",
+                )
+            error = _render_failure(rendered, preview_dir)
+        if error:
+            state.render_errors.append(error[-4000:])
+            state.status = "preview_failed"
+            stage("render", "failed")
+        else:
+            state.preview_file = _find_video(preview_dir)
+            state.video_file = state.preview_file if render_final else ""
+            state.status = "final_ready" if render_final else "preview_ready"
+            BUS.emit("video", path=state.preview_file)
+            stage("render", "done")
+        state.save(project_dir)
+        return state
 
     # Components the system wrote on earlier questions. Registered before
     # anything searches, so they are found the same way built-in ones are.
@@ -352,7 +408,7 @@ def _run(
     if _is_competitive_exam_prompt(user_prompt) or worked_problem:
         exam_requirements = competitive_exam_requirements(user_prompt)
         state.tool_results["competitive_exam_requirements"] = exam_requirements
-        state.selected_tools = exam_requirements["required_tools"]
+        state.selected_tools.extend(exam_requirements["required_tools"])
         artifact("competitive_exam_requirements", exam_requirements)
         headline(
             f"Competitive-exam safeguards: {', '.join(exam_requirements['matched_domains'])}",

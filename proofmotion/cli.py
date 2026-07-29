@@ -14,6 +14,10 @@ def main() -> None:
     parser.add_argument("--final", action="store_true", help="Render a final high-quality MP4 after the preview succeeds.")
     parser.add_argument("--provider", help="LLM provider: deepseek, openrouter, or vllm.")
     parser.add_argument("--model", help="Override the provider's default model.")
+    parser.add_argument(
+        "--renderer", choices=("auto", "community", "community-opengl", "manimgl"), default="auto",
+        help="Renderer selection. Auto chooses a compatible backend and template when available.",
+    )
     parser.add_argument("--duration", type=int, help="Target length in seconds (default: the agent decides, ~30).")
     parser.add_argument("--verbose", "-v", action="store_true", help="Show each pipeline stage as it runs.")
     parser.add_argument("--live", action="store_true", help="Watch the run in a browser as it happens.")
@@ -40,6 +44,7 @@ def main() -> None:
         state = create_math_animation(
             prompt, render_final=args.final, provider=args.provider,
             model=args.model, duration_seconds=args.duration,
+            renderer=args.renderer,
         )
     except Exception as error:
         if bus:

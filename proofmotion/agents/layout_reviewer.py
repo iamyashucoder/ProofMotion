@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from proofmotion.agents.debugger import polish_scene
+from proofmotion.agents.debugger import polish_scene, polish_scene_direct
 from proofmotion.runtime.registry import ToolError
 from proofmotion.tools.inspect_scene import inspect_scene
 from proofmotion.tools.manim_api import manim_validate_code
@@ -15,6 +15,16 @@ def text_layout_issue_count(report: dict[str, Any]) -> int:
     return sum(
         len(report.get(key, []))
         for key in ("text_overlaps", "out_of_frame", "unreadable_text", "text_on_ink")
+    )
+
+
+def _is_single_simple_defect(report: dict[str, Any]) -> bool:
+    """Whether a direct source edit is safer than a full tool-driven repair."""
+    return (
+        len(report.get("out_of_frame", [])) == 1
+        and not report.get("text_overlaps")
+        and not report.get("unreadable_text")
+        and not report.get("text_on_ink")
     )
 
 
@@ -39,7 +49,10 @@ def validate_and_repair_text_layout(
     current_issues = text_layout_issue_count(report)
     while attempts < max_repairs and current_issues:
         attempts += 1
-        candidate = polish_scene(client, current_code, current_report)
+        if _is_single_simple_defect(current_report):
+            candidate = polish_scene_direct(client, current_code, current_report)
+        else:
+            candidate = polish_scene(client, current_code, current_report)
         candidate_code = candidate.get("code", "")
         if not candidate_code or not manim_validate_code(candidate_code)["valid"]:
             break

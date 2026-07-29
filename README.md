@@ -53,6 +53,34 @@ source scripts/env.sh     # uv cache, managed Python, and TinyTeX locations
 uv sync --extra verify
 ```
 
+### Optional ManimGL backend
+
+ProofMotion-generated scenes use **Manim Community** by default. To also use
+ManimGL for hand-authored GPU-oriented scenes, install its isolated extra:
+
+```bash
+uv sync --extra manimgl
+```
+
+The engines have different APIs: ManimGL scenes import `from manimlib import *`,
+whereas ProofMotion scenes import `from manim import *`. The renderer supports
+`backend="manimgl"` for the former and `backend="community-opengl"` for
+GPU-backed Community previews without sacrificing ProofMotion compatibility.
+
+An advanced ManimGL example with a gradient trace, layered glow, live radius
+readout, and closure sweep is included at `demo/manimgl/advanced_polar_rosette.py`.
+Render it after installing the extra:
+
+```bash
+manimgl demo/manimgl/advanced_polar_rosette.py GeneratedScene -w --hd
+```
+
+The CLI's default `--renderer auto` chooses a compatible renderer for each
+request. Polar-rosette/spirograph requests use the authored ManimGL template;
+GPU-heavy generated 3D scenes use Community/OpenGL; ordinary generated scenes
+use the validated Community renderer. Force a compatible choice with
+`--renderer community`, `--renderer community-opengl`, or `--renderer manimgl`.
+
 `scripts/env.sh` exists because this machine's root partition is full and has no
 sudo: uv's cache, uv's managed interpreters, and TinyTeX all live on a data
 volume. Edit `PROOFMOTION_TOOLS` in that file for a different host.

@@ -129,6 +129,17 @@ def serve_live(port: int = 8770, host: str = "127.0.0.1", open_browser: bool = F
         # fine while the page stayed blank.
         protocol_version = "HTTP/1.1"
 
+        def handle(self) -> None:
+            """Browsers may abandon an EventSource while the server is reading.
+
+            That is ordinary navigation or a page refresh, not a failed model
+            run; suppress the noisy socketserver traceback for this case.
+            """
+            try:
+                super().handle()
+            except ConnectionResetError:
+                pass
+
         def log_message(self, *args: Any) -> None:  # keep the console for pipeline output
             pass
 

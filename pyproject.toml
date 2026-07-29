@@ -31,6 +31,9 @@ dependencies = [
 [project.optional-dependencies]
 # Phase 2 verification tiers. Optional so Phase 0/1 stay light.
 verify = ["z3-solver>=4.13"]
+# Separate from Manim Community: ManimGL exposes the ``manimlib`` API.
+# ManimGL 1.7.x imports pkg_resources without declaring setuptools itself.
+manimgl = ["manimgl", "setuptools>=68,<81"]
 
 [dependency-groups]
 dev = ["pytest>=8,<9", "ruff>=0.6"]
