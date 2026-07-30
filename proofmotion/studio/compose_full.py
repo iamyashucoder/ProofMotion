@@ -44,7 +44,7 @@ def _plan_for(client: Any, question: str, state: dict[str, Any]) -> ScenePlan | 
     state["intent"] = intent.model_dump()
     headline(f"Read it as: {intent.topic} ({intent.domain})")
 
-    if not intent.requires_derivation:
+    if not intent.requires_derivation and not state.get("force"):
         # Not every request is a problem to be solved. "Make a circle morph out
         # of a square" has nothing to derive, and deriving anyway produced
         # eight verified steps about superellipses and ten slides, none of
@@ -255,3 +255,34 @@ def draw_by_hand(
         if replacing
         else "Nothing in the catalogue fits, so I wrote the scene. Tell me what to change."
     )
+
+
+def derive_anyway(client: Any, project: Project, question: str) -> tuple[list[Operation], str]:
+    """Run the pipeline even when the intent agent said nothing needs deriving.
+
+    That judgement is a guess, and it is wrong often enough to matter: it
+    called projectile motion underivable, which sent a question with a
+    component built for it down the hand-drawn path. When the quick route has
+    already produced nothing, its guess has been tested and failed, so this
+    ignores it.
+    """
+    state: dict[str, Any] = {"force": True}
+    try:
+        plan = _plan_for(client, question, state)
+    except Exception as error:  # noqa: BLE001 - the caller falls back again
+        log.info("forced derivation failed: %s", error)
+        return [], ""
+    if plan is None or not plan.assignments:
+        return [], ""
+
+    after = project.slides[-1].id if project.slides else ""
+    operations = []
+    for assignment in map(_usable_assignment, plan.assignments):
+        operations.append(Operation(
+            kind="add", after=after, title=assignment.title,
+            component=assignment.component, parameters=assignment.parameters,
+            caption=assignment.caption, seconds=assignment.seconds,
+            reason="from the verified plan",
+        ))
+        after = ""
+    return operations, written_answer(state, len(operations), pictorial_coverage(plan))

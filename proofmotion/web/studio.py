@@ -436,6 +436,7 @@ def serve_studio(root: Path, client: Any, *, port: int = 8780, host: str = "127.
         def _act(self, path: str, body: dict[str, Any]) -> dict[str, Any]:
             from proofmotion.agents.studio import propose
             from proofmotion.studio.compose_full import answer_fully, draw_by_hand
+            from proofmotion.studio.compose_full import derive_anyway as _derive_anyway
             from proofmotion.studio.operations import Edit
 
             if path == "/api/new":
@@ -500,9 +501,19 @@ def serve_studio(root: Path, client: Any, *, port: int = 8780, host: str = "127.
                             operations, reply = draw_by_hand(studio.client, edit.needs_hand_drawn)
                             edit = Edit(operations=operations, reply=reply)
                         elif not edit.operations:
-                            # The catalogue is finite and the agent said so.
-                            # Refusing is honest and useless; the coder draws it.
-                            operations, reply = draw_by_hand(studio.client, message)
+                            # An empty answer is a turn that went wrong, not
+                            # proof the catalogue is empty. Treating the two as
+                            # the same sent every wobble straight to a
+                            # hand-drawn scene: asked about projectile motion —
+                            # a component that exists and that this same agent
+                            # finds when asked again — it drew a square. So the
+                            # full pipeline gets a turn first, because its
+                            # director searches the catalogue properly.
+                            headline("Nothing came back; working it through instead")
+                            operations, reply = _derive_anyway(studio.client, project, message)
+                            if not operations:
+                                # Only now, with both routes spent.
+                                operations, reply = draw_by_hand(studio.client, message)
                             edit = Edit(operations=operations, reply=reply)
                 else:
                     headline("Thinking about what to change")
