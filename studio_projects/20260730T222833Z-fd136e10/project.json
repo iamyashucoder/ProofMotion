@@ -1,0 +1,34 @@
+{
+  "project_id": "20260730T222833Z-fd136e10",
+  "question": "draw x cube",
+  "revision": 2,
+  "created_at": "2026-07-30T22:28:33Z",
+  "slides": [
+    {
+      "id": "s1",
+      "title": "Draw the graph of y = x^3 on coordinate axes, labeling t",
+      "component": null,
+      "parameters": {},
+      "caption": "",
+      "seconds": 12.0,
+      "overrides": {},
+      "bridge": "",
+      "code": "from manim import *\nfrom proofmotion.components import build\n\nclass GeneratedScene(Scene):\n    def construct(self):\n        built = build(\n            \"function_plot\",\n            dict(\n                expr=\"x**3\",\n                x_min=-2,\n                x_max=2,\n                label=\"y=x^3\",\n                region=\"stage\",\n            ),\n        )\n\n        self.play(Create(built.parts[\"axes\"]), run_time=2.5)\n        self.wait(0.5)\n\n        self.play(Create(built.parts[\"curve\"]), run_time=3)\n        self.wait(0.5)\n\n        self.play(\n            *[Create(built.parts[name]) for name in built.beats[2]],\n            run_time=2.5,\n        )\n        self.wait(0.5)\n        self.wait(2.5)",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s2",
+      "title": "Transform the existing y = x^3 graph into a running bus ",
+      "component": null,
+      "parameters": {},
+      "caption": "",
+      "seconds": 12.0,
+      "overrides": {},
+      "bridge": "",
+      "code": "from manim import *\n\nclass GeneratedScene(Scene):\n    def construct(self):\n        axes = Axes(\n            x_range=[-2, 2, 1],\n            y_range=[-3, 3, 1],\n            x_length=10,\n            y_length=5.4,\n            axis_config={\"include_numbers\": True, \"font_size\": 24},\n        )\n        axes.shift(DOWN * 0.25)\n\n        axis_labels = axes.get_axis_labels(\n            x_label=MathTex(\"x\"),\n            y_label=MathTex(\"y\"),\n        )\n        title = Text(\"A graph becomes a route\", font_size=42).to_edge(UP)\n\n        graph = axes.plot(\n            lambda x: x**3,\n            x_range=[-1.442, 1.442],\n            color=YELLOW,\n            stroke_width=6,\n        )\n        graph_label = (\n            MathTex(\"y=x^3\", font_size=30, color=YELLOW)\n            .move_to(axes.c2p(0.9, 2.15))\n            .shift(RIGHT * 0.25)\n        )\n\n        self.play(\n            Create(axes),\n            FadeIn(axis_labels),\n            FadeIn(title),\n            run_time=1.5,\n        )\n        self.play(\n            Create(graph),\n            FadeIn(graph_label),\n            run_time=1.5,\n        )\n        self.wait(0.5)\n\n        road = axes.plot(\n            lambda x: x**3,\n            x_range=[-1.442, 1.442],\n            color=GRAY,\n            stroke_width=24,\n        )\n        road_mark = axes.plot(\n            lambda x: x**3,\n            x_range=[-1.442, 1.442],\n            color=YELLOW,\n            stroke_width=3,\n        )\n        path_label = Text(\n            \"the graph is now the motion path\",\n            font_size=28,\n            color=WHITE,\n        ).move_to(DOWN * 2.65)\n\n        self.play(\n            Transform(graph, road),\n            FadeOut(graph_label),\n            Create(road_mark),\n            FadeIn(path_label),\n            run_time=2,\n        )\n        self.wait(0.5)\n\n        body = RoundedRectangle(\n            corner_radius=0.12,\n            width=0.95,\n            height=0.48,\n            color=BLUE,\n            fill_color=BLUE,\n            fill_opacity=1,\n        )\n        roof = Rectangle(\n            width=0.68,\n            height=0.16,\n            color=BLUE,\n            fill_color=BLUE,\n            fill_opacity=1,\n        ).next_to(body, UP, buff=0)\n\n        window1 = Rectangle(\n            width=0.19,\n            height=0.13,\n            color=WHITE,\n            fill_color=WHITE,\n            fill_opacity=1,\n        )\n        window2 = window1.copy()\n        window1.move_to(body.get_center() + LEFT * 0.23 + UP * 0.08)\n        window2.move_to(body.get_center() + RIGHT * 0.23 + UP * 0.08)\n\n        wheel1 = Circle(\n            radius=0.105,\n            color=BLACK,\n            fill_color=BLACK,\n            fill_opacity=1,\n        )\n        wheel2 = wheel1.copy()\n        wheel1.move_to(body.get_center() + LEFT * 0.28 + DOWN * 0.27)\n        wheel2.move_to(body.get_center() + RIGHT * 0.28 + DOWN * 0.27)\n\n        bus = VGroup(body, roof, window1, window2, wheel1, wheel2)\n        bus.move_to(road.get_start())\n\n        bus_label = Text(\n            \"BUS\",\n            font_size=20,\n            color=WHITE,\n        ).next_to(body, UP, buff=0.3)\n        bus.add(bus_label)\n\n        self.play(FadeIn(bus), run_time=0.7)\n        self.play(\n            MoveAlongPath(bus, road, rate_func=linear),\n            run_time=3.5,\n        )\n        self.wait(1.0)",
+      "origin": "agent",
+      "locked": false
+    }
+  ]
+}

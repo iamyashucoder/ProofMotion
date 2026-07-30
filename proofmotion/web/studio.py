@@ -254,7 +254,13 @@ class Studio:
         self.root.mkdir(parents=True, exist_ok=True)
         self.client = client
         self.lock = threading.Lock()
-        self.current = self._latest() or _new_id()
+        # A fresh project, not the last one worked on. Resuming looked
+        # thrifty — the clips are all cached, so it costs nothing — but it
+        # means launching drops you into yesterday's deck, and the first slide
+        # you add comes back as s14. Every earlier project is one click away
+        # in the explorer, and an untouched new one is never written to disk,
+        # so nothing accumulates from simply starting up.
+        self.current = _new_id()
         self.status = "Ready."
         self.video = ""
 

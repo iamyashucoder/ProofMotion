@@ -256,6 +256,43 @@ class TestHandWrittenCode(unittest.TestCase):
         self.assertIn("SquareToCircle", p.slides[0].code)
 
 
+class TestStudioStartup(unittest.TestCase):
+    def test_launching_opens_a_fresh_project(self):
+        """Resuming meant the first slide you added came back as s14.
+
+        Reopening the last deck costs nothing, since every clip is cached — but
+        it drops you into yesterday's work when you asked for a studio, and the
+        numbering carries on from a deck you were not looking at.
+        """
+        import tempfile
+        from pathlib import Path
+
+        from proofmotion.web.studio import Studio
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            old = Project.create("yesterday", "an old question")
+            old.slides = [Slide(id=f"s{i}") for i in range(1, 14)]
+            old.save(root / "yesterday")
+
+            studio = Studio(root, client=None)
+            self.assertNotEqual(studio.current, "yesterday")
+            self.assertEqual(studio.load().next_id(), "s1")
+            # And the old one is still one click away.
+            self.assertEqual([p["id"] for p in studio.listing()], ["yesterday"])
+
+    def test_an_untouched_new_project_is_not_written_to_disk(self):
+        """Or every launch would leave an empty deck behind in the explorer."""
+        import tempfile
+        from pathlib import Path
+
+        from proofmotion.web.studio import Studio
+
+        with tempfile.TemporaryDirectory() as tmp:
+            studio = Studio(Path(tmp), client=None)
+            self.assertEqual(studio.listing(), [])
+
+
 class TestOverrides(unittest.TestCase):
     """Hand corrections, because a checker cannot know what reads better.
 
