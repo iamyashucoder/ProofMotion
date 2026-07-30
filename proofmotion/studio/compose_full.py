@@ -87,6 +87,35 @@ def _plan_for(client: Any, question: str, state: dict[str, Any]) -> ScenePlan | 
     return selection["plan"]
 
 
+def _shape_of(state: dict[str, Any]) -> list[Operation]:
+    """The steps as a flow diagram, when the plan drew nothing at all.
+
+    A derivation is a sequence and so is a process; the plan already holds it
+    in order. Drawing that costs one slide and gives the deck a shape to hang
+    the words on, which is the difference between watching an explanation and
+    reading one.
+    """
+    steps = (state.get("math_plan") or {}).get("concept_sequence") or []
+    stages = [str(s.get("concept", "")).strip() for s in steps]
+    stages = [s[:26] for s in stages if s]
+    if len(stages) < 2:
+        return []
+    if len(stages) > 8:
+        # Sampled evenly across the whole sequence, which keeps both ends. An
+        # earlier version appended the last stage and then truncated to eight,
+        # so a thirteen-step process lost the step it was working towards.
+        last = len(stages) - 1
+        chosen = sorted({round(i * last / 7) for i in range(8)})
+        stages = [stages[i] for i in chosen]
+
+    topic = (state.get("intent") or {}).get("topic") or "The whole process"
+    return [Operation(
+        kind="add", title=str(topic)[:56], component="flow_diagram",
+        parameters={"stages": stages, "highlight": [], "feedback": False},
+        seconds=10.0, reason="the shape of the argument, before its steps",
+    )]
+
+
 def _usable_assignment(assignment):
     """Fix the one mapping a component will refuse outright.
 
@@ -126,14 +155,17 @@ def answer_fully(client: Any, project: Project, question: str) -> tuple[list[Ope
         return [], "I could not turn that into scenes. Try describing what should be on screen."
 
     drawn = pictorial_coverage(plan)
+    opening: list[Operation] = []
     if drawn == 0:
-        # Every scene is words. The pipeline sends this to the coder; here there
-        # is no coder, so say so rather than delivering a deck of equations to
-        # someone who asked to be shown something.
-        headline("Nothing in this plan draws a picture", "warned")
+        # Every scene is words, and warning about it was all this used to do —
+        # thirteen correct steps went out as fourteen slides of text, the last
+        # of which described a pipeline by writing the word "arrow" between its
+        # stages. That was already a diagram; nobody drew it.
+        headline("Nothing here draws; putting the shape of it on screen first", "warned")
+        opening = _shape_of(state)
 
     after = project.slides[-1].id if project.slides else ""
-    operations = []
+    operations = list(opening)
     for assignment in map(_usable_assignment, plan.assignments):
         operations.append(
             Operation(

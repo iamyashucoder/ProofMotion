@@ -23,6 +23,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from proofmotion.components.base import Built, component
+from proofmotion.layout.collision import holds_text
 from proofmotion.layout.regions import layout, place
 
 AXIS_COLOR = "#9aa7bd"
@@ -317,4 +318,110 @@ def neural_network(p: NeuralNetworkParams) -> Built:
         + ([["input"]] if entering is not None else []),
         motions=[flow],
         notes=f"layers {p.layers}; {sum(a * b for a, b in zip(p.layers, p.layers[1:], strict=False))} weights",
+    )
+
+
+class FlowDiagramParams(BaseModel):
+    """Stages of a process, connected, with something moving through them."""
+
+    stages: list[str] = Field(
+        min_length=2, max_length=8,
+        description="Each stage, in order, e.g. ['pretrained LLM', 'SFT', 'DPO', 'deploy'].",
+    )
+    highlight: list[int] = Field(
+        default_factory=list,
+        description="Indices of stages to accent, e.g. [1, 2] for the training steps.",
+    )
+    feedback: bool = Field(
+        default=False, description="Draw an arrow from the last stage back to the first.",
+    )
+    rows: int = Field(default=0, ge=0, le=3, description="0 chooses a layout that fits.")
+    region: str = "stage"
+
+
+@component(version=1, domain="general", params=FlowDiagramParams)
+def flow_diagram(p: FlowDiagramParams) -> Built:
+    """A process as connected stages, with a token travelling the whole path.
+
+    Most explanations of how something works are a sequence — data through a
+    pipeline, a derivation through its steps, a training loop. Written out they
+    are a list of nouns with the word "arrow" between them; drawn, the shape of
+    the process is the answer.
+    """
+    import numpy as np
+    from manim import Arrow, CurvedArrow, Dot, MoveAlongPath, Succession, Text, VGroup
+
+    count = len(p.stages)
+    rows = p.rows or (1 if count <= 4 else 2)
+    per_row = math.ceil(count / rows)
+    box_w = min(2.6, 9.2 / per_row - 0.35)
+    box_h = 0.9 if rows == 1 else 0.78
+
+    boxes, captions = VGroup(), VGroup()
+    centres: list[Any] = []
+    for index, name in enumerate(p.stages):
+        row, column = divmod(index, per_row)
+        # Rows alternate direction so the path snakes instead of jumping back.
+        if row % 2:
+            column = per_row - 1 - column
+        x = (column - (per_row - 1) / 2) * (box_w + 0.35)
+        y = ((rows - 1) / 2 - row) * (box_h + 0.9)
+        accent = index in p.highlight
+        from manim import RoundedRectangle
+
+        box = RoundedRectangle(
+            width=box_w, height=box_h, corner_radius=0.12,
+            color=HIGHLIGHT if accent else ACCENT,
+            fill_opacity=0.28 if accent else 0.12, stroke_width=2.5,
+        ).move_to(np.array([x, y, 0.0]))
+        label = Text(name, font_size=18, color="#e6edf3")
+        label.scale_to_fit_width(min(label.width, box_w * 0.86))
+        label.move_to(box.get_center())
+        holds_text(box)
+        boxes.add(box)
+        captions.add(label)
+        centres.append(box)
+
+    arrows, hops = VGroup(), []
+    for left, right in pairwise(centres):
+        same_row = abs(left.get_center()[1] - right.get_center()[1]) < 1e-6
+        start = left.get_right() if same_row and right.get_center()[0] > left.get_center()[0] else (
+            left.get_left() if same_row else left.get_bottom()
+        )
+        end = right.get_left() if same_row and right.get_center()[0] > left.get_center()[0] else (
+            right.get_right() if same_row else right.get_top()
+        )
+        arrows.add(Arrow(start, end, buff=0.06, stroke_width=3,
+                         max_tip_length_to_length_ratio=0.22, color="#64748b"))
+        hops.append((start, end))
+
+    parts: dict[str, Any] = {"stages": boxes, "labels": captions, "arrows": arrows}
+    group = VGroup(boxes, arrows, captions)
+
+    if p.feedback and count > 2:
+        loop = CurvedArrow(
+            centres[-1].get_bottom(), centres[0].get_bottom(),
+            angle=-1.1, color="#4ade80", stroke_width=2.5, tip_length=0.16,
+        )
+        parts["feedback"] = loop
+        group.add(loop)
+
+    place(group, layout("title_stage_caption")[p.region])
+
+    def travel() -> Any:
+        """A token down the whole chain, so the sequence is watched, not read."""
+        from manim import FadeIn, FadeOut, Line
+
+        token = Dot(radius=0.08, color=HIGHLIGHT)
+        steps: list[Any] = [FadeIn(token.move_to(centres[0].get_center()), run_time=0.2)]
+        for left, right in pairwise(centres):
+            steps.append(MoveAlongPath(token, Line(left.get_center(), right.get_center())))
+        steps.append(FadeOut(token, run_time=0.2))
+        return Succession(*steps)
+
+    return Built(
+        group=group, parts=parts,
+        beats=[["stages", "labels"], ["arrows"]] + ([["feedback"]] if p.feedback else []),
+        motions=[travel],
+        notes=f"{count} stages: {' -> '.join(p.stages)}",
     )

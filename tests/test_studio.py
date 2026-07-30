@@ -541,6 +541,61 @@ class TestPhysicsMotions(unittest.TestCase):
         self.assertEqual(len(_streamline(lambda x, y: 0.0, lambda x, y: 0.0, 0.0, 0.0, 2.0)), 1)
 
 
+class TestFlowDiagram(unittest.TestCase):
+    """A process is a diagram, and it was being written as prose."""
+
+    def test_stages_are_drawn_and_a_token_travels_them(self):
+        from manim import tempconfig
+
+        from proofmotion.components import build as build_component
+
+        with tempconfig({"dry_run": True}):
+            built = build_component("flow_diagram", {
+                "stages": ["pretrained LLM", "SFT", "DPO", "evaluation", "deployment"],
+                "highlight": [1, 2], "feedback": True,
+            })
+        self.assertIn("stages", built.parts)
+        self.assertIn("arrows", built.parts)
+        self.assertIn("feedback", built.parts)
+        self.assertTrue(built.motions)
+
+    def test_a_plan_that_draws_nothing_gets_its_shape_drawn(self):
+        """Thirteen correct steps went out as fourteen slides of text.
+
+        The last of them described a pipeline by writing the word "arrow"
+        between its stages. That was already a diagram and nobody drew it.
+        """
+        from proofmotion.studio.compose_full import _shape_of
+
+        state = {
+            "intent": {"topic": "Post-training an LLM"},
+            "math_plan": {"concept_sequence": [
+                {"concept": "Prepare instruction data"},
+                {"concept": "Supervised fine-tuning"},
+                {"concept": "Preference optimisation"},
+                {"concept": "Evaluate and deploy"},
+            ]},
+        }
+        operations = _shape_of(state)
+        self.assertEqual(len(operations), 1)
+        self.assertEqual(operations[0].component, "flow_diagram")
+        self.assertEqual(len(operations[0].parameters["stages"]), 4)
+
+    def test_a_long_plan_is_thinned_rather_than_crowded(self):
+        from proofmotion.studio.compose_full import _shape_of
+
+        state = {"math_plan": {"concept_sequence": [{"concept": f"step {i}"} for i in range(13)]}}
+        stages = _shape_of(state)[0].parameters["stages"]
+        self.assertLessEqual(len(stages), 8)
+        self.assertEqual(stages[0], "step 0")
+        self.assertEqual(stages[-1], "step 12")   # the ends survive
+
+    def test_a_single_step_is_not_a_flow(self):
+        from proofmotion.studio.compose_full import _shape_of
+
+        self.assertEqual(_shape_of({"math_plan": {"concept_sequence": [{"concept": "one"}]}}), [])
+
+
 class TestNeuralNetwork(unittest.TestCase):
     """A network with the data actually crossing it."""
 
