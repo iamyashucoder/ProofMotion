@@ -120,9 +120,15 @@ def usable_code(code: str) -> str:
     if not text:
         raise ToolError("the scene is empty")
     if "\\n" in text and "\n" not in text.strip("\n"):
-        # JSON escaping that survived being parsed, which is not source at all.
+        # JSON escaping that survived being parsed, which is not source at all:
+        # one long line with every newline still written as two characters.
+        #
+        # Only that. A blanket replace of backslash-n used to follow this, and
+        # it destroyed working code — Text("pretrained\\nknowledge") is a
+        # two-line label and entirely valid, and turning its escape into a real
+        # newline leaves the string literal unterminated. Source that already
+        # has newlines has nothing to unescape.
         text = text.encode().decode("unicode_escape")
-    text = text.replace("\\n", "\n") if "\\n" in text else text
 
     try:
         tree = ast.parse(text)

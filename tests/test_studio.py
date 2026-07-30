@@ -226,6 +226,29 @@ class TestHandWrittenCode(unittest.TestCase):
         )
         self.assertEqual(fixed.count("from proofmotion.components import build"), 1)
 
+    def test_a_two_line_label_is_not_destroyed(self):
+        """The repair was breaking working code.
+
+        Text("pretrained\\nknowledge") is a two-line label and entirely valid.
+        A blanket replace of backslash-n turned its escape into a real newline,
+        left the string literal unterminated, and reported "the scene does not
+        parse" about source that had parsed perfectly a moment earlier.
+        """
+        from proofmotion.studio.operations import usable_code
+
+        source = (
+            "from manim import *\n"
+            "class GeneratedScene(Scene):\n"
+            "    def construct(self):\n"
+            '        self.add(Text("pretrained\\nknowledge"))\n'
+        )
+        import ast
+
+        ast.parse(source)  # valid before
+        fixed = usable_code(source)
+        ast.parse(fixed)  # and after
+        self.assertIn("pretrained", fixed)
+
     def test_code_that_cannot_render_is_refused_with_a_reason(self):
         from proofmotion.studio.operations import usable_code
 
