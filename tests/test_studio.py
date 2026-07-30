@@ -226,6 +226,21 @@ class TestHandWrittenCode(unittest.TestCase):
         )
         self.assertEqual(fixed.count("from proofmotion.components import build"), 1)
 
+    def test_a_broken_scene_is_reported_to_the_coder_not_the_person(self):
+        """The check ran as the operation was applied, which is too late.
+
+        A truncated string lost the slide outright and left a caption in its
+        place, with the parse error shown to the person — who cannot act on it
+        — rather than to the one thing that could fix it.
+        """
+        import inspect
+
+        from proofmotion.studio import compose_full
+
+        source = inspect.getsource(compose_full.draw_by_hand)
+        self.assertIn("usable_code", source)
+        self.assertIn("asking for a fix", source)
+
     def test_a_two_line_label_is_not_destroyed(self):
         """The repair was breaking working code.
 

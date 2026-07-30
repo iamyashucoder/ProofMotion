@@ -26,6 +26,7 @@ from proofmotion.compose import (
 )
 from proofmotion.layout.notation import readable
 from proofmotion.runtime.events import headline
+from proofmotion.runtime.registry import ToolError
 from proofmotion.studio.document import Project
 from proofmotion.studio.operations import Operation
 
@@ -230,6 +231,31 @@ def draw_by_hand(
     code = written.get("code") or ""
     if not code.strip():
         return list(existing or []), "I could not draw that. Try describing what should be on screen."
+
+    # Check it here, where the coder is still available to fix it. The scene
+    # was only checked as the operation was applied, so a truncated string or
+    # a stray brace lost the slide outright and left a caption in its place —
+    # with the reason shown to the person, who cannot act on it, instead of to
+    # the one thing that could.
+    from proofmotion.studio.operations import usable_code
+
+    for attempt in range(2):
+        try:
+            code = usable_code(code)
+            break
+        except ToolError as error:
+            if attempt:
+                return list(existing or []), f"I drew that but it will not run: {error}"
+            headline(f"The scene does not run ({error}); asking for a fix", "warned")
+            retry = write_scene(client, {
+                "intent": {"topic": question, "duration_seconds": seconds},
+                "storyboard": {"scenes": [{"purpose": question, "duration_seconds": seconds}]},
+                "previous_attempt": code[-3000:],
+                "problem": str(error),
+            })
+            code = retry.get("code") or ""
+            if not code.strip():
+                return list(existing or []), f"I drew that but it will not run: {error}"
 
     report = written.get("validation") or {}
     if not report.get("valid", True):
