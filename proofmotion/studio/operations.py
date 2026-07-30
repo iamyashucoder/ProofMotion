@@ -130,6 +130,12 @@ def usable_code(code: str) -> str:
         # has newlines has nothing to unescape.
         text = text.encode().decode("unicode_escape")
 
+    # A stray escape at the start of a line, which is the shape the artifact
+    # actually took: "from manim import *" then a line beginning with a literal
+    # backslash-n before `class`. Anchoring to the line start is what keeps it
+    # away from the escapes inside strings, where a two-line label lives.
+    text = re.sub(r"(?m)^\\n", "", text)
+
     try:
         tree = ast.parse(text)
     except SyntaxError as error:
