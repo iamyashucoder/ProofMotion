@@ -1,7 +1,21 @@
 {
   "project_id": "20260730T230259Z-b521550c",
-  "question": "",
-  "revision": 0,
+  "question": "tan(x^2+y^2)=1 vis",
+  "revision": 1,
   "created_at": "2026-07-30T23:02:59Z",
-  "slides": []
+  "slides": [
+    {
+      "id": "s1",
+      "title": "Draw the xy-plane with concentric circles centered at th",
+      "component": null,
+      "parameters": {},
+      "caption": "",
+      "seconds": 12.0,
+      "overrides": {},
+      "bridge": "",
+      "code": "from manim import *\nimport numpy as np\n\nclass GeneratedScene(Scene):\n    def construct(self):\n        title = MathTex(\n            r\"\\tan(x^2+y^2)=1\",\n            font_size=44,\n        ).to_edge(UP, buff=0.35)\n\n        axes = Axes(\n            x_range=[-3.4, 3.4, 1],\n            y_range=[-3.4, 3.4, 1],\n            x_length=5.7,\n            y_length=5.7,\n            axis_config={\"include_numbers\": False},\n            tips=True,\n        ).shift(LEFT * 2.65 + DOWN * 0.15)\n\n        axis_labels = axes.get_axis_labels(\n            MathTex(\"x\", font_size=32),\n            MathTex(\"y\", font_size=32),\n        )\n\n        origin = axes.coords_to_point(0, 0)\n        radii = [\n            np.sqrt(np.pi / 4 + k * np.pi)\n            for k in range(4)\n        ]\n        scale = 5.7 / 6.8\n\n        circles = VGroup(*[\n            Circle(\n                radius=radius * scale,\n                color=color,\n            ).move_to(origin)\n            for radius, color in zip(\n                radii,\n                [BLUE, TEAL, GREEN, YELLOW],\n            )\n        ])\n\n        spoke = Line(\n            origin,\n            axes.coords_to_point(\n                radii[-1] * 0.707,\n                radii[-1] * 0.707,\n            ),\n            color=WHITE,\n        )\n        spoke_label = MathTex(\n            \"r\",\n            font_size=32,\n        ).next_to(\n            spoke.get_end(),\n            UP + RIGHT,\n            buff=0.08,\n        )\n\n        family = MathTex(\n            r\"r^2=\\frac{\\pi}{4}+k\\pi\\quad(k=0,1,2,\\ldots)\",\n            font_size=32,\n        ).move_to([3.95, 2.15, 0])\n\n        radial_form = MathTex(\n            r\"x^2+y^2=r^2\",\n            font_size=38,\n        ).move_to([3.95, 0.95, 0])\n\n        radius_form = MathTex(\n            r\"r=\\sqrt{\\frac{\\pi}{4}+k\\pi}\",\n            font_size=34,\n        ).move_to([3.95, 0.05, 0])\n\n        result = MathTex(\n            r\"\\text{a family of concentric circles}\",\n            font_size=30,\n        ).move_to([3.95, -1.0, 0])\n\n        self.play(\n            FadeIn(title),\n            Create(axes),\n            FadeIn(axis_labels),\n            run_time=2,\n        )\n        self.play(\n            FadeIn(circles),\n            Create(spoke),\n            FadeIn(spoke_label),\n            FadeIn(family),\n            run_time=2,\n        )\n        self.play(\n            FadeIn(radial_form),\n            FadeIn(radius_form),\n            run_time=2,\n        )\n        self.play(\n            FadeIn(result),\n            run_time=1.5,\n        )\n        self.wait(2.5)",
+      "origin": "agent",
+      "locked": false
+    }
+  ]
 }

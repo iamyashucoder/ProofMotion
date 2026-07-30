@@ -508,6 +508,7 @@ def serve_studio(root: Path, client: Any, *, port: int = 8780, host: str = "127.
                     headline("Thinking about what to change")
                     edit = propose(studio.client, project, message)
                     if edit.needs_hand_drawn:
+                        redrawing = body.get("slide_id", "") if path == "/api/remake" else ""
                         # Honoured on an existing deck too. It was only checked
                         # when the deck was empty, so on a deck with slides the
                         # agent raised the flag, nothing read it, and its reply
@@ -515,7 +516,8 @@ def serve_studio(root: Path, client: Any, *, port: int = 8780, host: str = "127.
                         # scene" — four times in a row, to someone asking four
                         # times for the same drawing.
                         operations, reply = draw_by_hand(
-                            studio.client, edit.needs_hand_drawn, existing=edit.operations,
+                            studio.client, edit.needs_hand_drawn,
+                            existing=edit.operations, replacing=redrawing,
                         )
                         edit = Edit(operations=operations, reply=reply)
                     elif edit.needs_full_derivation and path == "/api/message":

@@ -256,6 +256,39 @@ class TestHandWrittenCode(unittest.TestCase):
         self.assertIn("SquareToCircle", p.slides[0].code)
 
 
+class TestRemakeStaysOnItsSlide(unittest.TestCase):
+    """A remake names a slide, and drawing has to honour that.
+
+    draw_by_hand always emitted `add`, so asking to redraw slide one produced a
+    second slide beside it with the one complained about still there — and
+    asking again produced a third.
+    """
+
+    SCENE = (
+        "from manim import *\n"
+        "class GeneratedScene(Scene):\n"
+        "    def construct(self):\n"
+        "        self.add(Dot())\n"
+    )
+
+    def test_redrawing_replaces_rather_than_appends(self):
+        p = project(Slide(id="s1", title="LoRA", code="from manim import *\n"
+                          "class GeneratedScene(Scene):\n"
+                          "    def construct(self):\n        self.add(Square())\n"))
+        apply_all(p, [Operation(kind="edit", slide_id="s1", title="Redrawn",
+                                code=self.SCENE, reason="redrawn by hand")])
+        self.assertEqual([s.id for s in p.slides], ["s1"])
+        self.assertIn("Dot()", p.slides[0].code)
+
+    def test_draw_by_hand_edits_when_given_a_slide(self):
+        """The operation kind is what carries the difference."""
+        import inspect
+
+        from proofmotion.studio.compose_full import draw_by_hand
+
+        self.assertIn("replacing", inspect.signature(draw_by_hand).parameters)
+
+
 class TestStudioStartup(unittest.TestCase):
     def test_launching_opens_a_fresh_project(self):
         """Resuming meant the first slide you added came back as s14.

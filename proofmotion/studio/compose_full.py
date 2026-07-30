@@ -201,7 +201,11 @@ def written_answer(state: dict[str, Any], slides: int, drawn: float) -> str:
 
 
 def draw_by_hand(
-    client: Any, question: str, seconds: int = 12, existing: list[Operation] | None = None
+    client: Any,
+    question: str,
+    seconds: int = 12,
+    existing: list[Operation] | None = None,
+    replacing: str = "",
 ) -> tuple[list[Operation], str]:
     """Have the coder write a scene when nothing in the catalogue fits.
 
@@ -232,15 +236,22 @@ def draw_by_hand(
         problems = report.get("problems") or [{}]
         headline(f"The scene has {len(problems)} invalid API call(s)", "warned")
 
+    # A remake names the slide it is remaking, and drawing has to honour that.
+    # Always adding meant asking to redraw slide one produced a second slide
+    # beside it, with the one complained about still there — and asking again
+    # produced a third.
     drawn = Operation(
-        kind="add",
+        kind="edit" if replacing else "add",
+        slide_id=replacing,
         title=question[:56],
         seconds=float(seconds),
         code=code,
-        reason="written by hand; no component fits",
+        reason="redrawn by hand" if replacing else "written by hand; no component fits",
     )
     # Edits the agent asked for alongside the drawing are kept: a turn that
     # fixes a title and wants a figure should do both.
     return [*(existing or []), drawn], (
-        "Nothing in the catalogue fits, so I wrote the scene. Tell me what to change."
+        f"Redrew {replacing} by hand — nothing in the catalogue expresses it. Tell me what to change."
+        if replacing
+        else "Nothing in the catalogue fits, so I wrote the scene. Tell me what to change."
     )
