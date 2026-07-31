@@ -177,6 +177,11 @@ def assemble(plan: ScenePlan, *, style: str = "dark") -> str:
     standing: tuple[str, str] | None = None
     for index, scene in enumerate(plan.assignments, 1):
         write(f"        # ---- scene {index} ----")
+        # The clock this scene settles against: `seconds` is a floor, not a
+        # guess. The scene used to end when its animations did plus a fifth of
+        # its budget, so a slide asked to hold for its narration simply didn't
+        # — the voice ran on into the next slide's picture.
+        write("        scene_started = self.renderer.time")
         read_equation = "equation" in scene.read_from_previous
         # Selective read/forget: the new board retains only items explicitly
         # requested by this scene. Every other item is removed before writing.
@@ -309,7 +314,13 @@ def assemble(plan: ScenePlan, *, style: str = "dark") -> str:
             write("        chrome.append(caption)")
             write("        equation_memory = caption")
 
-        write(f"        self.wait({max(0.4, round(scene.seconds * 0.2, 2))})")
+        # Hold to the slide's declared length: whatever the animations took,
+        # the scene stays up until `seconds` have passed, with a breath at
+        # minimum. This is what lets narration own a slide's duration.
+        write(
+            f"        self.wait(max(0.4, {round(scene.seconds, 2)}"
+            " - (self.renderer.time - scene_started)))"
+        )
         if "equation" in scene.forget_after:
             write("        if equation_memory is not None:")
             write("            self.play(FadeOut(equation_memory), run_time=0.3)")

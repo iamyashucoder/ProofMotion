@@ -90,9 +90,12 @@ class Project(BaseModel):
     #: The voice narration is spoken in; empty means the default voice. Part
     #: of the speech cache key, never of the clip cache key.
     voice: str = ""
-    #: Opt-in: lengthen any slide whose speech outruns it before rendering.
-    #: A visible edit to the document — which is exactly why it is opt-in.
-    fit_narration: bool = False
+    #: Lengthen any slide whose speech outruns it before rendering, so the
+    #: slide holds until its talk is done. On by default — a voice running
+    #: into the next slide's picture is never what anyone meant — and a
+    #: visible edit to the document, so turning it off is the escape hatch
+    #: for a deck whose timing is being set by hand.
+    fit_narration: bool = True
     slides: list[Slide] = Field(default_factory=list)
 
     # ---- identity -------------------------------------------------------
