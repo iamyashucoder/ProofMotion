@@ -98,6 +98,19 @@ def create_app(
                 response.set_cookie("pm_token", token, httponly=True, samesite="strict")
             return response
 
+    @app.middleware("http")
+    async def fresh_page(request: Request, call_next):
+        # The page and its scripts follow every deploy. StaticFiles' default
+        # ETag caching let a browser keep yesterday's stylesheet under
+        # today's markup — the composer rendered half-old, half-new, and the
+        # symptom read as a layout bug. Media that names itself by content
+        # (posters, audio, attachments) sets its own immutable caching and is
+        # left alone.
+        response = await call_next(request)
+        if not request.url.path.startswith("/api") and "cache-control" not in response.headers:
+            response.headers["Cache-Control"] = "no-store"
+        return response
+
     app.include_router(api.router)
     app.include_router(media.router)
 
