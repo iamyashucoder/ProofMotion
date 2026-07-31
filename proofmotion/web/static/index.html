@@ -29,10 +29,10 @@
     <div id="chat-hint" class="hint" hidden></div>
     <div id="composer">
       <div id="chips" hidden></div>
+      <textarea id="composer-text" rows="3" placeholder="Show how the area under x&sup2; is built from rectangles..."></textarea>
       <div id="composer-row">
         <button class="pill" id="attachbtn" title="attach images, audio, or video">&#128206;</button>
         <button class="pill" id="micbtn" title="record a voice note">&#127908;</button>
-        <textarea id="composer-text" rows="2" placeholder="Show how the area under x&sup2; is built from rectangles..."></textarea>
         <button id="composer-send">Send</button>
       </div>
       <input type="file" id="fileinput" accept="image/*,audio/*,video/*" multiple hidden>
@@ -47,16 +47,15 @@
       <span id="where" class="meta">no slides</span>
       <button class="pill" id="nextbtn">next &rsaquo;</button>
       <span class="grow"></span>
-      <label class="meta" for="grab">drag moves</label>
-      <select class="tool" id="grab">
-        <option value="built.group">figure</option>
-        <option value="title">title</option>
-        <option value="caption">caption</option>
-      </select>
+      <span id="grabgroup">
+        <label class="meta" for="grab">drag moves</label>
+        <select class="tool" id="grab">
+          <option value="built.group">figure</option>
+          <option value="title">title</option>
+          <option value="caption">caption</option>
+        </select>
+      </span>
       <button class="pill" id="modebtn">watch video</button>
-      <span class="sep"></span>
-      <button class="pill" id="sidebtn" title="move the chat to the other side">&#8644; chat</button>
-      <button class="pill" id="themebtn" title="switch theme">light</button>
       <span class="popover-host">
         <button class="pill" id="stylebtn" title="deck style and render quality" hidden>style</button>
         <div id="stylepop" class="popover" hidden></div>
@@ -64,6 +63,16 @@
       <span class="popover-host">
         <button class="pill" id="exportbtn">export</button>
         <div id="exportpop" class="popover" hidden></div>
+      </span>
+      <!-- Settings chosen once, behind one button. As pills they competed for
+           attention with the controls used on every slide. -->
+      <span class="popover-host">
+        <button class="pill" id="morebtn" title="view settings">&hellip;</button>
+        <div id="morepop" class="popover" hidden>
+          <div class="pop-title">View</div>
+          <button class="style-card" id="sidebtn">&#8644;&ensp;Chat on the other side</button>
+          <button class="style-card" id="themebtn">Switch theme</button>
+        </div>
       </span>
     </div>
     <div id="stage">

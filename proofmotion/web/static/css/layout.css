@@ -84,11 +84,12 @@ body {
 }
 #composer.drop { outline: 2px dashed var(--accent); outline-offset: -6px; }
 #chips { display: flex; flex-wrap: wrap; gap: 6px; }
-/* The row spans the column and the textarea takes every pixel the buttons
-   leave — the input is the composer, not a field beside it. */
-#composer-row { display: flex; gap: 8px; align-items: flex-end; width: 100%; }
-#composer-text { flex: 1 1 auto; resize: none; min-width: 0; width: 100%; }
-#composer-row .pill, #composer-send { flex: none; }
+/* The textarea owns a whole line of the column — the input is the composer,
+   not a field wedged between buttons. Attach, voice and Send sit on their own
+   row beneath it, Send pushed to the right, the way every chat box reads. */
+#composer-text { width: 100%; resize: none; min-height: 3.2em; }
+#composer-row { display: flex; gap: 8px; align-items: center; width: 100%; }
+#composer-send { margin-left: auto; padding-top: 6px; padding-bottom: 6px; }
 
 /* main column, top to bottom: bar, stage, narration, filmstrip, status, log, deck */
 #bar {
