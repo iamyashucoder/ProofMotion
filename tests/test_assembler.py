@@ -157,7 +157,12 @@ class TestComponentSearch(unittest.TestCase):
         from proofmotion.tools.components_tool import component_search
 
         found = component_search(query)
-        return [c["name"] for c in found["components"] + found["rest_of_catalogue"]]
+        # The five shape components ride in their own section, always with
+        # full schemas; the ranked lists hold everything else.
+        return [
+            c["name"]
+            for c in found["shapes"] + found["components"] + found["rest_of_catalogue"]
+        ]
 
     def test_every_component_is_returned_whatever_the_words(self):
         for query in ("simple harmonic oscillator", "rotating disc angular momentum", "", "zzzz"):
@@ -188,7 +193,10 @@ class TestComponentSearch(unittest.TestCase):
         from proofmotion.tools.components_tool import component_search
 
         payload = len(json.dumps(component_search("tangent")))
-        self.assertLess(payload, 4_000 + 200 * len(COMPONENTS))
+        # The five shape components always carry their full schemas — that is
+        # the point of the shapes section, and it is capped at five by design —
+        # so the budget carries a fixed allowance for them.
+        self.assertLess(payload, 4_000 + 200 * len(COMPONENTS) + 3_500)
 
     def test_a_component_that_draws_nothing_says_so(self):
         from proofmotion.tools.components_tool import component_search

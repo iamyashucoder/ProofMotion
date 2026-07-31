@@ -18,11 +18,10 @@ from proofmotion.components.base import Built, component
 from proofmotion.components.mechanics import _annotate
 from proofmotion.layout.regions import layout, place
 from proofmotion.runtime.registry import ToolError
+from proofmotion.components.palette import PALETTE
 
 WIRE = "#94a3b8"
 BODY = "#4aa3df"
-HIGHLIGHT = "#fbbf24"
-ACCENT = "#4ade80"
 FORCE = "#f87171"
 
 
@@ -57,8 +56,8 @@ def circuit_diagram(p: CircuitParams) -> Built:
         Line(np.array([right, bottom, 0]), np.array([left, bottom, 0]), color=WIRE, stroke_width=3),
     )
     battery = VGroup(
-        Line(np.array([left - 0.28, 0.3, 0]), np.array([left + 0.28, 0.3, 0]), stroke_width=6, color=HIGHLIGHT),
-        Line(np.array([left - 0.16, -0.05, 0]), np.array([left + 0.16, -0.05, 0]), stroke_width=3, color=HIGHLIGHT),
+        Line(np.array([left - 0.28, 0.3, 0]), np.array([left + 0.28, 0.3, 0]), stroke_width=6, color=PALETTE.highlight),
+        Line(np.array([left - 0.16, -0.05, 0]), np.array([left + 0.16, -0.05, 0]), stroke_width=3, color=PALETTE.highlight),
     )
 
     parts: dict[str, Any] = {"wires": wires, "battery": battery}
@@ -96,10 +95,10 @@ def circuit_diagram(p: CircuitParams) -> Built:
         _annotate(box.get_center(), rf"{value:g}\,\Omega", obstacles, placed, parts, group, labels,
                   f"resistor_label_{index}", BODY)
     _annotate(np.array([left - 0.9, 0.1, 0.0]), rf"{p.voltage:g}\,\text{{V}}",
-              obstacles, placed, parts, group, labels, "voltage_label", HIGHLIGHT)
+              obstacles, placed, parts, group, labels, "voltage_label", PALETTE.highlight)
     _annotate(np.array([0.0, bottom - 0.9, 0.0]),
               rf"R_{{\text{{eq}}}}={total:.3f}\,\Omega,\ I={current:.3f}\,\text{{A}}",
-              obstacles, placed, parts, group, labels, "solution_label", ACCENT)
+              obstacles, placed, parts, group, labels, "solution_label", PALETTE.secondary)
     beats.append(labels)
 
     place(group, layout("title_stage_caption")[p.region])
@@ -138,12 +137,12 @@ def ray_diagram(p: RayDiagramParams) -> Built:
     scale = min(1.5, 4.4 / max(u, abs(v), 1e-6))
     axis = Line(np.array([-5.4, 0, 0]), np.array([5.4, 0, 0]), stroke_width=2, color="#475569")
     lens = Ellipse(width=0.42, height=3.1, color=BODY, fill_opacity=0.18, stroke_width=2.5)
-    focal_near = Dot(np.array([-abs(f) * scale, 0, 0]), radius=0.06, color=HIGHLIGHT)
-    focal_far = Dot(np.array([abs(f) * scale, 0, 0]), radius=0.06, color=HIGHLIGHT)
+    focal_near = Dot(np.array([-abs(f) * scale, 0, 0]), radius=0.06, color=PALETTE.highlight)
+    focal_far = Dot(np.array([abs(f) * scale, 0, 0]), radius=0.06, color=PALETTE.highlight)
 
     object_x = -u * scale
     object_arrow = Arrow(np.array([object_x, 0, 0]), np.array([object_x, p.object_height * scale, 0]),
-                         buff=0, stroke_width=4, color=ACCENT)
+                         buff=0, stroke_width=4, color=PALETTE.secondary)
     image_x = v * scale
     image_arrow = Arrow(np.array([image_x, 0, 0]), np.array([image_x, image_height * scale, 0]),
                         buff=0, stroke_width=4, color=FORCE)
@@ -177,12 +176,12 @@ def ray_diagram(p: RayDiagramParams) -> Built:
         obstacles.append(parts["virtual_extension"])
     placed: list[Any] = []
     labels: list[str] = []
-    _annotate(object_arrow.get_end(), r"\text{object}", obstacles, placed, parts, group, labels, "object_label", ACCENT)
+    _annotate(object_arrow.get_end(), r"\text{object}", obstacles, placed, parts, group, labels, "object_label", PALETTE.secondary)
     _annotate(image_arrow.get_end(), rf"\text{{{'real' if real else 'virtual'}}}",
               obstacles, placed, parts, group, labels, "image_label", FORCE)
     _annotate(np.array([0.0, -2.3, 0.0]),
               rf"\frac{{1}}{{f}}=\frac{{1}}{{u}}+\frac{{1}}{{v}}:\ v={v:.3f},\ m={magnification:.3f}",
-              obstacles, placed, parts, group, labels, "lens_equation", HIGHLIGHT)
+              obstacles, placed, parts, group, labels, "lens_equation", PALETTE.highlight)
     beats.append(labels)
 
     place(group, layout("title_stage_caption")[p.region])
@@ -313,7 +312,7 @@ def pv_diagram(p: PVDiagramParams) -> Built:
     )
     path = VMobject(stroke_width=3.5, color=BODY)
     path.set_points_as_corners([axes.c2p(v, q) for v, q in path_points])
-    markers = VGroup(*[Dot(axes.c2p(v, q), radius=0.07, color=HIGHLIGHT) for v, q in points])
+    markers = VGroup(*[Dot(axes.c2p(v, q), radius=0.07, color=PALETTE.highlight) for v, q in points])
 
     # Shoelace: positive for a clockwise loop, which is net work done by the gas.
     work = 0.0
@@ -333,11 +332,11 @@ def pv_diagram(p: PVDiagramParams) -> Built:
     labels: list[str] = []
     for index, (v, q) in enumerate(points):
         name = p.labels[index] if index < len(p.labels) else chr(ord("A") + index)
-        _annotate(axes.c2p(v, q), name, obstacles, placed, parts, group, labels, f"state_{index}", HIGHLIGHT)
+        _annotate(axes.c2p(v, q), name, obstacles, placed, parts, group, labels, f"state_{index}", PALETTE.highlight)
     if p.close_cycle and len(points) >= 3:
         kind = "engine" if work > 0 else "refrigerator"
         _annotate(axes.c2p(max(volumes) * 0.55, max(pressures) * 1.05),
-                  rf"W={work:.3f}\ (\text{{{kind}}})", obstacles, placed, parts, group, labels, "work_label", ACCENT)
+                  rf"W={work:.3f}\ (\text{{{kind}}})", obstacles, placed, parts, group, labels, "work_label", PALETTE.secondary)
     beats.append(labels)
 
     place(group, layout("title_stage_caption")[p.region])

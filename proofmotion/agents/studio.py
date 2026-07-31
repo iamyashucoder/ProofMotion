@@ -17,6 +17,7 @@ import json
 import logging
 from typing import Any
 
+from proofmotion.compose.shapes import SHAPE_FIRST
 from proofmotion.runtime.loop import run_structured
 from proofmotion.studio.document import Project
 from proofmotion.studio.operations import Edit
@@ -43,6 +44,8 @@ because the component you want is often further down under a name you would not
 have searched for. Call component_build to check parameters before you commit
 to them; it builds the real geometry and reports collisions.
 
+""" + SHAPE_FIRST + """
+
 A slide with no component is allowed when the mathematics genuinely has no
 picture, and then it needs a title and a caption. It is the exception, not the
 habit.
@@ -64,7 +67,8 @@ Operations:
                    You cannot know the id of a slide you are adding: ids belong
                    to the deck. Adding several? Leave `after` empty on all of
                    them and they land in the order you wrote them.
-  edit           — change a slide's title, component, parameters, caption, seconds
+  edit           — change a slide's title, component, parameters, caption,
+                   seconds, or narration (the words spoken over it, never shown)
   set_parameter  — change one parameter, leaving the rest alone
   reorder        — move a slide after another, or to the end
   delete         — remove a slide
@@ -108,6 +112,7 @@ def _describe(project: Project) -> str:
                     "parameters": s.parameters,
                     "caption": s.caption,
                     "seconds": s.seconds,
+                    "narration": s.narration,
                     "locked": s.locked,
                 }
                 for s in project.slides

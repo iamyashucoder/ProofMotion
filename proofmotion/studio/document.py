@@ -14,6 +14,7 @@ which is why slide ids are stable and why nothing here regenerates anything.
 from __future__ import annotations
 
 import json
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -42,6 +43,12 @@ class Slide(BaseModel):
     #: connecting one step to the next, and a deck of unrelated statements is
     #: what you get when nothing carries.
     bridge: str = ""
+    #: The slide's own words: shown under it as notes, spoken over it when the
+    #: deck has a voice. Deliberately absent from the render cache key — words
+    #: change no pixels, so editing them must not cost a render. The director
+    #: writes this for every scene; it used to be dropped on the way to the
+    #: document, generated on every run and reaching nothing.
+    narration: str = ""
     #: Manim written for this slide when nothing in the catalogue fits. The
     #: studio could only compose components, so a request to animate a square
     #: morphing into a circle produced an honest refusal and no slides at all —
@@ -62,6 +69,7 @@ class Slide(BaseModel):
             seconds=self.seconds,
             overrides=self.overrides,
             bridge_text=self.bridge,
+            narration=self.narration,
         )
 
 
@@ -72,6 +80,19 @@ class Project(BaseModel):
     question: str = ""
     revision: int = 0
     created_at: str = ""
+    #: How the deck looks: a palette preset name and a render quality letter.
+    #: Both are part of the clip cache key (quality always, style when not the
+    #: default), so changing either honestly re-renders the whole deck. Plain
+    #: strings validated at the edge, so a document written under a preset
+    #: that later disappears still loads.
+    style: str = "dark"
+    quality: str = "l"
+    #: The voice narration is spoken in; empty means the default voice. Part
+    #: of the speech cache key, never of the clip cache key.
+    voice: str = ""
+    #: Opt-in: lengthen any slide whose speech outruns it before rendering.
+    #: A visible edit to the document — which is exactly why it is opt-in.
+    fit_narration: bool = False
     slides: list[Slide] = Field(default_factory=list)
 
     # ---- identity -------------------------------------------------------
@@ -139,5 +160,9 @@ class Project(BaseModel):
         directory = Path(directory)
         directory.mkdir(parents=True, exist_ok=True)
         path = directory / "project.json"
-        path.write_text(json.dumps(self.model_dump(), indent=2), encoding="utf-8")
+        # Written beside the document and swapped in, so a crash mid-write can
+        # never leave half a project where a whole one used to be.
+        scratch = path.with_name(path.name + ".tmp")
+        scratch.write_text(json.dumps(self.model_dump(), indent=2), encoding="utf-8")
+        os.replace(scratch, path)
         return path

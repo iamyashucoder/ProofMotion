@@ -18,8 +18,8 @@ from proofmotion.layout.collision import holds_text
 from proofmotion.layout.labels import place_label
 from proofmotion.layout.regions import layout, place
 from proofmotion.runtime.registry import ToolError
+from proofmotion.components.palette import PALETTE
 
-AXIS_COLOR = "#9aa7bd"
 #: Ticks are labelled with whatever the step happens to be, so a step of
 #: (high-low)/6 prints "1.3333333333333" across the axis. Rounding the step to a
 #: 1/2/2.5/5 multiple is what makes the labels readable.
@@ -33,9 +33,9 @@ def _round_step(span: float, divisions: int = 6) -> float:
     rough = span / divisions
     magnitude = 10 ** math.floor(math.log10(rough))
     return next((m * magnitude for m in (1, 2, 2.5, 5, 10) if m * magnitude >= rough), magnitude * 10)
-ACCENT = "#4aa3df"
-HIGHLIGHT = "#fbbf24"
-PALETTE = ("#4aa3df", "#f87171", "#4ade80", "#fbbf24", "#a78bfa", "#fb923c")
+# Categorical colors for plotted series, cycled in order — distinct on
+# every preset background, so they stay literal rather than themed.
+SERIES = ("#4aa3df", "#f87171", "#4ade80", "#fbbf24", "#a78bfa", "#fb923c")
 
 
 class EquationChainParams(BaseModel):
@@ -66,7 +66,7 @@ def equation_chain(p: EquationChainParams) -> Built:
     for index, note in enumerate(p.labels[: len(stages) - 1], start=1):
         if not note:
             continue
-        text = Text(note, font_size=22, color=HIGHLIGHT)
+        text = Text(note, font_size=22, color=PALETTE.highlight)
         place_label(text, stages[index], avoid=[stages[index]])
         parts[f"note_{index}"] = text
         beats[index].append(f"note_{index}")
@@ -99,7 +99,7 @@ def geometry_construction(p: GeometryConstructionParams) -> Built:
     parts: dict[str, Any] = {}
     group = VGroup()
     for name, position in located.items():
-        dot = Dot(position, radius=0.06, color=ACCENT)
+        dot = Dot(position, radius=0.06, color=PALETTE.accent)
         parts[f"point_{name}"] = dot
         group.add(dot)
 
@@ -107,7 +107,7 @@ def geometry_construction(p: GeometryConstructionParams) -> Built:
     for index, (start, end) in enumerate(p.segments):
         if start not in located or end not in located:
             raise ToolError(f"segment [{start}, {end}] names a point that was not given")
-        line = Line(located[start], located[end], color=AXIS_COLOR, stroke_width=3)
+        line = Line(located[start], located[end], color=PALETTE.axis, stroke_width=3)
         parts[f"segment_{index}"] = line
         segment_objects.append(line)
         group.add(line)
@@ -121,7 +121,7 @@ def geometry_construction(p: GeometryConstructionParams) -> Built:
         for name in (at, first, second):
             if name not in located:
                 raise ToolError(f"angle names unknown point {name!r}")
-        arc = Angle(Line(located[at], located[first]), Line(located[at], located[second]), radius=0.42, color=HIGHLIGHT)
+        arc = Angle(Line(located[at], located[first]), Line(located[at], located[second]), radius=0.42, color=PALETTE.highlight)
         parts[f"angle_{index}"] = arc
         arcs.append(arc)
         group.add(arc)
@@ -142,7 +142,7 @@ def geometry_construction(p: GeometryConstructionParams) -> Built:
     if p.show_lengths:
         for index, (start, end) in enumerate(p.segments):
             length = float(np.linalg.norm(located[end] - located[start]))
-            text = MathTex(f"{length:.2f}", font_size=22, color=AXIS_COLOR)
+            text = MathTex(f"{length:.2f}", font_size=22, color=PALETTE.axis)
             place_label(text, (located[start] + located[end]) / 2, avoid=obstacles, placed=placed)
             parts[f"length_{index}"] = text
             placed.append(text)
@@ -227,7 +227,7 @@ def vector_field(p: VectorFieldParams) -> Built:
             scale = (step * 0.42 / magnitude) if p.normalize else min(step * 0.42, magnitude * 0.2)
             tail = plane.c2p(px, py)
             head = plane.c2p(px + vx * scale, py + vy * scale)
-            arrows.add(Arrow(tail, head, buff=0, stroke_width=2.4, max_tip_length_to_length_ratio=0.35, color=ACCENT))
+            arrows.add(Arrow(tail, head, buff=0, stroke_width=2.4, max_tip_length_to_length_ratio=0.35, color=PALETTE.accent))
 
     if not len(arrows):
         raise ToolError("the field vanished everywhere on the sampled grid")
@@ -246,7 +246,7 @@ def vector_field(p: VectorFieldParams) -> Built:
         stream = VMobject()
         stream.set_points_smoothly([plane.c2p(sx, sy) for sx, sy in trail])
         streams.append(stream)
-        tracers.add(Dot(plane.c2p(*trail[0]), radius=0.07, color=HIGHLIGHT))
+        tracers.add(Dot(plane.c2p(*trail[0]), radius=0.07, color=PALETTE.highlight))
 
     parts: dict[str, Any] = {"plane": plane, "arrows": arrows}
     group = VGroup(plane, arrows)
@@ -290,13 +290,13 @@ def unit_circle(p: UnitCircleParams) -> Built:
     centre = np.array([0.0, 0.0, 0.0])
     point = centre + np.array([radius * math.cos(radians), radius * math.sin(radians), 0.0])
 
-    circle = Circle(radius=radius, color=AXIS_COLOR, stroke_width=3)
+    circle = Circle(radius=radius, color=PALETTE.axis, stroke_width=3)
     horizontal = Line(centre + np.array([-radius - 0.3, 0, 0]), centre + np.array([radius + 0.3, 0, 0]),
                       stroke_width=2, color="#475569")
     vertical = Line(centre + np.array([0, -radius - 0.3, 0]), centre + np.array([0, radius + 0.3, 0]),
                     stroke_width=2, color="#475569")
-    spoke = Line(centre, point, color=ACCENT, stroke_width=3)
-    marker = Dot(point, radius=0.075, color=HIGHLIGHT)
+    spoke = Line(centre, point, color=PALETTE.accent, stroke_width=3)
+    marker = Dot(point, radius=0.075, color=PALETTE.highlight)
 
     parts: dict[str, Any] = {"circle": circle, "x_axis": horizontal, "y_axis": vertical,
                             "radius": spoke, "point": marker}
@@ -306,7 +306,7 @@ def unit_circle(p: UnitCircleParams) -> Built:
     # At 0 and 180 degrees the radius lies along the baseline, and Angle needs two
     # lines that actually cross. There is also no angle worth drawing there.
     if min(p.angle_deg % 180, 180 - p.angle_deg % 180) > 0.5:
-        arc = Angle(Line(centre, centre + np.array([radius, 0, 0])), spoke, radius=0.5, color=HIGHLIGHT)
+        arc = Angle(Line(centre, centre + np.array([radius, 0, 0])), spoke, radius=0.5, color=PALETTE.highlight)
         parts["angle"] = arc
         group.add(arc)
         beats[1].append("angle")
@@ -368,7 +368,7 @@ def number_line_marks(p: NumberLineParams) -> Built:
     span = p.stop - p.start
     line = NumberLine(
         x_range=[p.start, p.stop, span / 8], length=9.0, include_numbers=True,
-        color=AXIS_COLOR, font_size=22,
+        color=PALETTE.axis, font_size=22,
     )
     parts: dict[str, Any] = {"line": line}
     group = VGroup(line)
@@ -376,15 +376,15 @@ def number_line_marks(p: NumberLineParams) -> Built:
 
     if p.interval:
         low, high = float(p.interval[0]), float(p.interval[1])
-        band = Line(line.n2p(low), line.n2p(high), stroke_width=8, color=HIGHLIGHT, stroke_opacity=0.5)
+        band = Line(line.n2p(low), line.n2p(high), stroke_width=8, color=PALETTE.highlight, stroke_opacity=0.5)
         parts["interval"] = band
         group.add(band)
         beats.append(["interval"])
 
     placed, row = [], []
     for name, position in p.marks.items():
-        dot = Dot(line.n2p(float(position)), radius=0.07, color=ACCENT)
-        text = MathTex(name, font_size=26, color=ACCENT)
+        dot = Dot(line.n2p(float(position)), radius=0.07, color=PALETTE.accent)
+        text = MathTex(name, font_size=26, color=PALETTE.accent)
         place_label(text, dot, avoid=[line, *[v for k, v in parts.items() if k != "line"]], placed=placed)
         parts[f"mark_{name}"] = dot
         parts[f"label_{name}"] = text
@@ -459,7 +459,7 @@ def matrix_transform(p: MatrixTransformParams) -> Built:
                 continue
             real_eigen.append(float(value))
             arrow = Arrow(origin, plane.c2p(2 * vx / norm, 2 * vy / norm), buff=0,
-                          stroke_width=3, color=HIGHLIGHT)
+                          stroke_width=3, color=PALETTE.highlight)
             parts[f"eigenvector_{len(real_eigen)}"] = arrow
             group.add(arrow)
             obstacles.append(arrow)
@@ -548,7 +548,7 @@ def distribution_plot(p: DistributionPlotParams) -> Built:
             x_range=[-0.5, support[-1] + 0.5, max(1, len(support) // 8)],
             y_range=[0, max(masses) * 1.25, _round_step(max(masses) * 1.25, 4)],
             x_length=8.2, y_length=3.8, tips=False,
-            axis_config={"include_numbers": True, "color": AXIS_COLOR, "font_size": 20,
+            axis_config={"include_numbers": True, "color": PALETTE.axis, "font_size": 20,
                          "decimal_number_config": DECIMALS},
         )
         bars = VGroup()
@@ -557,7 +557,7 @@ def distribution_plot(p: DistributionPlotParams) -> Built:
             height = axes.c2p(0, mass)[1] - axes.c2p(0, 0)[1]
             inside = p.shade_from is not None and p.shade_to is not None and p.shade_from <= k <= p.shade_to
             bar = Rectangle(width=width, height=max(height, 1e-4),
-                            color=HIGHLIGHT if inside else ACCENT, fill_opacity=0.65, stroke_width=1)
+                            color=PALETTE.highlight if inside else PALETTE.accent, fill_opacity=0.65, stroke_width=1)
             bar.move_to(axes.c2p(k, mass / 2))
             bars.add(bar)
         parts: dict[str, Any] = {"axes": axes, "bars": bars}
@@ -586,15 +586,15 @@ def distribution_plot(p: DistributionPlotParams) -> Built:
             x_range=[low, high, _round_step(high - low)],
             y_range=[0, peak * 1.25, _round_step(peak * 1.25, 4)],
             x_length=8.2, y_length=3.8, tips=False,
-            axis_config={"include_numbers": True, "color": AXIS_COLOR, "font_size": 20,
+            axis_config={"include_numbers": True, "color": PALETTE.axis, "font_size": 20,
                          "decimal_number_config": DECIMALS},
         )
-        curve = axes.plot(density, x_range=[low, high], color=ACCENT)
+        curve = axes.plot(density, x_range=[low, high], color=PALETTE.accent)
         parts = {"axes": axes, "curve": curve}
         group = VGroup(axes, curve)
         beats = [["axes"], ["curve"]]
         if p.shade_from is not None and p.shade_to is not None:
-            shaded = axes.get_area(curve, x_range=[p.shade_from, p.shade_to], color=HIGHLIGHT, opacity=0.45)
+            shaded = axes.get_area(curve, x_range=[p.shade_from, p.shade_to], color=PALETTE.highlight, opacity=0.45)
             parts["shaded"] = shaded
             group.add(shaded)
             beats.append(["shaded"])
@@ -639,7 +639,7 @@ def array_cells(p: ArrayCellsParams) -> Built:
         marked = index in p.highlight
         box = Rectangle(
             width=cell_width, height=cell_width * 0.82,
-            color=HIGHLIGHT if marked else AXIS_COLOR,
+            color=PALETTE.highlight if marked else PALETTE.axis,
             fill_opacity=0.35 if marked else 0.08,
             stroke_width=2.4 if marked else 1.6,
         )
@@ -670,7 +670,7 @@ def array_cells(p: ArrayCellsParams) -> Built:
         if not 0 <= position < count:
             raise ToolError(f"pointer {name!r} points at index {position}, outside 0..{count - 1}")
         base = parts[f"cell_{position}"].get_bottom()
-        colour = PALETTE[order % len(PALETTE)]
+        colour = SERIES[order % len(SERIES)]
         text = MathTex(name, font_size=22, color=colour)
         half = max(float(text.width), 0.3) / 2 + 0.06
 

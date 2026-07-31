@@ -1,0 +1,90 @@
+/* Palettes only. Dark is the house default; light exists for daylight. The
+   OS preference picks a side until the person does — an explicit data-theme
+   on <html> must beat prefers-color-scheme in both directions, which is why
+   the attribute blocks sit last. */
+
+:root {
+  --bg: #0d1117;
+  --panel: #161b22;
+  --rail: #0a0e14;
+  --line: #26303d;
+  --ink: #e6edf3;
+  --dim: #8b949e;
+  --accent: #4aa3df;
+  --accent-ink: #04121e;
+  --field: #0b1017;
+  --stage: #000;
+  --you: #1f6feb;
+  --you-ink: #fff;
+  --ok: #3fb950;
+  --warn: #d29922;
+  --err: #f85149;
+  --lock: #8957e5;
+  --shadow: 0 8px 28px rgba(0, 0, 0, .5);
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f6f8fa;
+    --panel: #ffffff;
+    --rail: #eaeef2;
+    --line: #d0d7de;
+    --ink: #1f2328;
+    --dim: #57606a;
+    --accent: #0969da;
+    --accent-ink: #fff;
+    --field: #eef1f4;
+    --stage: #0d1117;
+    --you: #1f6feb;
+    --you-ink: #fff;
+    --ok: #1a7f37;
+    --warn: #9a6700;
+    --err: #cf222e;
+    --lock: #8250df;
+    --shadow: 0 8px 28px rgba(140, 149, 159, .3);
+    color-scheme: light;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0d1117;
+  --panel: #161b22;
+  --rail: #0a0e14;
+  --line: #26303d;
+  --ink: #e6edf3;
+  --dim: #8b949e;
+  --accent: #4aa3df;
+  --accent-ink: #04121e;
+  --field: #0b1017;
+  --stage: #000;
+  --you: #1f6feb;
+  --you-ink: #fff;
+  --ok: #3fb950;
+  --warn: #d29922;
+  --err: #f85149;
+  --lock: #8957e5;
+  --shadow: 0 8px 28px rgba(0, 0, 0, .5);
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --bg: #f6f8fa;
+  --panel: #ffffff;
+  --rail: #eaeef2;
+  --line: #d0d7de;
+  --ink: #1f2328;
+  --dim: #57606a;
+  --accent: #0969da;
+  --accent-ink: #fff;
+  --field: #eef1f4;
+  --stage: #0d1117;
+  --you: #1f6feb;
+  --you-ink: #fff;
+  --ok: #1a7f37;
+  --warn: #9a6700;
+  --err: #cf222e;
+  --lock: #8250df;
+  --shadow: 0 8px 28px rgba(140, 149, 159, .3);
+  color-scheme: light;
+}

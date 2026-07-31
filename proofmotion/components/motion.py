@@ -25,12 +25,8 @@ from pydantic import BaseModel, Field
 from proofmotion.components.base import Built, component
 from proofmotion.layout.collision import holds_text
 from proofmotion.layout.regions import layout, place
+from proofmotion.components.palette import PALETTE
 
-AXIS_COLOR = "#9aa7bd"
-ACCENT = "#4aa3df"
-HIGHLIGHT = "#fbbf24"
-LIMIT = "#4ade80"
-DIVERGE = "#f87171"
 
 
 class BouncingTrajectoryParams(BaseModel):
@@ -65,13 +61,13 @@ def bouncing_trajectory(p: BouncingTrajectoryParams) -> Built:
         x_range=[0, span, 1],
         y_range=[0, tallest * 1.15, _step(tallest * 1.15)],
         x_length=8.6, y_length=4.0, tips=False,
-        axis_config={"include_numbers": False, "color": AXIS_COLOR},
+        axis_config={"include_numbers": False, "color": PALETTE.axis},
         y_axis_config={"include_numbers": True, "font_size": 20,
                        "decimal_number_config": {"num_decimal_places": 0 if tallest >= 10 else 1}},
     )
-    ground = DashedLine(axes.c2p(0, 0), axes.c2p(span, 0), color=AXIS_COLOR, stroke_width=2)
+    ground = DashedLine(axes.c2p(0, 0), axes.c2p(span, 0), color=PALETTE.axis, stroke_width=2)
 
-    path = VMobject(color=ACCENT, stroke_width=4)
+    path = VMobject(color=PALETTE.accent, stroke_width=4)
     points: list[Any] = []
     for index, peak in enumerate(peaks):
         # A bounce is a parabola from the ground up to its peak and back.
@@ -85,11 +81,11 @@ def bouncing_trajectory(p: BouncingTrajectoryParams) -> Built:
             points.append(axes.c2p(x, max(y, 0)))
     path.set_points_smoothly(points)
 
-    ball = Circle(radius=0.13, color=HIGHLIGHT, fill_opacity=1).move_to(points[0])
+    ball = Circle(radius=0.13, color=PALETTE.highlight, fill_opacity=1).move_to(points[0])
 
     markers = VGroup()
     for index, peak in enumerate(peaks[:4]):
-        label = MathTex(f"{peak:.2f}".rstrip("0").rstrip("."), font_size=22, color=HIGHLIGHT)
+        label = MathTex(f"{peak:.2f}".rstrip("0").rstrip("."), font_size=22, color=PALETTE.highlight)
         label.next_to(axes.c2p(index + (0.5 if index else 0.0), peak), np.array([0, 1, 0]), buff=0.12)
         markers.add(label)
 
@@ -163,7 +159,7 @@ def partial_sums(p: PartialSumsParams) -> Built:
         x_range=[0, len(sums) + 1, max(1, len(sums) // 6)],
         y_range=[lowest, highest + pad, _step(highest + pad - lowest)],
         x_length=8.4, y_length=3.9, tips=False,
-        axis_config={"include_numbers": True, "color": AXIS_COLOR, "font_size": 20,
+        axis_config={"include_numbers": True, "color": PALETTE.axis, "font_size": 20,
                      "decimal_number_config": {"num_decimal_places": 0 if highest >= 20 else 1}},
     )
 
@@ -171,9 +167,9 @@ def partial_sums(p: PartialSumsParams) -> Built:
     previous = None
     for index, value in enumerate(sums, start=1):
         here = axes.c2p(index, value)
-        dots.add(Dot(here, radius=0.06, color=ACCENT))
+        dots.add(Dot(here, radius=0.06, color=PALETTE.accent))
         if previous is not None:
-            joins.add(Line(previous, here, color=ACCENT, stroke_width=2.5))
+            joins.add(Line(previous, here, color=PALETTE.accent, stroke_width=2.5))
         previous = here
 
     parts: dict[str, Any] = {"axes": axes, "steps": joins, "sums": dots}
@@ -182,15 +178,15 @@ def partial_sums(p: PartialSumsParams) -> Built:
 
     if p.limit is not None:
         line = DashedLine(axes.c2p(0, p.limit), axes.c2p(len(sums) + 1, p.limit),
-                          color=LIMIT, stroke_width=3)
-        tag = MathTex(f"{p.label} \\to {p.limit:g}", font_size=26, color=LIMIT)
+                          color=PALETTE.good, stroke_width=3)
+        tag = MathTex(f"{p.label} \\to {p.limit:g}", font_size=26, color=PALETTE.good)
         tag.next_to(line, direction=[0, 1, 0], buff=0.1)
         parts["limit"], parts["limit_label"] = line, tag
         group.add(line, tag)
         beats.append(["limit", "limit_label"])
     else:
         # Nothing to converge to. Saying so is the point of the picture.
-        tag = MathTex(r"\text{grows without bound}", font_size=26, color=DIVERGE)
+        tag = MathTex(r"\text{grows without bound}", font_size=26, color=PALETTE.bad)
         tag.next_to(dots[-1], direction=[0, 1, 0], buff=0.15)
         parts["diverges"] = tag
         group.add(tag)
@@ -254,7 +250,7 @@ def neural_network(p: NeuralNetworkParams) -> Built:
         spread = height / max(1, count)
         for unit in range(count):
             y = (unit - (count - 1) / 2) * spread
-            circle = Circle(radius=radius, color=ACCENT, fill_opacity=0.25, stroke_width=2)
+            circle = Circle(radius=radius, color=PALETTE.accent, fill_opacity=0.25, stroke_width=2)
             circle.move_to(np.array([x, y, 0.0]))
             column.append(circle)
             nodes.add(circle)
@@ -273,7 +269,7 @@ def neural_network(p: NeuralNetworkParams) -> Built:
     for index, name in enumerate(p.labels[: len(p.layers)]):
         if not name:
             continue
-        text = Text(name, font_size=20, color=AXIS_COLOR)
+        text = Text(name, font_size=20, color=PALETTE.axis)
         text.next_to(columns[index][-1], np.array([0, 1, 0]), buff=0.22)
         captions.add(text)
 
@@ -284,7 +280,7 @@ def neural_network(p: NeuralNetworkParams) -> Built:
 
     entering = None
     if p.highlight:
-        entering = MathTex(p.highlight, font_size=28, color=HIGHLIGHT)
+        entering = MathTex(p.highlight, font_size=28, color=PALETTE.highlight)
         entering.next_to(columns[0][len(columns[0]) // 2], np.array([-1, 0, 0]), buff=0.3)
         parts["input"] = entering
         group.add(entering)
@@ -304,7 +300,7 @@ def neural_network(p: NeuralNetworkParams) -> Built:
                 # bottleneck, which is the opposite of what a dense layer does.
                 share = position / max(1, len(left) - 1)
                 target = right[round(share * (len(right) - 1))]
-                pulses.add(Dot(source.get_center(), radius=0.055, color=HIGHLIGHT))
+                pulses.add(Dot(source.get_center(), radius=0.055, color=PALETTE.highlight))
                 paths.append(Line(source.get_center(), target.get_center()))
             stages.append(AnimationGroup(*[
                 MoveAlongPath(dot, path) for dot, path in zip(pulses, paths, strict=False)
@@ -339,7 +335,7 @@ class FlowDiagramParams(BaseModel):
     region: str = "stage"
 
 
-@component(version=1, domain="general", params=FlowDiagramParams)
+@component(version=1, domain="general", params=FlowDiagramParams, shape="sequence")
 def flow_diagram(p: FlowDiagramParams) -> Built:
     """A process as connected stages, with a token travelling the whole path.
 
@@ -371,10 +367,10 @@ def flow_diagram(p: FlowDiagramParams) -> Built:
 
         box = RoundedRectangle(
             width=box_w, height=box_h, corner_radius=0.12,
-            color=HIGHLIGHT if accent else ACCENT,
+            color=PALETTE.highlight if accent else PALETTE.accent,
             fill_opacity=0.28 if accent else 0.12, stroke_width=2.5,
         ).move_to(np.array([x, y, 0.0]))
-        label = Text(name, font_size=18, color="#e6edf3")
+        label = Text(name, font_size=18, color=PALETTE.ink)
         label.scale_to_fit_width(min(label.width, box_w * 0.86))
         label.move_to(box.get_center())
         holds_text(box)
@@ -392,7 +388,7 @@ def flow_diagram(p: FlowDiagramParams) -> Built:
             right.get_right() if same_row else right.get_top()
         )
         arrows.add(Arrow(start, end, buff=0.06, stroke_width=3,
-                         max_tip_length_to_length_ratio=0.22, color="#64748b"))
+                         max_tip_length_to_length_ratio=0.22, color=PALETTE.muted))
         hops.append((start, end))
 
     parts: dict[str, Any] = {"stages": boxes, "labels": captions, "arrows": arrows}
@@ -401,7 +397,7 @@ def flow_diagram(p: FlowDiagramParams) -> Built:
     if p.feedback and count > 2:
         loop = CurvedArrow(
             centres[-1].get_bottom(), centres[0].get_bottom(),
-            angle=-1.1, color="#4ade80", stroke_width=2.5, tip_length=0.16,
+            angle=-1.1, color=PALETTE.good, stroke_width=2.5, tip_length=0.16,
         )
         parts["feedback"] = loop
         group.add(loop)
@@ -412,7 +408,7 @@ def flow_diagram(p: FlowDiagramParams) -> Built:
         """A token down the whole chain, so the sequence is watched, not read."""
         from manim import FadeIn, FadeOut, Line
 
-        token = Dot(radius=0.08, color=HIGHLIGHT)
+        token = Dot(radius=0.08, color=PALETTE.highlight)
         steps: list[Any] = [FadeIn(token.move_to(centres[0].get_center()), run_time=0.2)]
         for left, right in pairwise(centres):
             steps.append(MoveAlongPath(token, Line(left.get_center(), right.get_center())))

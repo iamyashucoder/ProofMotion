@@ -1,0 +1,108 @@
+/* The shell: [rail | splitter | chat | splitter | main] as one flex row.
+   Widths are CSS variables set by layout.js; the chat swaps sides by
+   reordering, not by moving DOM, so nothing loses its listeners or scroll. */
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font: 14px/1.55 -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  overflow: hidden;
+}
+
+#app { display: flex; height: 100vh; --rail-w: 212px; --chat-w: 380px; }
+
+#rail {
+  order: 0; width: var(--rail-w); flex: none; min-width: 140px;
+  background: var(--rail); border-right: 1px solid var(--line);
+  display: flex; flex-direction: column; min-height: 0;
+}
+#split-rail { order: 1; }
+#chat {
+  order: 2; width: var(--chat-w); flex: none; min-width: 0; min-height: 0;
+  display: flex; flex-direction: column; border-right: 1px solid var(--line);
+}
+#split-chat { order: 3; }
+#main { order: 4; flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+
+#app[data-chat-side="right"] #main { order: 2; border-right: 1px solid var(--line); }
+#app[data-chat-side="right"] #split-chat { order: 3; }
+#app[data-chat-side="right"] #chat { order: 4; border-right: 0; border-left: 1px solid var(--line); }
+#app[data-chat-side="right"] #chat-expand { order: 4; }
+
+.splitter { flex: none; width: 5px; cursor: col-resize; background: transparent; touch-action: none; }
+.splitter:hover, .splitter.dragging { background: var(--accent); }
+
+/* Collapsed panels shrink to a narrow strip whose only job is to come back. */
+.edge-expand {
+  display: none; flex: none; width: 22px; padding: 0;
+  border: 0; border-right: 1px solid var(--line);
+  background: var(--rail); color: var(--dim); cursor: pointer; font-size: 13px;
+}
+.edge-expand:hover { color: var(--ink); }
+#rail-expand { order: 0; }
+#chat-expand { order: 2; }
+#app.rail-collapsed #rail, #app.rail-collapsed #split-rail { display: none; }
+#app.rail-collapsed #rail-expand { display: block; }
+#app.chat-collapsed #chat, #app.chat-collapsed #split-chat { display: none; }
+#app.chat-collapsed #chat-expand { display: block; }
+
+/* rail internals */
+.railhead { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px 8px; flex: none; }
+.railhead h1 { font-size: 13px; letter-spacing: .5px; margin: 0; color: var(--dim); }
+#projects { flex: 1; overflow-y: auto; padding: 0 8px 10px; min-height: 0; }
+
+/* chat internals */
+.panelhead {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 14px; border-bottom: 1px solid var(--line);
+  font-size: 11px; letter-spacing: .6px; color: var(--dim); flex: none;
+}
+#transcript { flex: 1; overflow-y: auto; padding: 18px; min-height: 0; }
+#chat-hint { flex: none; }
+#composer { border-top: 1px solid var(--line); padding: 12px; display: flex; gap: 8px; flex: none; }
+#composer-text { flex: 1; resize: none; min-width: 0; }
+
+/* main column, top to bottom: bar, stage, narration, filmstrip, status, log, deck */
+#bar {
+  display: flex; gap: 8px; align-items: center; padding: 7px 12px;
+  border-bottom: 1px solid var(--line); flex-wrap: wrap; flex: none;
+}
+#stage {
+  flex: 1; min-height: 0; position: relative; background: var(--stage);
+  display: flex; align-items: center; justify-content: center;
+  padding: 6px; overflow: hidden;
+}
+#narration { flex: none; border-top: 1px solid var(--line); padding: 6px 12px; }
+#film {
+  flex: none; position: relative; display: flex; gap: 8px;
+  overflow-x: auto; padding: 7px 12px 5px; border-top: 1px solid var(--line);
+}
+#statusbar {
+  flex: none; display: flex; align-items: center; gap: 8px;
+  padding: 7px 14px; font-size: 12px; color: var(--dim);
+  border-top: 1px solid var(--line); min-height: 32px;
+}
+#logdrawer {
+  flex: none; height: 160px; overflow-y: auto; padding: 6px 12px;
+  border-top: 1px solid var(--line); font-size: 12px; background: var(--rail);
+}
+#deckhead {
+  flex: none; display: flex; align-items: center; gap: 8px; padding: 6px 12px;
+  font-size: 12px; color: var(--dim); cursor: pointer;
+  border-top: 1px solid var(--line); user-select: none;
+}
+#deck { flex: none; overflow-y: auto; padding: 12px; max-height: 34vh; }
+#deck-hint { flex: none; }
+#app.deck-folded #deck, #app.deck-folded #deck-hint { display: none; }
+
+#poster {
+  max-width: 100%; max-height: 100%; object-fit: contain; display: block;
+  cursor: grab; user-select: none; touch-action: none;
+}
+#poster.dragging { cursor: grabbing; }
+#video { max-width: 100%; max-height: 100%; width: auto; height: auto; display: block; }
+
+.grow { flex: 1; }

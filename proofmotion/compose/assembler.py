@@ -25,14 +25,20 @@ from proofmotion.layout.notation import looks_like_maths, to_latex
 from proofmotion.runtime.registry import ToolError
 from schemas.storyboard import MAX_SCENES
 
-HEADER = '''from manim import *
+def _header(style: str) -> str:
+    # activate() runs before the scene class exists, so the background and the
+    # text defaults are set by the time Manim draws anything — that is what
+    # restyles fifty-odd components without any of them naming a color twice.
+    return f'''from manim import *
 
 from proofmotion.components import build
+from proofmotion.components.palette import activate
 from proofmotion.layout.preamble import ensure_packages
 from proofmotion.layout.regions import layout, place
 from proofmotion.layout.reveal import reveal_all
 
 ensure_packages()
+activate({style!r})
 
 
 class GeneratedScene(Scene):
@@ -58,6 +64,10 @@ class SceneAssignment(BaseModel):
     bridge_text: str = Field(default="", description="Short visual connection from the retained board item to this step.")
     forget_after: list[str] = Field(default_factory=list, description="Board items cleared after this step is read.")
     seconds: float = Field(default=6.0, gt=0.5, le=40.0, description="Target length of this scene.")
+    narration: str = Field(
+        default="",
+        description="One or two sentences read aloud over this scene. Spoken, never shown on screen.",
+    )
     #: Hand corrections applied after the layout engine has placed everything.
     #: A checker can measure that a label overlaps; it cannot know the label
     #: reads better slightly left. See PLAN-STUDIO §7.
@@ -143,7 +153,7 @@ def _nudge(name: str, overrides: dict[str, Any]) -> list[str]:
     return lines
 
 
-def assemble(plan: ScenePlan) -> str:
+def assemble(plan: ScenePlan, *, style: str = "dark") -> str:
     """Turn chosen components into complete, runnable source.
 
     Raises when the plan does not fully check out. A half-assembled scene would
@@ -307,7 +317,7 @@ def assemble(plan: ScenePlan) -> str:
     write("        if leaving:")
     write("            self.play(*[FadeOut(m) for m in leaving], run_time=0.5)")
 
-    return HEADER + "\n".join(lines) + "\n"
+    return _header(style) + "\n".join(lines) + "\n"
 
 
 def estimated_seconds(plan: ScenePlan) -> float:

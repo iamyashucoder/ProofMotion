@@ -18,12 +18,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from proofmotion.compose import (
-    ScenePlan,
-    pictorial_coverage,
-    plan_from_storyboard,
-    select_components,
-)
+from proofmotion.compose import ScenePlan, pictorial_coverage
 from proofmotion.layout.notation import readable
 from proofmotion.runtime.events import headline
 from proofmotion.runtime.registry import ToolError
@@ -34,14 +29,16 @@ log = logging.getLogger(__name__)
 
 
 def _plan_for(client: Any, question: str, state: dict[str, Any]) -> ScenePlan | None:
-    """Run the pipeline's understanding and planning, and map it onto components."""
-    from proofmotion.agents.director import direct_storyboard
-    from proofmotion.agents.intent import understand_request
-    from proofmotion.agents.planner import plan_mathematics
-    from proofmotion.agents.verifier import verify_plan
+    """Run the shared derivation, and map its storyboard onto components.
+
+    The steps live in compose.derivation and are the same ones the pipeline
+    runs — including the completeness retry and the final-answer gate, which
+    this path silently lacked while it was a hand-trimmed copy.
+    """
+    from proofmotion.compose import derivation
 
     headline("Reading the request")
-    intent = understand_request(client, question)
+    intent = derivation.understood(client, question)
     state["intent"] = intent.model_dump()
     headline(f"Read it as: {intent.topic} ({intent.domain})")
 
@@ -55,12 +52,12 @@ def _plan_for(client: Any, question: str, state: dict[str, Any]) -> ScenePlan | 
         return None
 
     headline("Deriving the mathematics")
-    plan = plan_mathematics(client, intent)
+    plan = derivation.planned(client, intent)
     state["math_plan"] = plan.model_dump()
     headline(f"Derived {len(plan.concept_sequence)} steps using symbolic tools", "improved")
 
     headline("Verifying")
-    verification = verify_plan(plan)
+    verification = derivation.verified(plan)
     state["verified_math"] = verification
     failures = len(verification.get("failures") or [])
     headline(
@@ -70,50 +67,23 @@ def _plan_for(client: Any, question: str, state: dict[str, Any]) -> ScenePlan | 
     )
 
     headline("Designing the scenes")
-    storyboard = direct_storyboard(client, intent, plan, verification)
+    storyboard = derivation.storyboarded(client, intent, plan, verification)
     state["storyboard"] = storyboard.model_dump()
     headline(f"Composed {len(storyboard.scenes)} scenes", "improved")
 
-    # The director already searched for components and built them to check the
-    # geometry. When its storyboard names ones that validate, the plan is
-    # written and costs no further model call.
-    derived = plan_from_storyboard(state["storyboard"])
-    if derived is not None:
-        headline("Read the scene plan from the storyboard; no extra model call", "improved")
-        return derived
-
-    headline("Choosing components for each scene")
-    selection = select_components(client, state)
-    return selection["plan"]
+    return derivation.scene_plan_from(client, state)
 
 
 def _shape_of(state: dict[str, Any]) -> list[Operation]:
-    """The steps as a flow diagram, when the plan drew nothing at all.
+    """The plan's structure as a shape, when the plan drew nothing at all.
 
-    A derivation is a sequence and so is a process; the plan already holds it
-    in order. Drawing that costs one slide and gives the deck a shape to hang
-    the words on, which is the difference between watching an explanation and
-    reading one.
+    The routing lives in compose.shapes beside the prompt that teaches the
+    same idea, so the deterministic fallback and the model's instruction
+    cannot drift apart.
     """
-    steps = (state.get("math_plan") or {}).get("concept_sequence") or []
-    stages = [str(s.get("concept", "")).strip() for s in steps]
-    stages = [s[:26] for s in stages if s]
-    if len(stages) < 2:
-        return []
-    if len(stages) > 8:
-        # Sampled evenly across the whole sequence, which keeps both ends. An
-        # earlier version appended the last stage and then truncated to eight,
-        # so a thirteen-step process lost the step it was working towards.
-        last = len(stages) - 1
-        chosen = sorted({round(i * last / 7) for i in range(8)})
-        stages = [stages[i] for i in chosen]
+    from proofmotion.compose.shapes import shape_fallback
 
-    topic = (state.get("intent") or {}).get("topic") or "The whole process"
-    return [Operation(
-        kind="add", title=str(topic)[:56], component="flow_diagram",
-        parameters={"stages": stages, "highlight": [], "feedback": False},
-        seconds=10.0, reason="the shape of the argument, before its steps",
-    )]
+    return shape_fallback(state)
 
 
 def _usable_assignment(assignment):
@@ -176,6 +146,7 @@ def answer_fully(client: Any, project: Project, question: str) -> tuple[list[Ope
                 parameters=assignment.parameters,
                 caption=assignment.caption,
                 seconds=assignment.seconds,
+                narration=assignment.narration,
                 reason="from the verified plan",
             )
         )
@@ -340,6 +311,7 @@ def derive_anyway(client: Any, project: Project, question: str) -> tuple[list[Op
             kind="add", after=after, title=assignment.title,
             component=assignment.component, parameters=assignment.parameters,
             caption=assignment.caption, seconds=assignment.seconds,
+            narration=assignment.narration,
             reason="from the verified plan",
         ))
         after = ""

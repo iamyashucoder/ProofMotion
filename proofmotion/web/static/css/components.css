@@ -1,0 +1,203 @@
+/* Everything that sits inside the shell: bubbles, cards, thumbnails,
+   controls, toasts, the log drawer. Same dark room as the old single-file
+   page, drawn from the variables in theme.css. */
+
+/* The page toggles visibility through the hidden attribute; it must beat
+   any author display rule on the same element. */
+[hidden] { display: none !important; }
+
+button { font: inherit; }
+button:disabled { opacity: .4; cursor: default !important; }
+
+.pill {
+  font-size: 11px; border: 1px solid var(--line); border-radius: 20px;
+  padding: 2px 10px; color: var(--dim); cursor: pointer; background: none;
+  font-weight: 400; flex: none;
+}
+.pill:hover:not(:disabled) { color: var(--ink); border-color: var(--accent); }
+.pill.on { color: var(--accent); border-color: var(--accent); }
+
+.ghostbtn {
+  background: none; border: 0; color: var(--dim); cursor: pointer;
+  font-size: 12px; padding: 2px 5px; border-radius: 4px;
+}
+.ghostbtn:hover { color: var(--ink); }
+
+input[type=text], input[type=number], textarea, select {
+  background: var(--field); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 6px;
+  padding: 4px 7px; font: inherit;
+}
+textarea { padding: 10px; border-radius: 9px; }
+input[type=range], input[type=checkbox] { accent-color: var(--accent); }
+select.tool { padding: 3px 7px; }
+
+.meta { font-size: 12px; color: var(--dim); }
+.sep { width: 1px; height: 18px; background: var(--line); flex: none; }
+.hint { color: var(--dim); font-size: 12.5px; padding: 10px 14px; }
+.inline-edit { width: 100%; max-width: 340px; }
+
+/* ---- projects rail -------------------------------------------------- */
+#newbtn {
+  margin: 0 12px 10px; padding: 9px; border-radius: 8px;
+  background: var(--accent); color: var(--accent-ink);
+  font-weight: 600; border: 0; cursor: pointer; flex: none;
+}
+.proj { padding: 8px 10px; border-radius: 7px; cursor: pointer; font-size: 13px; color: var(--dim); }
+.proj-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.proj:hover { background: var(--panel); }
+.proj.on { background: var(--panel); color: var(--ink); border-left: 2px solid var(--accent); }
+.proj small { display: block; font-size: 11px; opacity: .65; }
+
+/* ---- chat ----------------------------------------------------------- */
+.msg { margin-bottom: 15px; max-width: 93%; }
+.msg.you { margin-left: auto; }
+.bubble { padding: 10px 13px; border-radius: 12px; white-space: pre-wrap; word-break: break-word; }
+.you .bubble { background: var(--you); color: var(--you-ink); }
+.bot .bubble { background: var(--panel); border: 1px solid var(--line); }
+.tick { max-width: 100%; margin-bottom: 4px; }
+.tick .bubble { background: none; border: 0; color: var(--dim); font-size: 12.5px; padding: 3px 4px; }
+.ops { margin-top: 6px; font-size: 12px; color: var(--dim); display: flex; flex-direction: column; gap: 2px; }
+.opchip code {
+  background: var(--field); padding: 1px 5px; border-radius: 4px;
+  color: var(--accent); margin-right: 4px;
+}
+#composer-send {
+  background: var(--accent); color: var(--accent-ink); border: 0;
+  border-radius: 9px; padding: 0 15px; font-weight: 600; cursor: pointer;
+}
+
+/* ---- stage ---------------------------------------------------------- */
+.stage-note {
+  color: var(--dim); border: 1px dashed var(--line); border-radius: 10px;
+  padding: 24px 32px; max-width: 70%; text-align: center; font-size: 13px;
+}
+.ghost {
+  position: absolute; pointer-events: none; opacity: .5;
+  background-size: 100% 100%; background-repeat: no-repeat;
+  outline: 1px dashed var(--accent); z-index: 4;
+}
+.draghud {
+  position: absolute; top: 10px; left: 10px; z-index: 5; pointer-events: none;
+  background: var(--panel); border: 1px solid var(--line); color: var(--ink);
+  font-size: 12px; padding: 4px 9px; border-radius: 6px;
+  font-variant-numeric: tabular-nums;
+}
+#narration { color: var(--dim); font-size: 12.5px; }
+
+/* ---- filmstrip ------------------------------------------------------ */
+.thumb { flex: none; cursor: pointer; }
+.thumb-box { position: relative; height: 52px; }
+.thumb img { height: 52px; border: 2px solid transparent; border-radius: 5px; background: #000; display: block; }
+.thumb.on img { border-color: var(--accent); }
+.thumb-empty {
+  height: 52px; width: 88px; border: 2px dashed var(--line); border-radius: 5px;
+  font-size: 10px; color: var(--dim); display: flex; align-items: center;
+  justify-content: center; text-align: center; overflow: hidden; padding: 2px;
+}
+.thumb.on .thumb-empty { border-color: var(--accent); border-style: solid; }
+.thumb-badge {
+  position: absolute; top: -4px; right: -4px; z-index: 2;
+  background: var(--err); color: #fff; border-radius: 50%;
+  width: 14px; height: 14px; font-size: 10px; line-height: 14px; text-align: center;
+}
+.thumb .num { font-size: 10px; color: var(--dim); text-align: center; }
+.thumb.drag-src { opacity: .4; }
+.dropmark {
+  position: absolute; top: 6px; bottom: 20px; width: 2px; border-radius: 1px;
+  background: var(--accent); pointer-events: none; z-index: 3;
+}
+
+/* ---- deck cards ----------------------------------------------------- */
+.slide-card {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 9px; padding: 10px 12px; margin-bottom: 9px;
+}
+.slide-card.locked { border-color: var(--lock); }
+.slide-card.pending { opacity: .6; }
+.cardhead { display: flex; align-items: center; gap: 6px; }
+.cardhead h4 { margin: 0 0 3px; font-size: 13px; cursor: text; }
+.cardhead .ghostbtn { opacity: 0; }
+.slide-card:hover .cardhead .ghostbtn { opacity: 1; }
+.caption { font-size: 12.5px; color: var(--dim); cursor: text; margin: 2px 0; white-space: pre-wrap; }
+.narration { font-size: 12.5px; color: var(--dim); font-style: italic; cursor: text; white-space: pre-wrap; flex: 1; min-width: 0; }
+.row { display: flex; gap: 8px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
+.row label { font-size: 12px; color: var(--dim); min-width: 64px; }
+.row input[type=range] { flex: 1; min-width: 90px; }
+.row input[type=number] { max-width: 80px; }
+.row input[type=text] { max-width: 170px; }
+.row input.wide { flex: 1; max-width: none; }
+.row .readout { min-width: 44px; }
+.remake { flex: 1; max-width: none !important; }
+.slide-error { color: var(--err); font-size: 12px; margin-top: 6px; white-space: pre-wrap; word-break: break-word; }
+
+/* ---- status bar, log drawer ----------------------------------------- */
+#dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); flex: none; }
+#dot[data-state="on"] { background: var(--ok); }
+#dot[data-state="wait"] { background: var(--warn); }
+.spinner {
+  width: 12px; height: 12px; flex: none; border-radius: 50%;
+  border: 2px solid var(--line); border-top-color: var(--accent);
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.chip {
+  font-size: 11px; border: 1px solid var(--line); border-radius: 20px;
+  padding: 1px 8px; color: var(--dim); flex: none;
+}
+.chip.warn { color: var(--warn); border-color: var(--warn); }
+#statustext { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.logline { display: flex; gap: 8px; align-items: baseline; padding: 1px 0; }
+.logtime { color: var(--dim); flex: none; font-variant-numeric: tabular-nums; }
+.logkind {
+  flex: none; font-size: 10px; text-transform: uppercase;
+  border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; color: var(--dim);
+}
+.logkind.k-fixed { color: var(--ok); border-color: var(--ok); }
+.logkind.k-warned { color: var(--warn); border-color: var(--warn); }
+.logkind.k-improved { color: var(--accent); border-color: var(--accent); }
+.logtext { white-space: pre-wrap; word-break: break-word; }
+
+/* ---- popover -------------------------------------------------------- */
+.popover-host { position: relative; flex: none; }
+.popover {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 60;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 9px;
+  padding: 6px; min-width: 220px; box-shadow: var(--shadow);
+  display: flex; flex-direction: column;
+}
+.export-row { padding: 8px 10px; border-radius: 6px; color: var(--ink); text-decoration: none; font-size: 13px; }
+a.export-row:hover { background: var(--field); }
+.export-row.off { color: var(--dim); cursor: not-allowed; }
+
+/* ---- style picker --------------------------------------------------- */
+.pop-title { font-size: 10px; letter-spacing: .6px; text-transform: uppercase; color: var(--dim); padding: 4px 10px 2px; }
+.style-card {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 8px 10px; border: 0; background: none; border-radius: 6px;
+  color: var(--ink); font: inherit; font-size: 13px; cursor: pointer; text-align: left;
+}
+.style-card:hover:not(:disabled) { background: var(--field); }
+.style-card.on { outline: 1px solid var(--accent); }
+.swatches { display: flex; gap: 3px; flex: none; }
+.swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--line); display: inline-block; }
+.quality-row { padding: 2px 10px 6px; margin-top: 2px; }
+
+/* ---- toasts --------------------------------------------------------- */
+#toasts {
+  position: fixed; top: 12px; right: 12px; z-index: 100;
+  display: flex; flex-direction: column; gap: 8px; max-width: 360px;
+}
+.toast {
+  display: flex; gap: 8px; align-items: flex-start; cursor: pointer;
+  background: var(--panel); border: 1px solid var(--line);
+  border-left: 3px solid var(--err); border-radius: 9px;
+  padding: 9px 10px; font-size: 13px; box-shadow: var(--shadow);
+}
+.toast.warn { border-left-color: var(--warn); }
+.toast.info { border-left-color: var(--accent); }
+.toast.pinned { border-color: var(--accent); border-left-width: 3px; }
+.toast-text { white-space: pre-wrap; word-break: break-word; }
+.toast-x { background: none; border: 0; color: var(--dim); cursor: pointer; font-size: 14px; line-height: 1; padding: 0 2px; }
+.toast-x:hover { color: var(--ink); }

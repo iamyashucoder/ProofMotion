@@ -18,12 +18,13 @@ import logging
 from typing import Any
 
 from proofmotion.compose.assembler import ScenePlan, check, coverage
+from proofmotion.compose.shapes import SHAPE_FIRST
 from proofmotion.runtime.loop import run_structured
 from proofmotion.tools import toolset
 
 log = logging.getLogger(__name__)
 
-SYSTEM = """You map a storyboard onto verified components.
+SYSTEM = f"""You map a storyboard onto verified components.
 
 Components are tested builders that own the hard parts — axis ranges derived
 from the actual function, label positions scored against the geometry, text
@@ -32,6 +33,8 @@ it, and with what parameters.
 
 Call component_search first — it returns each component's exact parameters along
 with what it is for. Ask for several searches in one turn; they run concurrently.
+
+{SHAPE_FIRST}
 
 Give real parameters, computed from the verified plan you are given — the actual
 function, the actual interval, the actual values. Not placeholders.
@@ -44,7 +47,8 @@ parameters and build again until it reports ok.
 A scene with no picture in it — a derivation, a rearrangement, a substitution —
 is not a scene without a component. That is what equation_chain is for: give it
 the steps as LaTeX and it morphs each into the next. Reach for it before you
-conclude a scene cannot be composed.
+conclude a scene cannot be composed — and a scene that compares, decomposes,
+stacks or tabulates is a shape component before it is equation_chain.
 
 Answer null for a scene's component only when nothing genuinely fits — a
 construction no component covers. Then give the scene a title and a caption, so
@@ -53,6 +57,8 @@ draws something confidently wrong, which is worse than leaving it null.
 
 Keep the caption to the one equation the scene is about, as LaTeX without $
 delimiters, or leave it empty. Titles are short — a few words, not a sentence.
+Give each scene narration — a sentence or two that reads aloud what the viewer
+is watching. It is spoken, never shown on screen.
 
 Scene lengths should sum to roughly the target duration in the brief."""
 

@@ -11,13 +11,35 @@ the pipeline costs nothing when nobody is watching.
 
 from __future__ import annotations
 
+import contextvars
 import queue
 import threading
 import time
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
-from typing import Any
+from typing import Any, Iterator
 
 MAX_HISTORY = 2000
+
+#: Which project the current thread of work belongs to. The bus is process-wide
+#: and the studio serves many projects at once, so every event carries this —
+#: otherwise one project's render progress lands in another project's stream.
+_PROJECT: contextvars.ContextVar[str] = contextvars.ContextVar("project", default="")
+
+
+@contextmanager
+def scoped(project_id: str) -> Iterator[None]:
+    """Stamp every event emitted inside with the project it belongs to.
+
+    A context variable rather than an argument, because the emitters are deep
+    inside the pipeline and the render loop — none of which should know that
+    projects exist.
+    """
+    token = _PROJECT.set(project_id)
+    try:
+        yield
+    finally:
+        _PROJECT.reset(token)
 
 
 @dataclass
@@ -44,11 +66,18 @@ class EventBus:
             self._history.clear()
             self._started = time.monotonic()
 
-    def subscribe(self) -> queue.Queue[Event]:
-        """Register a listener; it receives the run so far, then live events."""
+    def subscribe(self, replay: int | None = None) -> queue.Queue[Event]:
+        """Register a listener; it receives the run so far, then live events.
+
+        `replay` bounds how much of the past a late subscriber is handed:
+        None means everything (the live pipeline view wants the whole run),
+        0 means only what happens next. A page refresh mid-session used to be
+        handed the entire history and finish on a status line from an hour ago.
+        """
         listener: queue.Queue[Event] = queue.Queue()
         with self._lock:
-            for event in self._history:
+            past = self._history if replay is None else (self._history[-replay:] if replay else [])
+            for event in past:
                 listener.put(event)
             self._subscribers.append(listener)
         return listener
@@ -65,6 +94,7 @@ class EventBus:
         "kind" — headlines carry one, and without the `/` every headline raised
         "got multiple values for argument 'kind'".
         """
+        data.setdefault("project", _PROJECT.get())
         event = Event(kind=kind, at=round(time.monotonic() - self._started, 2), data=data)
         with self._lock:
             self._history.append(event)

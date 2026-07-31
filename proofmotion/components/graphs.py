@@ -16,8 +16,8 @@ from proofmotion.components.base import Built, component
 from proofmotion.layout.labels import place_label
 from proofmotion.layout.regions import layout, place
 from proofmotion.tools.numeric import numeric_sample
+from proofmotion.components.palette import PALETTE
 
-AXIS_COLOR = "#9aa7bd"
 
 
 def tick_decimals(step: float) -> int:
@@ -92,7 +92,7 @@ def _axes(expr: str, x_range: tuple[float, float], y_range: tuple[float, float] 
         x_length=9.2,
         y_length=4.4,
         tips=False,
-        axis_config={"include_numbers": True, "color": AXIS_COLOR, "font_size": 22},
+        axis_config={"include_numbers": True, "color": PALETTE.axis, "font_size": 22},
         x_axis_config={"decimal_number_config": {"num_decimal_places": tick_decimals(x_step)}},
         y_axis_config={"decimal_number_config": {"num_decimal_places": tick_decimals(y_step)}},
     )
@@ -117,7 +117,7 @@ def _relabel_extremes(axis, span: list[float]) -> None:
     # parent has to be found before either of them can be swapped.
     def swap(parent) -> None:
         for number in [m for m in (parent.submobjects or []) if isinstance(m, DecimalNumber)]:
-            replacement = MathTex(compact(float(number.get_value())), font_size=20, color=AXIS_COLOR)
+            replacement = MathTex(compact(float(number.get_value())), font_size=20, color=PALETTE.axis)
             replacement.move_to(number)
             parent.remove(number)
             parent.add(replacement)

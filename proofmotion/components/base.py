@@ -57,10 +57,16 @@ class Component:
     #: scene — technically composed, and still four screens of algebra. What
     #: makes a visual explanation visual is not "used a component".
     pictorial: bool = True
+    #: The class of idea this draws, when it draws one from labels alone:
+    #: "sequence", "comparison", "tree", "stack", or "grid". Empty for subject
+    #: components. This is retrieval surface, not behaviour — a shape component
+    #: is found by the shape of the idea, so a miss on a subject never falls to
+    #: a blank when the idea's shape is in the library.
+    shape: str = ""
 
     def describe(self) -> dict[str, Any]:
         schema = self.params.model_json_schema()
-        return {
+        description = {
             "name": self.name,
             "version": self.version,
             "domain": self.domain,
@@ -68,25 +74,31 @@ class Component:
             "parameters": schema.get("properties", {}),
             "required": schema.get("required", []),
         }
+        if self.shape:
+            description["shape"] = self.shape
+        return description
 
 
 COMPONENTS: dict[str, Component] = {}
 
 
 def component(
-    *, version: int, domain: str, params: type[BaseModel], pictorial: bool = True
+    *, version: int, domain: str, params: type[BaseModel], pictorial: bool = True,
+    shape: str = "",
 ) -> Callable[[Callable[..., Built]], Callable[..., Built]]:
     """Register a builder. The summary comes from the docstring's first line.
 
     Pass pictorial=False for a component that sets mathematics rather than
     drawing something, so a run can tell whether it actually produced pictures.
+    Pass shape for the five shape components only — it is what lets a miss on a
+    subject fall to the shape of the idea instead of to a blank.
     """
 
     def register(fn: Callable[..., Built]) -> Callable[..., Built]:
         summary = (fn.__doc__ or "").strip().splitlines()[0] if fn.__doc__ else fn.__name__
         COMPONENTS[fn.__name__] = Component(
             name=fn.__name__, version=version, domain=domain, summary=summary,
-            params=params, build=fn, pictorial=pictorial,
+            params=params, build=fn, pictorial=pictorial, shape=shape,
         )
         return fn
 

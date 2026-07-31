@@ -93,6 +93,9 @@ def plan_from_storyboard(storyboard: dict[str, Any]) -> ScenePlan | None:
                 bridge_text=str(scene.get("bridge_text") or "")[:120],
                 forget_after=[item for item in (scene.get("forget_after") or []) if item in {"diagram", "equation"}],
                 seconds=min(40.0, max(1.0, float(scene.get("duration_seconds") or 6.0))),
+                # The director writes narration for every scene; dropping it
+                # here is why it was generated on every run and reached nothing.
+                narration=str(scene.get("narration") or "").strip(),
             )
         )
 

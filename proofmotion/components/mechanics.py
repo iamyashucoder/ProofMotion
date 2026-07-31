@@ -15,12 +15,11 @@ from pydantic import BaseModel, Field
 from proofmotion.components.base import Built, component
 from proofmotion.layout.labels import place_label
 from proofmotion.layout.regions import layout, place
+from proofmotion.components.palette import PALETTE
 
 GRAVITY = 9.81
 BODY = "#4aa3df"
 FORCE = "#f87171"
-ACCENT = "#4ade80"
-HIGHLIGHT = "#fbbf24"
 
 
 def _annotate(anchor, tex: str, avoid: list, placed: list, parts: dict, group, row: list, key: str, colour=None):
@@ -66,7 +65,7 @@ def pendulum(p: PendulumParams) -> Built:
     vertical = DashedLine(pivot, rest_at, color="#475569", stroke_width=2)
     bob = Circle(radius=0.26, color=BODY, fill_opacity=0.55).move_to(bob_at)
     hinge = Circle(radius=0.06, color="#94a3b8", fill_opacity=1).move_to(pivot)
-    arc = Angle(Line(pivot, rest_at), rod, radius=0.6, color=HIGHLIGHT)
+    arc = Angle(Line(pivot, rest_at), rod, radius=0.6, color=PALETTE.highlight)
 
     parts: dict[str, Any] = {"rod": rod, "vertical": vertical, "bob": bob, "pivot": hinge, "angle": arc}
     group = VGroup(vertical, rod, arc, hinge, bob)
@@ -77,7 +76,7 @@ def pendulum(p: PendulumParams) -> Built:
     if p.show_forces:
         weight = Arrow(bob_at, bob_at + np.array([0, -1.05, 0]), buff=0, stroke_width=4, color=FORCE)
         along = (pivot - bob_at) / np.linalg.norm(pivot - bob_at)
-        tension = Arrow(bob_at, bob_at + along * 0.95, buff=0, stroke_width=4, color=ACCENT)
+        tension = Arrow(bob_at, bob_at + along * 0.95, buff=0, stroke_width=4, color=PALETTE.secondary)
         parts.update({"weight": weight, "tension": tension})
         group.add(weight, tension)
         obstacles += [weight, tension]
@@ -92,9 +91,9 @@ def pendulum(p: PendulumParams) -> Built:
     labels: list[str] = []
     if p.show_forces:
         _annotate(parts["weight"].get_end(), "mg", obstacles, placed, parts, group, labels, "weight_label", FORCE)
-        _annotate(parts["tension"].get_end(), "T", obstacles, placed, parts, group, labels, "tension_label", ACCENT)
+        _annotate(parts["tension"].get_end(), "T", obstacles, placed, parts, group, labels, "tension_label", PALETTE.secondary)
     _annotate(pivot + np.array([0.35, -0.85, 0.0]), rf"\theta={p.angle_deg:g}^\circ",
-              obstacles, placed, parts, group, labels, "angle_label", HIGHLIGHT)
+              obstacles, placed, parts, group, labels, "angle_label", PALETTE.highlight)
     _annotate(np.array([0.0, -2.3, 0.0]), rf"T=2\pi\sqrt{{L/g}}={period:.3f}\,\text{{s}}",
               obstacles, placed, parts, group, labels, "period_label")
     beats.append(labels)
@@ -177,7 +176,7 @@ def spring_mass(p: SpringMassParams) -> Built:
     labels: list[str] = []
     _annotate(block.get_center(), "m", obstacles, placed, parts, group, labels, "mass_label")
     _annotate(np.array([(wall_x + mass_x) / 2, 0.45, 0.0]), rf"k={p.stiffness:g}",
-              obstacles, placed, parts, group, labels, "k_label", HIGHLIGHT)
+              obstacles, placed, parts, group, labels, "k_label", PALETTE.highlight)
     _annotate(np.array([0.0, -1.9, 0.0]),
               rf"\omega=\sqrt{{k/m}}={omega:.3f},\ T={period:.3f}\,\text{{s}}",
               obstacles, placed, parts, group, labels, "period_label")
@@ -273,7 +272,7 @@ def collision(p: CollisionParams) -> Built:
     ):
         _annotate(circle.get_center(), f"{value:.2f}", obstacles, placed, parts, group, labels, key, colour)
     _annotate(np.array([0.0, 2.3, 0.0]), rf"p={total_p:.3f}\ \text{{conserved}}",
-              obstacles, placed, parts, group, labels, "momentum_label", HIGHLIGHT)
+              obstacles, placed, parts, group, labels, "momentum_label", PALETTE.highlight)
     beats.append(labels)
 
     place(group, layout("title_stage_caption")[p.region])
@@ -308,13 +307,13 @@ def orbit(p: OrbitParams) -> Built:
     c = a * p.eccentricity
 
     path = Ellipse(width=2 * a, height=2 * b, color="#64748b", stroke_width=3)
-    primary = Dot(np.array([-c, 0.0, 0.0]), radius=0.16, color=HIGHLIGHT)
+    primary = Dot(np.array([-c, 0.0, 0.0]), radius=0.16, color=PALETTE.highlight)
     centre = Dot(np.array([0.0, 0.0, 0.0]), radius=0.045, color="#475569")
     theta = math.radians(p.body_angle_deg)
     position = np.array([a * math.cos(theta), b * math.sin(theta), 0.0])
     body = Dot(position, radius=0.1, color=BODY)
     radius_line = Line(primary.get_center(), position, stroke_width=2, color="#94a3b8")
-    perihelion = Dot(np.array([-a, 0.0, 0.0]), radius=0.06, color=ACCENT)
+    perihelion = Dot(np.array([-a, 0.0, 0.0]), radius=0.06, color=PALETTE.secondary)
     aphelion = Dot(np.array([a, 0.0, 0.0]), radius=0.06, color=FORCE)
 
     parts: dict[str, Any] = {
@@ -327,9 +326,9 @@ def orbit(p: OrbitParams) -> Built:
     obstacles = [path, radius_line]
     placed: list[Any] = []
     labels: list[str] = []
-    _annotate(primary.get_center(), r"\text{focus}", obstacles, placed, parts, group, labels, "focus_label", HIGHLIGHT)
+    _annotate(primary.get_center(), r"\text{focus}", obstacles, placed, parts, group, labels, "focus_label", PALETTE.highlight)
     _annotate(perihelion.get_center(), rf"r_{{\min}}={a - c:.2f}", obstacles, placed, parts, group, labels,
-              "perihelion_label", ACCENT)
+              "perihelion_label", PALETTE.secondary)
     _annotate(aphelion.get_center(), rf"r_{{\max}}={a + c:.2f}", obstacles, placed, parts, group, labels,
               "aphelion_label", FORCE)
     _annotate(np.array([0.0, -b - 0.7, 0.0]), rf"e={p.eccentricity:g}",
@@ -370,11 +369,11 @@ def torque_diagram(p: TorqueParams) -> Built:
     force_vec = np.array([magnitude * math.cos(radians), magnitude * math.sin(radians), 0.0])
 
     arm = Line(pivot, tip, stroke_width=5, color="#94a3b8")
-    hinge = Dot(pivot, radius=0.09, color=HIGHLIGHT)
+    hinge = Dot(pivot, radius=0.09, color=PALETTE.highlight)
     applied = Arrow(tip, tip + force_vec, buff=0, stroke_width=4, color=FORCE)
-    perpendicular = Arrow(tip, tip + np.array([0.0, force_vec[1], 0.0]), buff=0, stroke_width=3, color=ACCENT)
+    perpendicular = Arrow(tip, tip + np.array([0.0, force_vec[1], 0.0]), buff=0, stroke_width=3, color=PALETTE.secondary)
     guide = DashedLine(tip + force_vec, tip + np.array([0.0, force_vec[1], 0.0]), stroke_width=1.6, color="#475569")
-    arc = Angle(Line(tip, pivot), applied, radius=0.5, color=HIGHLIGHT) if 0.5 < p.angle_deg < 179.5 else None
+    arc = Angle(Line(tip, pivot), applied, radius=0.5, color=PALETTE.highlight) if 0.5 < p.angle_deg < 179.5 else None
 
     torque = p.lever_arm * p.force * math.sin(radians)
     parts: dict[str, Any] = {"arm": arm, "pivot": hinge, "force": applied,
@@ -391,10 +390,10 @@ def torque_diagram(p: TorqueParams) -> Built:
     placed: list[Any] = []
     labels: list[str] = []
     _annotate(applied.get_end(), "F", obstacles, placed, parts, group, labels, "force_label", FORCE)
-    _annotate(perpendicular.get_end(), r"F\sin\theta", obstacles, placed, parts, group, labels, "perp_label", ACCENT)
+    _annotate(perpendicular.get_end(), r"F\sin\theta", obstacles, placed, parts, group, labels, "perp_label", PALETTE.secondary)
     _annotate((pivot + tip) / 2, "r", obstacles, placed, parts, group, labels, "arm_label")
     _annotate(np.array([0.0, -2.2, 0.0]), rf"\tau=rF\sin\theta={torque:.3f}\,\text{{N·m}}",
-              obstacles, placed, parts, group, labels, "torque_label", HIGHLIGHT)
+              obstacles, placed, parts, group, labels, "torque_label", PALETTE.highlight)
     beats.append(labels)
 
     place(group, layout("title_stage_caption")[p.region])
@@ -438,7 +437,7 @@ def standing_wave(p: StandingWaveParams) -> Built:
 
     if p.show_nodes:
         nodes = VGroup(*[
-            Dot(np.array([-p.length / 2 + i * p.length / p.harmonic, 0, 0]), radius=0.07, color=HIGHLIGHT)
+            Dot(np.array([-p.length / 2 + i * p.length / p.harmonic, 0, 0]), radius=0.07, color=PALETTE.highlight)
             for i in range(p.harmonic + 1)
         ])
         parts["nodes"] = nodes
@@ -450,7 +449,7 @@ def standing_wave(p: StandingWaveParams) -> Built:
     labels: list[str] = []
     _annotate(np.array([0.0, p.amplitude + 0.55, 0.0]),
               rf"n={p.harmonic},\ \lambda=\frac{{2L}}{{n}}={wavelength:.3f}",
-              obstacles, placed, parts, group, labels, "wavelength_label", HIGHLIGHT)
+              obstacles, placed, parts, group, labels, "wavelength_label", PALETTE.highlight)
     beats.append(labels)
 
     place(group, layout("title_stage_caption")[p.region])

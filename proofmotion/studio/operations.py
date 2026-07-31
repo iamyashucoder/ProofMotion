@@ -39,6 +39,9 @@ class Operation(BaseModel):
     slide_id: str = ""
     #: For `add`: place after this slide, or at the end when empty.
     after: str = ""
+    #: For `reorder` only: place before this slide instead. `after` cannot say
+    #: "the front", which is exactly where a dragged thumbnail most often goes.
+    before: str = ""
     title: str | None = None
     component: str | None = None
     parameters: dict[str, Any] | None = None
@@ -46,6 +49,13 @@ class Operation(BaseModel):
     seconds: float | None = None
     #: A few words carrying the previous slide into this one.
     bridge: str | None = None
+    #: What is read aloud over this slide. Spoken, never shown on screen, and
+    #: never part of the render cache key — words change no pixels.
+    narration: str | None = None
+    #: Hand placement carried onto the slide. Set when duplicating, so the
+    #: copy keeps the nudges the person made; without it a duplicate silently
+    #: lost every hand correction.
+    overrides: dict[str, Any] | None = None
     #: Manim for this slide when nothing in the catalogue fits. Written by the
     #: coder, never by the edit agent — which has no way to check it.
     code: str | None = None
@@ -206,6 +216,8 @@ def apply(project: Project, operation: Operation) -> Project:
             seconds=operation.seconds or 6.0,
             code=usable_code(operation.code) if operation.code else "",
             bridge=operation.bridge or "",
+            narration=operation.narration or "",
+            overrides=dict(operation.overrides or {}),
         )
         if not slide.component and not slide.caption and not slide.title and not slide.code:
             raise ToolError("a slide needs a component, a caption, or a title")
@@ -230,7 +242,12 @@ def apply(project: Project, operation: Operation) -> Project:
 
     if kind == "reorder":
         project.slides.remove(slide)
-        position = project.index_of(operation.after) + 1 if operation.after else len(project.slides)
+        if operation.before:
+            position = project.index_of(operation.before)
+        elif operation.after:
+            position = project.index_of(operation.after) + 1
+        else:
+            position = len(project.slides)
         project.slides.insert(position, slide)
         return project
 
@@ -269,6 +286,8 @@ def apply(project: Project, operation: Operation) -> Project:
             slide.seconds = operation.seconds
         if operation.bridge is not None:
             slide.bridge = operation.bridge
+        if operation.narration is not None:
+            slide.narration = operation.narration
         if operation.code is not None:
             slide.code = usable_code(operation.code) if operation.code else ""
         return project

@@ -609,6 +609,60 @@ class ComponentTests(unittest.TestCase):
             dict(amplitude=1, wavelength=2, cycles=2), dict(amplitude=0.4, wavelength=0.6, cycles=6),
             dict(amplitude=3, wavelength=5, cycles=1),
         ],
+        "comparison": [
+            dict(left_title="SFT", right_title="RLHF",
+                 rows=[["labelled demonstrations", "preference pairs"],
+                       ["one pass over the data", "reward model + PPO"]]),
+            dict(left_title="monolith deployment", right_title="microservice deployment",
+                 rows=[["one build artefact for everything", "one artefact per service boundary"],
+                       ["a single shared relational database", "each service owns its own store"],
+                       ["in-process function calls", "network calls with retries and timeouts"],
+                       ["one team ships the whole release", "teams release independently"],
+                       ["scaling means a bigger machine", "scaling means more replicas of one part"],
+                       ["a bug takes the whole site down", "a bug degrades one capability"],
+                       ["simple to trace end to end", "needs distributed tracing to follow"],
+                       ["cheap to start, costly to grow", "costly to start, cheaper to grow"]],
+                 row_labels=["build", "data", "calls", "release", "scaling", "failure", "debugging", "cost"],
+                 highlight=[0, 5]),
+            dict(left_title="before", right_title="after",
+                 rows=[["manual deploys", ""], ["", "automatic rollback"]]),
+        ],
+        "hierarchy": [
+            dict(edges=[["model", "encoder"]]),
+            dict(edges=[["ML", "supervised"], ["ML", "unsupervised"], ["ML", "reinforcement"],
+                        ["ML", "self-supervised"], ["ML", "semi-supervised"]]),
+            dict(edges=[["compiler", "front end"], ["compiler", "middle end"], ["compiler", "back end"],
+                        ["front end", "lexing"], ["front end", "parsing"], ["front end", "type checking"],
+                        ["middle end", "SSA"], ["middle end", "inlining"], ["middle end", "loop opts"],
+                        ["middle end", "DCE"], ["back end", "instruction selection"],
+                        ["back end", "register allocation"], ["back end", "scheduling"],
+                        ["back end", "emission"], ["lexing", "tokens"], ["parsing", "AST"],
+                        ["SSA", "phi nodes"], ["register allocation", "spilling"]],
+                 highlight=["middle end"]),
+        ],
+        "layers": [
+            dict(layers=["hardware", "application"]),
+            dict(layers=["physical", "data link", "network", "transport", "session",
+                         "presentation", "application"],
+                 annotations=["bits on a wire", "frames, MAC", "IP routing", "TCP/UDP",
+                              "", "encodings", "HTTP and friends"],
+                 highlight=[2, 3]),
+        ],
+        "grid_map": [
+            dict(row_labels=["actual spam"], col_labels=["predicted spam"], cells=[["90"]]),
+            dict(row_labels=["s1", "s2", "s3", "s4", "s5", "s6"],
+                 col_labels=["a", "b", "c", "d", "e", "f"],
+                 cells=[["1", "", "3", "", "5", ""],
+                        ["", "2", "", "4", "", "6"],
+                        ["7", "8", "", "", "9", "10"],
+                        ["", "", "11", "12", "", ""],
+                        ["13", "", "", "", "14", ""],
+                        ["", "15", "", "16", "", "17"]]),
+            dict(row_labels=["low", "medium", "high"],
+                 col_labels=["north", "east", "south", "west"],
+                 cells=[["3", "1", "4", "1"], ["5", "9", "2", "6"], ["5", "3", "5", "8"]],
+                 highlight=[[0, 1], [2, 3]]),
+        ],
         "iteration_trace": [
             dict(expr="(x-2)**2+1", update_rule="x - 0.2*2*(x-2)", start=-2, steps=10, x_min=-3, x_max=6),
             dict(expr="(x-2)**2+1", update_rule="x - 0.05*2*(x-2)", start=5.5, steps=40, x_min=-3, x_max=6),
@@ -753,6 +807,56 @@ class ComponentTests(unittest.TestCase):
             build("riemann_area", dict(expr="x**2", a=0, b=1, rectangles=0))  # below ge=1
         with self.assertRaises(ToolError):
             build("nonexistent_component", {})
+
+
+class ShapeValidatorTests(unittest.TestCase):
+    """The shape components refuse malformed structure with a plain sentence."""
+
+    def refuse(self, name, parameters, keyword):
+        from proofmotion.runtime.registry import ToolError
+
+        with self.assertRaises(ToolError) as caught:
+            build(name, parameters)
+        self.assertIn(keyword, str(caught.exception))
+
+    def test_comparison_rejects_a_row_that_is_not_a_pair(self):
+        self.refuse(
+            "comparison",
+            dict(left_title="a", right_title="b", rows=[["one", "two", "three"]]),
+            "exactly two cells",
+        )
+
+    def test_hierarchy_rejects_two_roots(self):
+        self.refuse("hierarchy", dict(edges=[["a", "b"], ["c", "d"]]), "exactly one root")
+
+    def test_hierarchy_rejects_a_cycle(self):
+        self.refuse(
+            "hierarchy",
+            dict(edges=[["root", "a"], ["b", "c"], ["c", "b"]]),
+            "cycle",
+        )
+
+    def test_hierarchy_rejects_a_tree_five_levels_deep(self):
+        self.refuse(
+            "hierarchy",
+            dict(edges=[["a", "b"], ["b", "c"], ["c", "d"], ["d", "e"]]),
+            "levels deep",
+        )
+
+    def test_grid_map_rejects_ragged_cells(self):
+        self.refuse(
+            "grid_map",
+            dict(row_labels=["r1", "r2"], col_labels=["c1", "c2"],
+                 cells=[["1", "2"], ["3", "4", "5"]]),
+            "column labels",
+        )
+
+    def test_layers_rejects_mismatched_annotations(self):
+        self.refuse(
+            "layers",
+            dict(layers=["hardware", "kernel", "application"], annotations=["only one"]),
+            "annotations",
+        )
 
 
 if __name__ == "__main__":

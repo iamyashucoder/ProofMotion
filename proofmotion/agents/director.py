@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from proofmotion.compose.shapes import SHAPE_FIRST
 from proofmotion.runtime.loop import run_structured
 from proofmotion.tools import toolset
 from schemas.intent import AnimationIntent
@@ -57,6 +58,8 @@ component you want is often further down under a name you would not have
 searched for: a mass on a spring is spring_mass whatever the question calls it,
 a block on a slope is inclined_plane, a lens is ray_diagram, forces on a body
 are free_body_diagram. Look through the list before concluding nothing fits.
+
+""" + SHAPE_FIRST + """
 
 Choose the component that already contains what the scene is about. A scene
 showing a tangent is tangent_secant — not function_plot with a tangent line

@@ -21,10 +21,9 @@ from proofmotion.agents.coder import write_scene
 from proofmotion.agents.completeness import (
     check_solution_completeness,
     check_storyboard_final_answer,
-    ensure_storyboard_final_answer,
 )
 from proofmotion.agents.debugger import polish_scene, repair_scene
-from proofmotion.agents.director import direct_storyboard
+from proofmotion.compose.derivation import IncompletePlan, planned, storyboarded
 from proofmotion.agents.intent import understand_request
 from proofmotion.agents.planner import plan_mathematics
 from proofmotion.agents.verifier import verify_plan
@@ -316,19 +315,12 @@ def _run(
             f"Competitive-exam safeguards: {', '.join(exam_requirements['matched_domains'])}",
             "improved",
         )
-    plan = plan_mathematics(client, intent, exam_requirements=exam_requirements)
+    try:
+        plan = planned(client, intent, exam_requirements=exam_requirements)
+    except IncompletePlan as error:
+        raise LLMError(str(error)) from error
+    # Recorded for the state file; the gate inside `planned` guarantees it.
     completeness = check_solution_completeness(plan, intent)
-    if not completeness["complete"]:
-        headline("Mathematical plan was incomplete; requesting a full worked solution", "warned")
-        plan = plan_mathematics(
-            client,
-            intent,
-            exam_requirements=exam_requirements,
-            completion_feedback="; ".join(completeness["problems"]),
-        )
-        completeness = check_solution_completeness(plan, intent)
-    if not completeness["complete"]:
-        raise LLMError(f"Mathematical plan is incomplete: {'; '.join(completeness['problems'])}")
 
     # A reference is only used on an exact local match.  Novel prompts retain
     # the existing symbolic/numeric verification path unchanged.
@@ -378,14 +370,14 @@ def _run(
         state.selected_tools.extend(["study_animation_brief", "study_animation_timing", "motion_design_audit"])
         artifact("study_animation_brief", creator_brief)
         headline("Creator study-animation safeguards enabled", "improved")
-    storyboard = direct_storyboard(client, intent, plan, state.verified_math, creator_brief=creator_brief)
+    try:
+        storyboard = storyboarded(
+            client, intent, plan, state.verified_math, creator_brief=creator_brief
+        )
+    except IncompletePlan as error:
+        raise LLMError(str(error)) from error
+    # Recorded for the state file; the gate inside `storyboarded` guarantees it.
     storyboard_completeness = check_storyboard_final_answer(storyboard, plan.final_answer_latex)
-    if not storyboard_completeness["complete"]:
-        storyboard = ensure_storyboard_final_answer(storyboard, plan.final_answer_latex, plan.final_answer_explanation)
-        storyboard_completeness = check_storyboard_final_answer(storyboard, plan.final_answer_latex)
-        if not storyboard_completeness["complete"]:
-            raise LLMError(f"Storyboard is incomplete: {'; '.join(storyboard_completeness['problems'])}")
-        headline("Added the verified final answer to the closing storyboard scene", "improved")
     state.storyboard = storyboard.model_dump()
     state.tool_results["storyboard_completeness"] = storyboard_completeness
     state.selected_tools = list(dict.fromkeys([

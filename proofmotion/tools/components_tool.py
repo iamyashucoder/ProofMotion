@@ -42,11 +42,34 @@ def component_search(query: str = "", domain: str = "") -> dict[str, Any]:
     # concluded correctly that nothing fitted, and wrote text — which is why
     # thirteen physics components had never been used in seventy-one runs.
     #
-    # The catalogue is 28 entries and about 600 tokens. At this size retrieval
-    # is not a problem worth having; enumerating removes it entirely.
+    # The catalogue is len(COMPONENTS) entries; enumeration still works at this
+    # size because the shape section below carries the only schemas that must
+    # never be cut, and the ranked subject list stays one line past the top few.
     words = [w for w in query.lower().split() if w]
+
+    # The shape components first, always with their full parameters. They are
+    # the answer for any idea that is a sequence, a comparison, a tree, a stack
+    # or a grid — which no query's word overlap reliably surfaces, and a shape
+    # pushed below the schema cutoff by subject words is a miss with nowhere to
+    # fall. Five entries, capped by design (see components/shapes.py).
+    USE_WHEN = {
+        "sequence": "a process, a derivation, a pipeline, steps in order",
+        "comparison": "this versus that, before and after, trade-offs",
+        "tree": "a taxonomy, a decomposition, what contains what",
+        "stack": "an architecture, abstraction levels, a protocol stack",
+        "grid": "a table, a matrix, a confusion matrix, a state space",
+    }
+    shapes = []
+    for spec in sorted(COMPONENTS.values(), key=lambda s: s.name):
+        if getattr(spec, "shape", ""):
+            entry = spec.describe()
+            entry["use_when"] = USE_WHEN.get(spec.shape, "")
+            shapes.append(entry)
+
     matches = []
     for spec in COMPONENTS.values():
+        if getattr(spec, "shape", ""):
+            continue  # already listed above, with a schema that cannot be cut
         if domain and spec.domain != domain:
             continue
         haystack = f"{spec.name} {spec.summary} {spec.domain}".lower()
@@ -54,10 +77,9 @@ def component_search(query: str = "", domain: str = "") -> dict[str, Any]:
         matches.append((score, spec.name, spec))
     matches.sort(key=lambda triple: (-triple[0], triple[1]))
 
-    # Full parameter schemas for the closest few, one line for the rest. All 28
-    # schemas came to 19kB, which is 5k tokens on a tool the director calls
-    # several times a run — enumerating the catalogue must not cost more than
-    # the search it replaces.
+    # Full parameter schemas for the closest few, one line for the rest — a
+    # tool the director calls several times a run must not cost more than the
+    # search it replaces.
     found, catalogue = [], []
     for rank, (_, _, spec) in enumerate(matches):
         entry = spec.describe() if rank < DETAILED else {
@@ -76,16 +98,21 @@ def component_search(query: str = "", domain: str = "") -> dict[str, Any]:
 
     return {
         "query": query,
-        "count": len(found) + len(catalogue),
+        "count": len(shapes) + len(found) + len(catalogue),
+        "shapes": shapes,
         "components": found,
         "rest_of_catalogue": catalogue,
         "note": (
-            "components holds the closest matches with their full parameters; "
-            "rest_of_catalogue is everything else, one line each. Read past the top — "
-            "the ranking is a word-overlap hint, not a filter, and the component you want "
-            "is often further down. component_build reports the full parameters of any of "
-            "them. If one is close but not right, component_source shows how it works and "
-            "component_learn keeps your rewrite. Write raw Manim only if nothing here fits."
+            "Name the shape of the idea first. shapes holds the five components that "
+            "draw a class of idea from labels alone — a miss on a subject component is "
+            "not a miss when the idea is a sequence, a comparison, a tree, a stack or a "
+            "grid. components holds the closest subject matches with their full "
+            "parameters; rest_of_catalogue is everything else, one line each. Read past "
+            "the top — the ranking is a word-overlap hint, not a filter, and the "
+            "component you want is often further down. component_build reports the full "
+            "parameters of any of them. If one is close but not right, component_source "
+            "shows how it works and component_learn keeps your rewrite. Write raw Manim "
+            "only if nothing here fits."
         ),
     }
 

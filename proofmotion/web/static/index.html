@@ -1,0 +1,88 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>ProofMotion Studio</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/css/theme.css">
+<link rel="stylesheet" href="/css/layout.css">
+<link rel="stylesheet" href="/css/components.css">
+
+<div id="app" data-chat-side="left">
+  <aside id="rail">
+    <div class="railhead">
+      <h1>PROOFMOTION</h1>
+      <button id="rail-collapse" class="ghostbtn" title="hide projects">&lsaquo;</button>
+    </div>
+    <button id="newbtn">+ New chat</button>
+    <div id="projects"></div>
+    <div id="rail-empty" class="hint" hidden>No projects yet. Ask your first question and one appears here.</div>
+  </aside>
+  <button id="rail-expand" class="edge-expand" title="show projects">&rsaquo;</button>
+  <div id="split-rail" class="splitter" title="drag to resize &middot; double-click to reset"></div>
+
+  <section id="chat">
+    <div class="panelhead">
+      <span>CONVERSATION</span>
+      <button id="chat-collapse" class="ghostbtn" title="hide chat">&lsaquo;</button>
+    </div>
+    <div id="transcript"></div>
+    <div id="chat-hint" class="hint" hidden></div>
+    <div id="composer">
+      <textarea id="composer-text" rows="2" placeholder="Show how the area under x&sup2; is built from rectangles..."></textarea>
+      <button id="composer-send">Send</button>
+    </div>
+  </section>
+  <button id="chat-expand" class="edge-expand" title="show chat">&rsaquo;</button>
+  <div id="split-chat" class="splitter" title="drag to resize &middot; double-click to reset"></div>
+
+  <section id="main">
+    <div id="bar">
+      <button class="pill" id="prevbtn">&lsaquo; prev</button>
+      <span id="where" class="meta">no slides</span>
+      <button class="pill" id="nextbtn">next &rsaquo;</button>
+      <span class="grow"></span>
+      <label class="meta" for="grab">drag moves</label>
+      <select class="tool" id="grab">
+        <option value="built.group">figure</option>
+        <option value="title">title</option>
+        <option value="caption">caption</option>
+      </select>
+      <button class="pill" id="modebtn">watch video</button>
+      <span class="sep"></span>
+      <button class="pill" id="sidebtn" title="move the chat to the other side">&#8644; chat</button>
+      <button class="pill" id="themebtn" title="switch theme">light</button>
+      <span class="popover-host">
+        <button class="pill" id="stylebtn" title="deck style and render quality" hidden>style</button>
+        <div id="stylepop" class="popover" hidden></div>
+      </span>
+      <span class="popover-host">
+        <button class="pill" id="exportbtn">export</button>
+        <div id="exportpop" class="popover" hidden></div>
+      </span>
+    </div>
+    <div id="stage">
+      <img id="poster" alt="" draggable="false" hidden>
+      <video id="video" controls hidden></video>
+      <div id="stage-empty" class="stage-note" hidden></div>
+    </div>
+    <div id="narration" hidden></div>
+    <div id="film"><div id="film-empty" class="hint" hidden>no slides yet</div></div>
+    <div id="statusbar">
+      <span id="dot" data-state="off" title="event stream"></span>
+      <span id="spinner" class="spinner" hidden></span>
+      <span id="statustext">Ready.</span>
+      <span id="queued" class="chip" hidden></span>
+      <span id="partial" class="chip warn" hidden>partial render</span>
+      <span class="grow"></span>
+      <button class="pill" id="logbtn">log</button>
+    </div>
+    <div id="logdrawer" hidden></div>
+    <div id="deckhead"><span id="deck-chevron">&#9662;</span><span>slide settings</span></div>
+    <div id="deck-hint" class="hint" hidden>No slides yet &mdash; the deck fills as the conversation builds them.</div>
+    <div id="deck"></div>
+  </section>
+</div>
+<div id="toasts"></div>
+<audio id="speaker" hidden></audio>
+
+<script type="module" src="/js/main.js"></script>

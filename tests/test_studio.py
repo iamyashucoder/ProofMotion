@@ -11,6 +11,7 @@ No API key required.
 from __future__ import annotations
 
 import logging
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -137,6 +138,16 @@ class TestDigest(unittest.TestCase):
         plain, locked = slide("s1"), slide("s1", locked=True)
         self.assertEqual(digest_of([plain]), digest_of([locked]))
 
+    def test_the_bridge_is_part_of_the_key(self):
+        """The bridge is drawn above the caption, so editing it is a re-render.
+
+        It was left out of the digest once, and changing only the bridge came
+        back as a cache hit — the video kept reading the old sentence.
+        """
+        before = digest_of([slide("s1", bridge="so the height after n bounces is")])
+        after = digest_of([slide("s1", bridge="substituting that back")])
+        self.assertNotEqual(before, after)
+
     def test_editing_one_slide_leaves_the_other_units_alone(self):
         """One edit, one unit re-rendered — the claim, at unit granularity.
 
@@ -172,6 +183,68 @@ class TestDigest(unittest.TestCase):
         apply(p, Operation(kind="reorder", slide_id="s1"))
         self.assertEqual([s.id for s in p.slides], ["s2", "s1"])
         self.assertEqual(before, {u.digest for u in units_of(p)})
+
+
+class TestBuild(unittest.TestCase):
+    """A broken slide reports itself instead of taking the video down."""
+
+    def test_the_rendered_clips_still_join_when_a_unit_fails(self):
+        from unittest.mock import patch
+
+        from proofmotion.studio.render import Unit, build
+
+        with tempfile.TemporaryDirectory() as tmp:
+            clip = Path(tmp) / "clips" / "aaaa.mp4"
+            clip.parent.mkdir(parents=True)
+            clip.write_bytes(b"the clip that rendered")
+            good = Unit(slides=[slide("s1")], digest="aaaa", clip=clip)
+            bad = Unit(slides=[slide("s2"), slide("s3")], digest="bbbb", error="manim fell over")
+            report = {
+                "units": [good, bad], "rendered": 1, "reused": 0, "failed": 1,
+                "problems": [{"slides": ["s2", "s3"], "error": "manim fell over"}],
+            }
+            with (
+                patch("proofmotion.studio.render.render_project", return_value=report),
+                patch("proofmotion.studio.render._duration", return_value=6.0),
+            ):
+                out = build(project(slide("s1"), slide("s2"), slide("s3")), Path(tmp))
+
+            self.assertTrue(out["partial"])
+            self.assertEqual(out["errors"], {"s2": "manim fell over", "s3": "manim fell over"})
+            self.assertEqual(Path(out["video"]).read_bytes(), b"the clip that rendered")
+
+    def test_nothing_rendered_means_no_video_and_a_reason_per_slide(self):
+        from unittest.mock import patch
+
+        from proofmotion.studio.render import Unit, build
+
+        with tempfile.TemporaryDirectory() as tmp:
+            bad = Unit(slides=[slide("s1")], digest="bbbb", error="no scene")
+            report = {"units": [bad], "rendered": 0, "reused": 0, "failed": 1,
+                      "problems": [{"slides": ["s1"], "error": "no scene"}]}
+            with patch("proofmotion.studio.render.render_project", return_value=report):
+                out = build(project(slide("s1")), Path(tmp))
+        self.assertEqual(out["video"], "")
+        self.assertEqual(out["errors"], {"s1": "no scene"})
+
+    @unittest.skipUnless(shutil.which("ffmpeg"), "ffmpeg not on PATH")
+    def test_a_failed_join_leaves_the_last_good_video(self):
+        """The join lands beside the video and swaps in only when it worked."""
+        from proofmotion.studio.render import Unit, join
+
+        with tempfile.TemporaryDirectory() as tmp:
+            destination = Path(tmp) / "video.mp4"
+            destination.write_bytes(b"the good one")
+            clips = []
+            for name in ("one", "two"):
+                clip = Path(tmp) / f"{name}.mp4"
+                clip.write_bytes(b"not a real mp4")
+                clips.append(Unit(slides=[slide("s1")], digest=name, clip=clip))
+            with self.assertRaises(ToolError):
+                join(clips, destination)
+            self.assertEqual(destination.read_bytes(), b"the good one")
+            leftovers = [p.name for p in Path(tmp).iterdir() if p.name.startswith(".video")]
+            self.assertEqual(leftovers, [])
 
 
 class TestHandWrittenCode(unittest.TestCase):
@@ -328,7 +401,7 @@ class TestRemakeStaysOnItsSlide(unittest.TestCase):
 
 
 class TestStudioStartup(unittest.TestCase):
-    def test_launching_opens_a_fresh_project(self):
+    def test_a_first_message_opens_a_fresh_project(self):
         """Resuming meant the first slide you added came back as s14.
 
         Reopening the last deck costs nothing, since every clip is cached — but
@@ -337,8 +410,12 @@ class TestStudioStartup(unittest.TestCase):
         """
         import tempfile
         from pathlib import Path
+        from unittest.mock import patch
 
-        from proofmotion.web.studio import Studio
+        from proofmotion.studio.operations import Edit, Operation
+        from proofmotion.studio.service import StudioService
+        from proofmotion.studio.store import ProjectStore
+        from proofmotion.studio.turns import TurnResult
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -346,22 +423,34 @@ class TestStudioStartup(unittest.TestCase):
             old.slides = [Slide(id=f"s{i}") for i in range(1, 14)]
             old.save(root / "yesterday")
 
-            studio = Studio(root, client=None)
-            self.assertNotEqual(studio.current, "yesterday")
-            self.assertEqual(studio.load().next_id(), "s1")
-            # And the old one is still one click away.
-            self.assertEqual([p["id"] for p in studio.listing()], ["yesterday"])
+            service = StudioService(ProjectStore(root), client=None)
+            turn = TurnResult(Edit(operations=[Operation(kind="add", title="fresh")]))
+            report = {"rendered": 1, "reused": 0, "failed": 0, "problems": [],
+                      "video": "", "errors": {}, "partial": False, "units": []}
+            try:
+                with (
+                    patch("proofmotion.studio.turns.run_turn", return_value=turn),
+                    patch("proofmotion.studio.render.build", return_value=report),
+                ):
+                    out = service.create_project("a new question")
+            finally:
+                service.pool.shutdown()
 
-    def test_an_untouched_new_project_is_not_written_to_disk(self):
-        """Or every launch would leave an empty deck behind in the explorer."""
+            self.assertNotEqual(out["project_id"], "yesterday")
+            self.assertEqual(out["slides"][0]["id"], "s1")
+            # And the old one is still one click away.
+            self.assertIn("yesterday", [p["id"] for p in service.store.listing()])
+
+    def test_nothing_exists_before_the_first_message(self):
+        """Or every glance at the studio would leave an empty deck behind."""
         import tempfile
         from pathlib import Path
 
-        from proofmotion.web.studio import Studio
+        from proofmotion.studio.store import ProjectStore
 
         with tempfile.TemporaryDirectory() as tmp:
-            studio = Studio(Path(tmp), client=None)
-            self.assertEqual(studio.listing(), [])
+            store = ProjectStore(Path(tmp))
+            self.assertEqual(store.listing(), [])
 
 
 class TestOverrides(unittest.TestCase):

@@ -20,11 +20,13 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Callable
 
 from proofmotion.components import COMPONENTS
 from proofmotion.compose.assembler import ScenePlan, assemble
@@ -33,10 +35,16 @@ from proofmotion.studio.document import Project, Slide
 
 log = logging.getLogger(__name__)
 
-#: Every clip must share these or concatenation re-encodes and shows seams.
+#: Every clip in one project must share a quality or concatenation re-encodes
+#: and shows seams — which is why quality lives on the Project, in the digest,
+#: and nowhere else. Manim's flags fix the pixel size and rate per letter.
 QUALITY = "l"
 FPS = 15
-RESOLUTION = "854x480"
+QUALITIES: dict[str, tuple[int, int, int]] = {
+    "l": (854, 480, 15),
+    "m": (1280, 720, 30),
+    "h": (1920, 1080, 60),
+}
 
 
 @dataclass
@@ -107,12 +115,15 @@ def group(slides: list[Slide]) -> list[list[Slide]]:
     return runs
 
 
-def digest_of(slides: list[Slide]) -> str:
+def digest_of(slides: list[Slide], *, style: str = "dark", quality: str = QUALITY) -> str:
     """Content hash over everything that can change the pixels.
 
     The component's version is part of it. Improving a component in the library
     has to invalidate clips built from the old one, or an edited project
     silently mixes two generations of the same figure.
+
+    The style is part of it only when it is not the default, so every project
+    rendered before styles existed keeps its clips on upgrade.
     """
     payload = []
     for slide in slides:
@@ -125,17 +136,62 @@ def digest_of(slides: list[Slide]) -> str:
             "caption": slide.caption,
             "seconds": slide.seconds,
             "overrides": slide.overrides,
+            # The bridge is drawn above the caption, so it changes the pixels;
+            # leaving it out meant editing only a bridge was a cache hit and
+            # the old sentence stayed in the video.
+            "bridge": slide.bridge,
             "code": slide.code,
         })
-    blob = json.dumps({"slides": payload, "quality": QUALITY, "fps": FPS}, sort_keys=True, default=str)
+    key: dict = {"slides": payload, "quality": quality, "fps": FPS}
+    if style != "dark":
+        key["style"] = style
+    blob = json.dumps(key, sort_keys=True, default=str)
     return hashlib.sha256(blob.encode()).hexdigest()[:16]
 
 
 def units_of(project: Project) -> list[Unit]:
-    return [Unit(slides=run, digest=digest_of(run)) for run in group(project.slides)]
+    style, quality = _look_of(project)
+    return [
+        Unit(slides=run, digest=digest_of(run, style=style, quality=quality))
+        for run in group(project.slides)
+    ]
 
 
-def _render_one(unit: Unit, work: Path, clips: Path) -> Unit:
+def _look_of(project: Project) -> tuple[str, str]:
+    """The project's style and quality, tolerant of documents from before."""
+    return getattr(project, "style", "dark") or "dark", getattr(project, "quality", QUALITY) or QUALITY
+
+
+def clear_work(directory: Path) -> None:
+    """Drop the transient render tree. Everything durable lives in clips/.
+
+    Renders that succeed clean up after themselves; ones that fail leave their
+    media trees behind for inspection, and those measured at many times the
+    size of the clips they were scaffolding for. Opening a project is a moment
+    nobody is inspecting a failure, so the whole tree goes.
+    """
+    shutil.rmtree(Path(directory) / "work", ignore_errors=True)
+
+
+def _styled(code: str, style: str) -> str:
+    """Prepend palette activation to a hand-written scene.
+
+    The coder's hard-coded colors stay as written — they are that scene's
+    content — but the background and the text defaults follow the deck.
+    """
+    lines = code.splitlines()
+    insert = 0
+    for position, line in enumerate(lines):
+        if line.startswith("from __future__"):
+            insert = position + 1
+    prologue = [
+        "from proofmotion.components.palette import activate",
+        f"activate({style!r})",
+    ]
+    return "\n".join(lines[:insert] + prologue + lines[insert:]) + "\n"
+
+
+def _render_one(unit: Unit, work: Path, clips: Path, style: str, quality: str) -> Unit:
     """Render a unit to its cached clip, or reuse the clip already there."""
     destination = clips / f"{unit.digest}.mp4"
     if destination.is_file() and destination.stat().st_size:
@@ -155,13 +211,13 @@ def _render_one(unit: Unit, work: Path, clips: Path) -> Unit:
         from proofmotion.studio.operations import usable_code
 
         try:
-            code = usable_code(hand_written[0].code)
+            code = _styled(usable_code(hand_written[0].code), style)
         except ToolError as error:
             unit.error = f"{hand_written[0].id}: {error}"
             return unit
     else:
         try:
-            code = assemble(unit.plan())
+            code = assemble(unit.plan(), style=style)
         except ToolError as error:
             unit.error = f"could not assemble {unit.ids}: {error}"
             return unit
@@ -173,7 +229,7 @@ def _render_one(unit: Unit, work: Path, clips: Path) -> Unit:
     from tools.manim_renderer import render_manim_scene
 
     output = work / unit.digest
-    result = render_manim_scene(source, output, quality=QUALITY, timeout_seconds=300)
+    result = render_manim_scene(source, output, quality=quality, timeout_seconds=300)
     produced = [p for p in output.rglob("*.mp4") if "partial_movie_files" not in p.parts]
     if result.returncode != 0 or not produced:
         # Exit code alone is not enough: Manim can exit 0 having written nothing.
@@ -183,10 +239,21 @@ def _render_one(unit: Unit, work: Path, clips: Path) -> Unit:
     clips.mkdir(parents=True, exist_ok=True)
     shutil.copy2(produced[0], destination)
     unit.clip = destination
+    # The clip is the durable artifact; the media tree it came from — partial
+    # movie files included — is many times its size and never read again. A
+    # failed render keeps its tree so the wreckage can be inspected.
+    shutil.rmtree(output, ignore_errors=True)
+    source.unlink(missing_ok=True)
     return unit
 
 
-def render_project(project: Project, directory: Path, *, only: list[str] | None = None) -> dict:
+def render_project(
+    project: Project,
+    directory: Path,
+    *,
+    only: list[str] | None = None,
+    run: "Callable[[list[Callable[[], Unit]]], list[Unit]] | None" = None,
+) -> dict:
     """Render every unit that is not already cached, and report what happened.
 
     Progress is published per unit. A turn takes tens of seconds and used to
@@ -198,27 +265,55 @@ def render_project(project: Project, directory: Path, *, only: list[str] | None 
         project: The document to project.
         directory: The project directory; clips live under `clips/`.
         only: Slide ids to force a re-render of, ignoring the cache.
+        run: How to execute the per-unit render thunks. The default runs them
+            one after another in this thread; the studio passes a bounded pool
+            so independent units render side by side.
     """
     from proofmotion.runtime.events import headline
 
     directory = Path(directory)
     clips, work = directory / "clips", directory / "work"
     forced = set(only or [])
+    style, quality = _look_of(project)
 
     pending = units_of(project)
-    rendered = []
-    for position, unit in enumerate(pending, 1):
+    for unit in pending:
         if forced.intersection(unit.ids):
             (clips / f"{unit.digest}.mp4").unlink(missing_ok=True)
-        titles = ", ".join(s.title or s.id for s in unit.slides)[:60]
-        if (clips / f"{unit.digest}.mp4").is_file():
-            headline(f"Clip {position}/{len(pending)} reused — {titles}")
-        else:
-            headline(f"Rendering clip {position}/{len(pending)} — {titles}")
-        done = _render_one(unit, work, clips)
-        if done.error:
-            headline(f"Clip {position}/{len(pending)} failed — {done.error.splitlines()[-1][:90]}", "warned")
-        rendered.append(done)
+
+    # One render per digest. Two identical units are one clip, and rendering
+    # them side by side would have both writing the same files.
+    first_of: dict[str, Unit] = {}
+    for unit in pending:
+        first_of.setdefault(unit.digest, unit)
+    originals = list(first_of.values())
+
+    def renderer(position: int, unit: Unit) -> "Callable[[], Unit]":
+        def go() -> Unit:
+            titles = ", ".join(s.title or s.id for s in unit.slides)[:60]
+            if (clips / f"{unit.digest}.mp4").is_file():
+                headline(f"Clip {position}/{len(originals)} reused — {titles}")
+            else:
+                headline(f"Rendering clip {position}/{len(originals)} — {titles}")
+            done = _render_one(unit, work, clips, style, quality)
+            if done.error:
+                headline(
+                    f"Clip {position}/{len(originals)} failed — {done.error.splitlines()[-1][:90]}",
+                    "warned",
+                )
+            return done
+
+        return go
+
+    execute = run or (lambda thunks: [thunk() for thunk in thunks])
+    execute([renderer(position, unit) for position, unit in enumerate(originals, 1)])
+
+    rendered = []
+    for unit in pending:
+        twin = first_of[unit.digest]
+        if twin is not unit:
+            unit.clip, unit.cached, unit.error = twin.clip, bool(twin.clip), twin.error
+        rendered.append(unit)
 
     failures = [u for u in rendered if u.error]
     return {
@@ -244,9 +339,13 @@ def join(units: list[Unit], destination: Path) -> Path:
 
     destination = Path(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
+    # Joined beside the video and swapped in, so a join that dies never
+    # replaces the last good video with a truncated one.
+    scratch = destination.with_name(f".{destination.stem}-joining.mp4")
 
     if len(ordered) == 1:
-        shutil.copy2(ordered[0], destination)
+        shutil.copy2(ordered[0], scratch)
+        os.replace(scratch, destination)
         return destination
 
     listing = destination.parent / f".{destination.stem}-clips.txt"
@@ -255,24 +354,72 @@ def join(units: list[Unit], destination: Path) -> Path:
     )
     result = subprocess.run(
         ["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0",
-         "-i", str(listing), "-c", "copy", str(destination)],
+         "-i", str(listing), "-c", "copy", str(scratch)],
         capture_output=True, text=True, timeout=300, check=False,
     )
     listing.unlink(missing_ok=True)
-    if result.returncode != 0 or not destination.is_file():
+    if result.returncode != 0 or not scratch.is_file():
+        scratch.unlink(missing_ok=True)
         raise ToolError(f"joining clips failed: {result.stderr[-500:]}")
+    os.replace(scratch, destination)
     return destination
 
 
-def build(project: Project, directory: Path, *, only: list[str] | None = None) -> dict:
-    """Render what changed and join everything. The whole projection."""
-    report = render_project(project, directory, only=only)
-    if report["failed"]:
+def build(
+    project: Project,
+    directory: Path,
+    *,
+    only: list[str] | None = None,
+    run: "Callable[[list[Callable[[], Unit]]], list[Unit]] | None" = None,
+) -> dict:
+    """Render what changed and join everything. The whole projection.
+
+    A failed unit does not take the video down with it. The clips that did
+    render are real, so they are joined and the failure is reported against
+    the slides it belongs to — one broken slide used to mean no video at all,
+    which punished the eleven slides that were fine.
+    """
+    directory = Path(directory)
+    narrated = any(s.narration.strip() for s in project.slides)
+    report_extra: dict = {}
+    if narrated and getattr(project, "fit_narration", False):
+        # Opt-in: lengthen slides whose speech outruns them, before the units
+        # are digested, so exactly the lengthened slides re-render. The caller
+        # re-saves the document when this reports a change — it is an edit.
+        from proofmotion.studio import narrate
+
+        report_extra["fitted"] = narrate.fit(project, directory)
+
+    report = render_project(project, directory, only=only, run=run)
+    report.update(report_extra)
+    report["partial"] = bool(report["failed"])
+    report["errors"] = {
+        slide_id: unit.error
+        for unit in report["units"] if unit.error
+        for slide_id in unit.ids
+    }
+    finished = [u for u in report["units"] if u.clip]
+    if not finished:
         report["video"] = ""
         return report
-    video = join(report["units"], Path(directory) / "video.mp4")
+    video = join(finished, directory / "video.mp4")
     report["video"] = str(video)
     report["seconds"] = _duration(video)
+
+    if narrated:
+        # The join writes a silent film every rebuild, so the speech is laid
+        # over it here, every rebuild — one audio encode, video stream copied.
+        # A deck with no narration never reaches this line.
+        from proofmotion.studio import narrate
+
+        try:
+            placements, problems = narrate.audio_schedule(finished, project, directory)
+            narrate.mux_narration(video, placements)
+            report["narration"] = {"spoken": len(placements), "problems": problems}
+        except ToolError as error:
+            # The film is real without its voice; a missing TTS engine must
+            # not take the video down, only say what is missing.
+            report["narration"] = {"spoken": 0, "problems": [str(error)]}
     return report
 
 
@@ -301,7 +448,20 @@ def _without_the_closing_fade(code: str) -> str:
     return code
 
 
-def poster(slide: Slide, directory: Path) -> Path | None:
+def poster_path(
+    slide: Slide, directory: Path, *, style: str = "dark", quality: str = QUALITY
+) -> Path:
+    """Where this slide's still lives, whether or not it exists yet.
+
+    Exposed separately so a caller can answer "is it cached?" without paying
+    for a render or holding a render worker.
+    """
+    return Path(directory) / "posters" / f"{digest_of([slide], style=style, quality=quality)}.png"
+
+
+def poster(
+    slide: Slide, directory: Path, *, style: str = "dark", quality: str = QUALITY
+) -> Path | None:
     """A still of one slide, for paging through the deck like a deck.
 
     The video is the finished thing, but it is a poor way to work: to see slide
@@ -312,16 +472,20 @@ def poster(slide: Slide, directory: Path) -> Path | None:
     encoding, and cached against the slide's own content — a slide whose
     picture has not changed keeps its poster.
     """
-    posters = Path(directory) / "posters"
-    digest = digest_of([slide])
-    destination = posters / f"{digest}.png"
+    destination = poster_path(slide, directory, style=style, quality=quality)
+    posters = destination.parent
+    digest = destination.stem
     if destination.is_file() and destination.stat().st_size:
         return destination
 
     work = Path(directory) / "work"
     work.mkdir(parents=True, exist_ok=True)
     try:
-        code = slide.code or assemble(ScenePlan(assignments=[slide.as_assignment()]))
+        code = (
+            _styled(slide.code, style)
+            if slide.code
+            else assemble(ScenePlan(assignments=[slide.as_assignment()]), style=style)
+        )
     except ToolError as error:
         log.info("no poster for %s: %s", slide.id, error)
         return None
@@ -332,7 +496,7 @@ def poster(slide: Slide, directory: Path) -> Path | None:
 
     output = work / f"poster_{digest}"
     result = subprocess.run(
-        [sys.executable, "-m", "manim", "render", f"-q{QUALITY}", "-s", "--format", "png",
+        [sys.executable, "-m", "manim", "render", f"-q{quality}", "-s", "--format", "png",
          "--media_dir", str(output), str(source), "GeneratedScene"],
         capture_output=True, text=True, timeout=180, check=False,
     )
@@ -343,4 +507,6 @@ def poster(slide: Slide, directory: Path) -> Path | None:
 
     posters.mkdir(parents=True, exist_ok=True)
     shutil.copy2(images[-1], destination)
+    shutil.rmtree(output, ignore_errors=True)
+    source.unlink(missing_ok=True)
     return destination
