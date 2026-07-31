@@ -22,6 +22,7 @@ import json
 import logging
 import shutil
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -284,3 +285,62 @@ def _duration(video: Path) -> float:
         return round(float(result.stdout.strip()), 1)
     except ValueError:
         return 0.0
+
+
+def _without_the_closing_fade(code: str) -> str:
+    """Drop the scene's final clearing, so the still shows the slide.
+
+    Every assembled scene ends by fading everything out, and the still is the
+    last frame — so the first posters were 854x480 of pure black, all byte
+    for byte identical, which is at least an unmistakable symptom.
+    """
+    lines = code.splitlines()
+    for index in range(len(lines) - 1, -1, -1):
+        if "leaving = chrome" in lines[index]:
+            return "\n".join(lines[:index]) + "\n        self.wait(0.1)\n"
+    return code
+
+
+def poster(slide: Slide, directory: Path) -> Path | None:
+    """A still of one slide, for paging through the deck like a deck.
+
+    The video is the finished thing, but it is a poor way to work: to see slide
+    seven you scrub, and scrubbing is not reading. A still per slide makes the
+    deck the primary view and the video what it produces.
+
+    Rendered with Manim's last-frame flag, so it costs a layout pass and no
+    encoding, and cached against the slide's own content — a slide whose
+    picture has not changed keeps its poster.
+    """
+    posters = Path(directory) / "posters"
+    digest = digest_of([slide])
+    destination = posters / f"{digest}.png"
+    if destination.is_file() and destination.stat().st_size:
+        return destination
+
+    work = Path(directory) / "work"
+    work.mkdir(parents=True, exist_ok=True)
+    try:
+        code = slide.code or assemble(ScenePlan(assignments=[slide.as_assignment()]))
+    except ToolError as error:
+        log.info("no poster for %s: %s", slide.id, error)
+        return None
+    code = _without_the_closing_fade(code)
+
+    source = work / f"poster_{digest}.py"
+    source.write_text(code, encoding="utf-8")
+
+    output = work / f"poster_{digest}"
+    result = subprocess.run(
+        [sys.executable, "-m", "manim", "render", f"-q{QUALITY}", "-s", "--format", "png",
+         "--media_dir", str(output), str(source), "GeneratedScene"],
+        capture_output=True, text=True, timeout=180, check=False,
+    )
+    images = sorted(output.rglob("*.png"))
+    if result.returncode != 0 or not images:
+        log.info("poster render failed for %s: %s", slide.id, (result.stderr or "")[-200:])
+        return None
+
+    posters.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(images[-1], destination)
+    return destination

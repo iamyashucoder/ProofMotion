@@ -60,8 +60,17 @@ body{margin:0;height:100vh;display:flex;font:14px/1.55 -apple-system,Segoe UI,Ro
 button{background:var(--accent);color:#04121e;border:0;border-radius:9px;padding:0 15px;font-weight:600;cursor:pointer}
 button:disabled{opacity:.4;cursor:default}
 #right{flex:1;display:flex;flex-direction:column;min-width:0}
-#stage{background:#000;display:flex;align-items:center;justify-content:center;padding:6px}
+#stage{background:#000;display:flex;align-items:center;justify-content:center;padding:6px;position:relative}
 video{max-width:100%;max-height:46vh;width:auto;height:auto;display:block}
+#poster{max-width:100%;max-height:46vh;display:block;cursor:grab;user-select:none}
+#poster.dragging{cursor:grabbing}
+#bar{display:flex;gap:8px;align-items:center;padding:7px 12px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+#bar .grow{flex:1}
+#film{display:flex;gap:6px;overflow-x:auto;padding:8px 12px;border-bottom:1px solid var(--line)}
+#film img{height:52px;border:2px solid transparent;border-radius:5px;cursor:pointer;background:#000}
+#film img.on{border-color:var(--accent)}
+#film .num{font-size:10px;color:var(--dim);text-align:center}
+select.tool{background:#0b1017;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:3px 7px;font:inherit}
 #status{padding:8px 14px;font-size:12px;color:var(--dim);border-top:1px solid var(--line);border-bottom:1px solid var(--line);min-height:32px}
 #deck{flex:1;overflow-y:auto;padding:13px}
 .slide{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:10px 12px;margin-bottom:9px}
@@ -89,14 +98,87 @@ video{max-width:100%;max-height:46vh;width:auto;height:auto;display:block}
   </div>
 </div>
 <div id="right">
-  <div id="stage"><video id="v" controls></video></div>
+  <div id="bar">
+    <button class="pill" id="prev">‹ prev</button>
+    <span id="where" class="meta">no slides</span>
+    <button class="pill" id="next">next ›</button>
+    <span class="grow"></span>
+    <label class="meta">drag moves</label>
+    <select class="tool" id="grab">
+      <option value="built.group">figure</option>
+      <option value="title">title</option>
+      <option value="caption">caption</option>
+    </select>
+    <button class="pill" id="mode">watch video</button>
+  </div>
+  <div id="stage">
+    <img id="poster" alt="">
+    <video id="v" controls hidden></video>
+  </div>
+  <div id="film"></div>
   <div id="status">Ready.</div>
   <div id="deck"></div>
 </div>
 <script>
 const $=s=>document.querySelector(s), log=$('#log'), deck=$('#deck'), v=$('#v'),
-      status=$('#status'), q=$('#q'), send=$('#send'), projects=$('#projects');
-let busy=false, ticks=[];
+      status=$('#status'), q=$('#q'), send=$('#send'), projects=$('#projects'),
+      poster=$('#poster'), film=$('#film'), where=$('#where'), grab=$('#grab');
+let busy=false, ticks=[], slides=[], at=0, watching=false, rev=0;
+
+// 854 px of poster is 14.22 scene units wide, so a drag converts directly.
+const UNITS_PER_PX = 14.22 / 854;
+
+function showSlide(i){
+  if(!slides.length){ where.textContent='no slides'; poster.removeAttribute('src'); film.innerHTML=''; return; }
+  at = Math.max(0, Math.min(i, slides.length-1));
+  const s = slides[at];
+  where.textContent = `${at+1} / ${slides.length} · ${s.title||s.id}`;
+  poster.src = `/poster/${s.id}.png?r=${rev}`;
+  [...film.children].forEach((c,n)=>c.classList.toggle('on', n===at));
+}
+
+function drawFilm(){
+  film.innerHTML='';
+  slides.forEach((s,i)=>{
+    const t=document.createElement('img');
+    t.src=`/poster/${s.id}.png?r=${rev}`; t.title=s.title||s.id;
+    t.onclick=()=>showSlide(i);
+    if(i===at) t.classList.add('on');
+    film.appendChild(t);
+  });
+}
+
+$('#prev').onclick=()=>showSlide(at-1);
+$('#next').onclick=()=>showSlide(at+1);
+document.addEventListener('keydown',e=>{
+  if(document.activeElement===q) return;
+  if(e.key==='ArrowLeft') showSlide(at-1);
+  if(e.key==='ArrowRight') showSlide(at+1);
+});
+$('#mode').onclick=()=>{
+  watching=!watching;
+  v.hidden=!watching; poster.hidden=watching;
+  $('#mode').textContent = watching ? 'back to slides' : 'watch video';
+};
+
+// Drag the chosen element straight on the slide. The checker can say a label
+// overlaps; only a person can say it reads better slightly left.
+let from=null;
+poster.addEventListener('mousedown',e=>{ if(!slides.length) return;
+  from={x:e.clientX,y:e.clientY}; poster.classList.add('dragging'); e.preventDefault(); });
+addEventListener('mouseup',e=>{
+  if(!from) return;
+  const dx=(e.clientX-from.x), dy=(e.clientY-from.y);
+  poster.classList.remove('dragging'); from=null;
+  if(Math.abs(dx)<4 && Math.abs(dy)<4) return;
+  const scale = poster.naturalWidth ? poster.naturalWidth/poster.clientWidth : 1;
+  const s = slides[at];
+  const now = ((s.overrides||{}).shift||{})[grab.value] || {dx:0,dy:0};
+  post('/api/nudge',{slide_id:s.id,name:grab.value,value:{shift:{
+    dx: +( (now.dx||0) + dx*scale*UNITS_PER_PX ).toFixed(2),
+    dy: +( (now.dy||0) - dy*scale*UNITS_PER_PX ).toFixed(2),   // screen y grows downward
+  }}});
+});
 
 function bubble(who,text,ops){
   const d=document.createElement('div'); d.className='msg '+who;
@@ -171,6 +253,8 @@ function draw(s){
     bar.appendChild(pill('delete',()=>{ if(confirm('Delete '+sl.id+'?')) post('/api/delete',{slide_id:sl.id}); }));
     d.appendChild(bar); deck.appendChild(d);
   });
+  slides = s.slides||[]; rev = s.revision||0;
+  drawFilm(); showSlide(Math.min(at, slides.length-1));
   if(s.status) status.textContent=s.status;
   if(s.video){ const t=v.currentTime;
     v.src=s.video+'?r='+s.revision; v.load();
@@ -394,10 +478,28 @@ def serve_studio(root: Path, client: Any, *, port: int = 8780, host: str = "127.
                     self._send(200, "video/mp4", video.read_bytes())
                 else:
                     self._send(404, "text/plain", b"no video yet")
+            elif path.startswith("/poster/") and path.endswith(".png"):
+                self._poster(path[len("/poster/"):-len(".png")])
             elif path == "/events":
                 self._stream()
             else:
                 self._send(404, "text/plain", b"not found")
+
+        def _poster(self, slide_id: str) -> None:
+            """A still of one slide, rendered on demand and cached by content."""
+            from proofmotion.studio.render import poster
+
+            project = studio.load()
+            try:
+                slide = project.slide(slide_id)
+            except Exception:  # noqa: BLE001 - a stale thumbnail request
+                self._send(404, "text/plain", b"no such slide")
+                return
+            image = poster(slide, studio.directory())
+            if image and image.is_file():
+                self._send(200, "image/png", image.read_bytes())
+            else:
+                self._send(404, "text/plain", b"no poster")
 
         def _stream(self) -> None:
             listener: queue.Queue = BUS.subscribe()
