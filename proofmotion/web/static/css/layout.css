@@ -84,13 +84,12 @@ body {
 }
 #composer.drop { outline: 2px dashed var(--accent); outline-offset: -6px; }
 #chips { display: flex; flex-wrap: wrap; gap: 6px; }
-/* One line, the way the person sketched it: attach and voice live INSIDE the
-   input box, the textarea takes everything between them and the edge, and
-   Send stands beside the box. The box carries the field's border, so the
-   whole assembly reads as one input. */
-#composer-line { display: flex; gap: 8px; align-items: flex-end; width: 100%; }
+/* One assembly, the way the person sketched it: attach and voice inside the
+   box's left edge, the text taking everything between them and Send inside
+   the right edge. The box carries the field's border, so all of it reads as
+   one input. */
 #composer-box {
-  flex: 1 1 auto; min-width: 0;
+  width: 100%;
   display: flex; gap: 4px; align-items: flex-end;
   background: var(--field); border: 1px solid var(--line); border-radius: 12px;
   padding: 5px 7px;
@@ -102,7 +101,7 @@ body {
   border: 0; background: none; outline: none; padding: 7px 4px;
   max-height: 180px;
 }
-#composer-send { flex: none; padding-top: 8px; padding-bottom: 8px; }
+#composer-send { flex: none; align-self: flex-end; padding-top: 7px; padding-bottom: 7px; }
 
 /* main column, top to bottom: bar, stage, narration, filmstrip, status, log, deck */
 #bar {
