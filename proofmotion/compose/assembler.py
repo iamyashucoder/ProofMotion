@@ -248,8 +248,14 @@ def assemble(
             # print it. This is where the motion is.
             write(f"        built = build({scene.component!r}, {scene.parameters!r})")
             write("        place(built.group, regions['stage'])")
-            write(f"        self.play(Transform(stage, built.group), run_time={max(0.8, beat_time * 2)})")
-            write("        # `stage` keeps the identity Transform mutated in place")
+            # ReplacementTransform, not Transform: Transform leaves the OLD
+            # group on screen wearing the new one's shape, while the new
+            # group's motions animate parts the scene never showed — playing
+            # them added the parts anyway, and every morph in a run gained a
+            # ghost of the figure. Replacement puts the built group itself on
+            # screen, so its motions move the thing the viewer is watching.
+            write(f"        self.play(ReplacementTransform(stage, built.group), run_time={max(0.8, beat_time * 2)})")
+            write("        stage = built.group")
             write("        for motion in built.motions:")
             write(f"            self.play(motion(), run_time={max(1.0, round(scene.seconds / 3, 2))})")
         elif scene.component:
