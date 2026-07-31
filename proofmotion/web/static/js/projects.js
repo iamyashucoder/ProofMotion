@@ -41,7 +41,8 @@ export async function openProject(projectId, { push = true } = {}) {
 export function showDraft({ push = true } = {}) {
   patch({
     projectId: null, revision: 0, slides: [], posters: {}, errors: {},
-    transcript: [], selected: null, status: 'New project. Ask a question.',
+    transcript: [], attachments: [], selected: null,
+    status: 'New project. Ask a question.',
     partial: false, video: false, style: '', quality: '',
   });
   if (push) history.pushState({}, '', '/');

@@ -30,11 +30,15 @@ class FirstMessage(BaseModel):
 
 class Message(BaseModel):
     message: str = Field(min_length=1)
+    #: Attachment ids from POST .../attachments — images (or video frames)
+    #: the turn's agent is shown beside the words.
+    attachments: list[str] = Field(default_factory=list, max_length=8)
 
 
 class Remake(BaseModel):
     slide_id: str
     instruction: str = Field(min_length=1)
+    attachments: list[str] = Field(default_factory=list, max_length=8)
 
 
 class Operations(BaseModel):
@@ -89,8 +93,11 @@ async def state(project_id: str, request: Request) -> dict[str, Any]:
 
 @router.post("/projects/{project_id}/message")
 async def message(project_id: str, body: Message, request: Request) -> dict[str, Any]:
+    service = _service(request)
     return await asyncio.to_thread(
-        _service(request).run_turn, project_id, body.message.strip()
+        lambda: service.run_turn(
+            project_id, body.message.strip(), attachments=body.attachments
+        )
     )
 
 
@@ -99,8 +106,28 @@ async def remake(project_id: str, body: Remake, request: Request) -> dict[str, A
     service = _service(request)
     return await asyncio.to_thread(
         lambda: service.run_turn(
-            project_id, body.instruction.strip(), remake_slide=body.slide_id
+            project_id, body.instruction.strip(),
+            remake_slide=body.slide_id, attachments=body.attachments,
         )
+    )
+
+
+@router.post("/projects/{project_id}/attachments")
+async def upload(project_id: str, request: Request) -> dict[str, Any]:
+    """One file from the composer: an image, a voice note, or a clip.
+
+    Raw body with the filename in a header, rather than multipart — the
+    composer sends exactly one file at a time and this keeps the server free
+    of a form-parsing dependency.
+    """
+    filename = request.headers.get("x-filename", "")
+    if not filename:
+        from proofmotion.runtime.registry import ToolError
+
+        raise ToolError("the upload needs an X-Filename header")
+    data = await request.body()
+    return await asyncio.to_thread(
+        _service(request).save_attachment, project_id, filename, data
     )
 
 

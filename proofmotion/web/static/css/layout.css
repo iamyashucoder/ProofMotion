@@ -62,7 +62,10 @@ body {
 }
 #transcript { flex: 1; overflow-y: auto; padding: 18px; min-height: 0; }
 #chat-hint { flex: none; }
-#composer { border-top: 1px solid var(--line); padding: 12px; display: flex; gap: 8px; flex: none; }
+#composer { border-top: 1px solid var(--line); padding: 12px; display: flex; flex-direction: column; gap: 8px; flex: none; }
+#composer.drop { outline: 2px dashed var(--accent); outline-offset: -6px; }
+#composer-row { display: flex; gap: 8px; align-items: flex-end; }
+#chips { display: flex; flex-wrap: wrap; gap: 6px; }
 #composer-text { flex: 1; resize: none; min-width: 0; }
 
 /* main column, top to bottom: bar, stage, narration, filmstrip, status, log, deck */

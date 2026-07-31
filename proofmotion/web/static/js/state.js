@@ -13,6 +13,7 @@ const state = {
   posters: {},              // slide id -> content digest
   errors: {},               // slide id -> render problem
   transcript: [],           // {who, text, operations}
+  attachments: [],          // image refs (server-named, e.g. "ab12….png") pending on the composer
   selected: null,           // slide id
   turnRunning: false,
   queue: 0,                 // operations waiting behind a turn or each other

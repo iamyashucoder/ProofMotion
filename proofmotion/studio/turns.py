@@ -26,14 +26,19 @@ class TurnResult:
     refusal: str = ""
 
 
-def run_turn(client: Any, project: Project, message: str, *, remake_slide: str = "") -> TurnResult:
+def run_turn(
+    client: Any, project: Project, message: str, *,
+    remake_slide: str = "", images: list[str] | None = None,
+) -> TurnResult:
     """Answer one message: the whole pipeline for an opening question, edits after."""
     if not project.slides:
-        return open_question_turn(client, project, message)
-    return follow_up_turn(client, project, message, remake_slide=remake_slide)
+        return open_question_turn(client, project, message, images=images)
+    return follow_up_turn(client, project, message, remake_slide=remake_slide, images=images)
 
 
-def open_question_turn(client: Any, project: Project, message: str) -> TurnResult:
+def open_question_turn(
+    client: Any, project: Project, message: str, *, images: list[str] | None = None,
+) -> TurnResult:
     """An opening question gets the whole pipeline: read it, derive the
     mathematics with symbolic tools, verify, storyboard, and map every scene
     onto a component. The edit agent answers an opening question with one
@@ -49,7 +54,7 @@ def open_question_turn(client: Any, project: Project, message: str) -> TurnResul
     # has no mathematics behind it, and forcing the pipeline through anyway
     # produced eight verified steps and ten slides that drew nothing.
     headline("Designing scenes for it")
-    edit = propose(client, project, message)
+    edit = propose(client, project, message, images=images)
     if edit.needs_hand_drawn:
         operations, reply = draw_by_hand(client, edit.needs_hand_drawn)
         return TurnResult(Edit(operations=operations, reply=reply))
@@ -70,14 +75,15 @@ def open_question_turn(client: Any, project: Project, message: str) -> TurnResul
 
 
 def follow_up_turn(
-    client: Any, project: Project, message: str, *, remake_slide: str = ""
+    client: Any, project: Project, message: str, *,
+    remake_slide: str = "", images: list[str] | None = None,
 ) -> TurnResult:
     """The deck exists, so edits are edits — and escalations are deliberate."""
     from proofmotion.agents.studio import propose
     from proofmotion.studio.compose_full import answer_fully, draw_by_hand
 
     headline("Thinking about what to change")
-    edit = propose(client, project, message)
+    edit = propose(client, project, message, images=images)
     if edit.needs_hand_drawn:
         # Honoured on an existing deck too. It was only checked when the deck
         # was empty, so on a deck with slides the agent raised the flag,

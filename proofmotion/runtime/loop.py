@@ -140,11 +140,15 @@ def run_structured(
     # burns a repair attempt on a problem the model did not have.
     max_tokens: int = 12000,
     agent_name: str = "agent",
+    images: list[str] | None = None,
 ) -> Any:
     """Run an agent and validate its answer against a Pydantic model.
 
     A schema violation is handed back with the validation error attached, which
     is a far better repair signal than asking again and hoping.
+
+    `images` are data URLs shown alongside the prompt — what the person
+    attached is part of what they said.
     """
     schema = json.dumps(model_cls.model_json_schema())
     instruction = f"{user_prompt}\n\nReturn ONLY a JSON object matching this schema:\n{schema}"
@@ -154,6 +158,7 @@ def run_structured(
         result = run_agent(
             client, system_prompt, prompt, registry,
             max_iterations=max_iterations, max_tokens=max_tokens, agent_name=agent_name,
+            images=images,
         )
         try:
             return model_cls.model_validate(extract_json(result.content))
@@ -223,6 +228,7 @@ def run_agent(
     agent_name: str = "agent",
     final_max_tokens: int | None = None,
     final_instruction: str = "Stop calling tools. Answer now using only what you have already gathered.",
+    images: list[str] | None = None,
 ) -> AgentResult:
     """Run a tool-using agent until it answers or runs out of iterations.
 
@@ -234,10 +240,18 @@ def run_agent(
         max_iterations: Cap on model turns, so a confused agent cannot spin.
         max_tokens: Per-turn generation cap.
         agent_name: Label used in the live event stream.
+        images: Data URLs attached to the task — sent as image content parts
+            beside the text, in the chat-completions shape every provider
+            here understands (the Responses client respells them itself).
     """
+    opening: Any = user_prompt
+    if images:
+        opening = [{"type": "text", "text": user_prompt}] + [
+            {"type": "image_url", "image_url": {"url": url}} for url in images
+        ]
     messages: list[dict[str, Any]] = [
         {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_prompt},
+        {"role": "user", "content": opening},
     ]
     schemas = registry.schemas()
     performed: list[dict[str, Any]] = []

@@ -150,8 +150,11 @@ def _describe(project: Project) -> str:
     )
 
 
-def propose(client: Any, project: Project, message: str, *, max_iterations: int = 6) -> Edit:
-    """What should change, given the deck and what the person said."""
+def propose(
+    client: Any, project: Project, message: str, *,
+    max_iterations: int = 6, images: list[str] | None = None,
+) -> Edit:
+    """What should change, given the deck, what the person said — and showed."""
     deck = _describe(project) if project.slides else "(the deck is empty)"
     briefing = (
         f"{_catalogue()}\n\n"
@@ -165,11 +168,15 @@ def propose(client: Any, project: Project, message: str, *, max_iterations: int 
     edit = run_structured(
         client, SYSTEM, briefing, tools, Edit,
         max_iterations=max_iterations, max_tokens=6000, agent_name="studio",
+        images=images,
     )
-    return _repaired(client, edit, briefing, tools, max_iterations)
+    return _repaired(client, edit, briefing, tools, max_iterations, images=images)
 
 
-def _repaired(client: Any, edit: Edit, briefing: str, tools: Any, max_iterations: int) -> Edit:
+def _repaired(
+    client: Any, edit: Edit, briefing: str, tools: Any, max_iterations: int,
+    images: list[str] | None = None,
+) -> Edit:
     """One retry with the exact schemas of whatever was guessed wrong.
 
     Knowing a component exists is not knowing its parameters, and the agent
@@ -209,4 +216,5 @@ def _repaired(client: Any, edit: Edit, briefing: str, tools: Any, max_iterations
     return run_structured(
         client, SYSTEM, retry, tools, Edit,
         max_iterations=max_iterations, max_tokens=6000, agent_name="studio",
+        images=images,
     )

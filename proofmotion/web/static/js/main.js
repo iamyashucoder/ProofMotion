@@ -15,6 +15,7 @@ import { initFilmstrip } from './filmstrip.js';
 import { initDeck } from './deck.js';
 import { initExports } from './exports.js';
 import { initStyle } from './style.js';
+import { initAttach } from './attach.js';
 
 async function boot() {
   initLayout();
@@ -27,6 +28,7 @@ async function boot() {
   initDeck();
   initExports();
   initStyle();
+  initAttach();
 
   subscribe('projectId', (projectId) => follow(projectId));
 

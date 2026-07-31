@@ -152,6 +152,59 @@ class TestMedia(ApiTest):
         self.assertIn("attachment", response.headers.get("content-disposition", ""))
 
 
+class TestAttachments(ApiTest):
+    DOT = __import__("base64").b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg=="
+    )
+
+    def test_an_image_uploads_and_serves_back(self):
+        pid = self.seed()
+        posted = self.http.post(
+            f"/api/projects/{pid}/attachments",
+            content=self.DOT, headers={"X-Filename": "sketch.png"},
+        )
+        self.assertEqual(posted.status_code, 200)
+        body = posted.json()
+        self.assertEqual(body["kind"], "image")
+        served = self.http.get(f"/api/projects/{pid}/attachments/{body['id']}")
+        self.assertEqual(served.content, self.DOT)
+
+    def test_an_unsupported_upload_is_a_400_with_the_reason(self):
+        pid = self.seed()
+        posted = self.http.post(
+            f"/api/projects/{pid}/attachments",
+            content=b"MZ", headers={"X-Filename": "virus.exe"},
+        )
+        self.assertEqual(posted.status_code, 400)
+        self.assertIn("unsupported", posted.json()["error"])
+
+    def test_the_turn_is_shown_the_attached_image(self):
+        pid = self.seed()
+        uploaded = self.http.post(
+            f"/api/projects/{pid}/attachments",
+            content=self.DOT, headers={"X-Filename": "sketch.png"},
+        ).json()
+
+        seen: dict = {}
+
+        def spy(client, project, message, *, remake_slide="", images=None):
+            seen["images"] = images or []
+            seen["message"] = message
+            return TurnResult(Edit(reply="saw it"))
+
+        with (
+            patch("proofmotion.studio.turns.run_turn", side_effect=spy),
+            patch("proofmotion.studio.render.build", return_value=dict(CLEAN_REPORT)),
+        ):
+            self.http.post(
+                f"/api/projects/{pid}/message",
+                json={"message": "recreate this", "attachments": [uploaded["id"]]},
+            )
+        self.assertEqual(len(seen["images"]), 1)
+        self.assertTrue(seen["images"][0].startswith("data:image/png;base64,"))
+        self.assertIn("1 image(s) attached", seen["message"])
+
+
 class TestToken(unittest.TestCase):
     @unittest.skipIf(TestClient is None, "httpx not installed")
     def test_the_token_guards_every_route_and_a_cookie_carries_it(self):

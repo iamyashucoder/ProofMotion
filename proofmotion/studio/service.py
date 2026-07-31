@@ -96,9 +96,23 @@ class StudioService:
 
     # ---- turns ----------------------------------------------------------
 
-    def run_turn(self, project_id: str, message: str, *, remake_slide: str = "") -> dict[str, Any]:
+    def run_turn(
+        self,
+        project_id: str,
+        message: str,
+        *,
+        remake_slide: str = "",
+        attachments: list[str] | None = None,
+    ) -> dict[str, Any]:
+        from proofmotion.studio import attach
+
         with self.lock_for(project_id), scoped(project_id):
             project = self.store.load(project_id)
+            directory = self.store.directory(project_id)
+            images = [
+                attach.data_url(directory, attachment_id)
+                for attachment_id in (attachments or [])[: attach.MAX_IMAGES_PER_TURN]
+            ]
             if remake_slide:
                 project.slide(remake_slide)  # raises with a clear message if it is gone
                 self.store.remember(project_id, "you", f"↻ {remake_slide}: {message}")
@@ -110,8 +124,12 @@ class StudioService:
                 if not project.question:
                     project.question = message
                 self.store.remember(project_id, "you", message)
+            if images:
+                message += f"\n\n[{len(images)} image(s) attached; they are shown to you above.]"
 
-            result = turns.run_turn(self.client, project, message, remake_slide=remake_slide)
+            result = turns.run_turn(
+                self.client, project, message, remake_slide=remake_slide, images=images
+            )
             if result.refusal:
                 return self.snapshot(project, reply=result.refusal)
 
@@ -157,6 +175,26 @@ class StudioService:
             slide, self.store.directory(project_id),
             style=project.style, quality=project.quality,
         )
+
+    # ---- what the person drops in ----------------------------------------
+
+    def save_attachment(self, project_id: str, filename: str, data: bytes) -> dict[str, Any]:
+        from proofmotion.studio import attach
+
+        self.store.load(project_id)  # 404/409 mapping; never write under a ghost
+        return attach.save(self.store.directory(project_id), filename, data)
+
+    def attachment_file(self, project_id: str, attachment_id: str) -> Path:
+        from proofmotion.studio import attach
+
+        suffix = Path(attachment_id).suffix.lower()
+        stem = Path(attachment_id).stem
+        if suffix not in attach.IMAGE or len(stem) != 16:
+            raise ToolError(f"no attachment {attachment_id!r}")
+        path = self.store.directory(project_id) / "attachments" / attachment_id
+        if not path.is_file():
+            raise ToolError(f"no attachment {attachment_id!r}")
+        return path
 
     # ---- speaking -------------------------------------------------------
 

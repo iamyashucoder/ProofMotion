@@ -28,8 +28,14 @@
     <div id="transcript"></div>
     <div id="chat-hint" class="hint" hidden></div>
     <div id="composer">
-      <textarea id="composer-text" rows="2" placeholder="Show how the area under x&sup2; is built from rectangles..."></textarea>
-      <button id="composer-send">Send</button>
+      <div id="chips" hidden></div>
+      <div id="composer-row">
+        <button class="pill" id="attachbtn" title="attach images, audio, or video">&#128206;</button>
+        <button class="pill" id="micbtn" title="record a voice note">&#127908;</button>
+        <textarea id="composer-text" rows="2" placeholder="Show how the area under x&sup2; is built from rectangles..."></textarea>
+        <button id="composer-send">Send</button>
+      </div>
+      <input type="file" id="fileinput" accept="image/*,audio/*,video/*" multiple hidden>
     </div>
   </section>
   <button id="chat-expand" class="edge-expand" title="show chat">&rsaquo;</button>

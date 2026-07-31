@@ -530,7 +530,31 @@ class OpenAIResponsesClient(OpenAIClient):
         return flat
 
     @staticmethod
-    def _to_responses_input(messages: list[dict[str, Any]]) -> tuple[str, list[dict[str, Any]]]:
+    def _to_responses_parts(content: Any) -> Any:
+        """Chat content parts, respelled the way the Responses endpoint takes them.
+
+        The agent loop speaks chat-completions shapes everywhere — text parts
+        and image_url parts — and this endpoint wants input_text/input_image.
+        Translated here so a message with a picture in it works on both APIs
+        without the loop knowing which one it is talking to.
+        """
+        if not isinstance(content, list):
+            return content
+        parts = []
+        for part in content:
+            kind = part.get("type")
+            if kind == "text":
+                parts.append({"type": "input_text", "text": part.get("text", "")})
+            elif kind == "image_url":
+                url = part.get("image_url")
+                url = url.get("url") if isinstance(url, dict) else url
+                parts.append({"type": "input_image", "image_url": url})
+            else:
+                parts.append(part)
+        return parts
+
+    @classmethod
+    def _to_responses_input(cls, messages: list[dict[str, Any]]) -> tuple[str, list[dict[str, Any]]]:
         """Split off the system prompt and translate the rest into input items."""
         instructions = ""
         items: list[dict[str, Any]] = []
@@ -559,7 +583,7 @@ class OpenAIResponsesClient(OpenAIClient):
                         }
                     )
             elif message.get("content"):
-                items.append({"role": role or "user", "content": message["content"]})
+                items.append({"role": role or "user", "content": cls._to_responses_parts(message["content"])})
         return instructions, items
 
     def chat(

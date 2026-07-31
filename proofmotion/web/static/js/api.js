@@ -65,7 +65,9 @@ export async function refreshProjects() {
 export async function loadProject(projectId) {
   patch({ status: `Opening ${projectId}…` });
   const snap = await request(`/api/projects/${projectId}`);
-  patch({ projectId });
+  // Pending composer attachments belong to the project they were uploaded
+  // to; they do not follow the person to another one.
+  patch({ projectId, attachments: [] });
   if (!absorb(snap)) throw new Error('the server answered with an unusable snapshot');
   patch({ transcript: Array.isArray(snap.transcript) ? snap.transcript : [] });
 }
@@ -144,11 +146,18 @@ export function createProject(message) {
   });
 }
 
-export function sendMessage(message) {
+export function sendMessage(message, attachments = []) {
   if (state.turnRunning || !state.projectId) return;
   const pid = state.projectId;
-  say('you', message);
-  turn('Thinking…', () => post(`/api/projects/${pid}/message`, { message }));
+  say('you', attachments.length ? `${message}\n[${attachments.length} image${attachments.length === 1 ? '' : 's'} attached]` : message);
+  turn('Thinking…', async () => {
+    const body = { message };
+    if (attachments.length) body.attachments = attachments;
+    const snap = await post(`/api/projects/${pid}/message`, body);
+    // The server has the images now; only then do the chips leave the composer.
+    patch({ attachments: state.attachments.filter((ref) => !attachments.includes(ref)) });
+    return snap;
+  });
 }
 
 export function remakeSlide(slideId, instruction) {
@@ -177,6 +186,21 @@ export function setQuality(quality) {
 // play. A 400 carries the remedy (missing TTS engine or voice) for a toast.
 export function speak(slideId) {
   return post(`/api/projects/${state.projectId}/slides/${slideId}/speak`, {});
+}
+
+// Attachments go up as raw bytes, named by header — no multipart. The
+// answer's kind decides what the composer does with it: image → chip,
+// video → one chip per sampled frame, audio → transcript into the textarea.
+export function uploadAttachment(blob, filename) {
+  return request(`/api/projects/${state.projectId}/attachments`, {
+    method: 'POST',
+    headers: { 'X-Filename': filename },
+    body: blob,
+  });
+}
+
+export function attachmentUrl(ref) {
+  return `/api/projects/${state.projectId}/attachments/${ref}`;
 }
 
 // ---- quick operations: FIFO, one in flight ---------------------------

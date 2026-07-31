@@ -145,7 +145,7 @@ class TestConcurrency(unittest.TestCase):
             s.store.save(project)
             second = project.project_id
 
-            def slow_turn(client, proj, message, *, remake_slide=""):
+            def slow_turn(client, proj, message, *, remake_slide="", images=None):
                 time.sleep(0.25)
                 return TurnResult(Edit(reply="done"))
 
@@ -169,7 +169,7 @@ class TestConcurrency(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             s, pid = seeded(Path(tmp))
 
-            def slow_turn(client, proj, message, *, remake_slide=""):
+            def slow_turn(client, proj, message, *, remake_slide="", images=None):
                 time.sleep(0.2)
                 return TurnResult(Edit(reply="done"))
 

@@ -27,7 +27,7 @@ export function initChat() {
     const text = textarea.value.trim();
     if (!text || state.turnRunning) return;
     textarea.value = '';
-    if (state.projectId) sendMessage(text);
+    if (state.projectId) sendMessage(text, state.attachments.slice());
     else createProject(text);
   };
   send.addEventListener('click', submit);

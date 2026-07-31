@@ -82,6 +82,13 @@ def export_video(project_id: str, request: Request) -> FileResponse:
     )
 
 
+@router.get("/api/projects/{project_id}/attachments/{attachment_id}")
+def attachment(project_id: str, attachment_id: str, request: Request) -> FileResponse:
+    path = _service(request).attachment_file(project_id, attachment_id)
+    # Content-named, like posters and audio: cacheable forever.
+    return FileResponse(path, headers={"Cache-Control": "max-age=31536000, immutable"})
+
+
 @router.post("/api/projects/{project_id}/slides/{slide_id}/speak")
 async def speak(project_id: str, slide_id: str, request: Request) -> dict:
     return await asyncio.to_thread(_service(request).speak, project_id, slide_id)
