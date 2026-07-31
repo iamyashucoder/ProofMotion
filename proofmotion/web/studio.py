@@ -45,7 +45,7 @@ body{margin:0;height:100vh;display:flex;font:14px/1.55 -apple-system,Segoe UI,Ro
 .proj:hover{background:var(--panel)}
 .proj.on{background:var(--panel);color:var(--ink);border-left:2px solid var(--accent)}
 .proj small{display:block;font-size:11px;opacity:.65}
-#chat{width:37%;min-width:320px;display:flex;flex-direction:column;border-right:1px solid var(--line)}
+#chat{width:min(37%,460px);min-width:300px;flex:none;display:flex;flex-direction:column;border-right:1px solid var(--line);min-height:0}
 #log{flex:1;overflow-y:auto;padding:18px}
 .msg{margin-bottom:15px;max-width:93%}
 .msg.you{margin-left:auto}
@@ -59,20 +59,22 @@ body{margin:0;height:100vh;display:flex;font:14px/1.55 -apple-system,Segoe UI,Ro
 #q{flex:1;resize:none;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:10px;font:inherit}
 button{background:var(--accent);color:#04121e;border:0;border-radius:9px;padding:0 15px;font-weight:600;cursor:pointer}
 button:disabled{opacity:.4;cursor:default}
-#right{flex:1;display:flex;flex-direction:column;min-width:0}
-#stage{background:#000;display:flex;align-items:center;justify-content:center;padding:6px;position:relative}
-video{max-width:100%;max-height:46vh;width:auto;height:auto;display:block}
-#poster{max-width:100%;max-height:46vh;display:block;cursor:grab;user-select:none}
+#right{flex:1;min-width:0;min-height:0;display:grid;grid-template-rows:auto minmax(0,1fr) auto auto auto}
+#stage{background:#000;display:flex;align-items:center;justify-content:center;padding:6px;position:relative;min-height:0;overflow:hidden}
+video{max-width:100%;max-height:100%;width:auto;height:auto;display:block}
+#poster{max-width:100%;max-height:100%;object-fit:contain;display:block;cursor:grab;user-select:none}
 #poster.dragging{cursor:grabbing}
 #bar{display:flex;gap:8px;align-items:center;padding:7px 12px;border-bottom:1px solid var(--line);flex-wrap:wrap}
 #bar .grow{flex:1}
-#film{display:flex;gap:6px;overflow-x:auto;padding:8px 12px;border-bottom:1px solid var(--line)}
+#film{display:flex;gap:6px;overflow-x:auto;padding:7px 12px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);flex:none}
 #film img{height:52px;border:2px solid transparent;border-radius:5px;cursor:pointer;background:#000}
 #film img.on{border-color:var(--accent)}
 #film .num{font-size:10px;color:var(--dim);text-align:center}
 select.tool{background:#0b1017;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:3px 7px;font:inherit}
 #status{padding:8px 14px;font-size:12px;color:var(--dim);border-top:1px solid var(--line);border-bottom:1px solid var(--line);min-height:32px}
-#deck{flex:1;overflow-y:auto;padding:13px}
+#deck{overflow-y:auto;padding:12px;max-height:34vh;border-top:1px solid var(--line)}
+#deck.hidden{display:none}
+#panel{display:flex;align-items:center;gap:8px;padding:6px 12px;font-size:12px;color:var(--dim);cursor:pointer}
 .slide{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:10px 12px;margin-bottom:9px}
 .slide.locked{border-color:#8957e5}
 .slide h4{margin:0 0 3px;font-size:13px}
@@ -117,6 +119,7 @@ select.tool{background:#0b1017;color:var(--ink);border:1px solid var(--line);bor
   </div>
   <div id="film"></div>
   <div id="status">Ready.</div>
+  <div id="panel"><span id="chev">▾</span><span>slide settings</span></div>
   <div id="deck"></div>
 </div>
 <script>
@@ -296,6 +299,10 @@ new EventSource('/events').onmessage=e=>{
   const d=JSON.parse(e.data);
   if(d.kind==='headline'){ status.textContent=d.data.text; if(busy) tick(d.data.text); }
   else if(d.kind==='tool'&&busy) status.textContent='· '+d.data.name;
+};
+$('#panel').onclick=()=>{
+  const d=$('#deck'); d.classList.toggle('hidden');
+  $('#chev').textContent = d.classList.contains('hidden') ? '▸' : '▾';
 };
 fetch('/api/state').then(r=>r.json()).then(s=>{ (s.transcript||[]).forEach(m=>bubble(m.who,m.text,m.operations)); draw(s); });
 </script>
