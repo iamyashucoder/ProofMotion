@@ -16,6 +16,9 @@ import unittest
 from pathlib import Path
 
 from proofmotion.studio import Project, Slide, digest_of
+# The digests the schedule fakes compute must follow the studio's actual
+# default voice, whatever it is set to.
+from proofmotion.studio.narrate import DEFAULT_VOICE as DEFAULT
 from proofmotion.studio.operations import Operation, apply
 
 PLOT = {"expr": "x**2", "x_min": 0.0, "x_max": 3.0}
@@ -190,9 +193,9 @@ class TestSchedule(unittest.TestCase):
         ]
         durations = {"aaaa.mp4": 8.0, "bbbb.mp4": 6.0}
         lengths = {
-            f"{speech_digest('first words', 'en_US-lessac-medium')}.wav": 5.0,
-            f"{speech_digest('second words', 'en_US-lessac-medium')}.wav": 3.0,
-            f"{speech_digest('third words', 'en_US-lessac-medium')}.wav": 1.5,
+            f"{speech_digest('first words', DEFAULT)}.wav": 5.0,
+            f"{speech_digest('second words', DEFAULT)}.wav": 3.0,
+            f"{speech_digest('third words', DEFAULT)}.wav": 1.5,
         }
         with tempfile.TemporaryDirectory() as tmp:
             placements, problems = self.placements(units, project, tmp, durations, lengths)
@@ -206,7 +209,7 @@ class TestSchedule(unittest.TestCase):
         project = Project.create("test", "q")
         slide = Slide(id="s1", narration="a very long speech", seconds=6.0)
         units = [Unit(slides=[slide], digest="aaaa", clip=Path("/c/aaaa.mp4"))]
-        lengths = {f"{speech_digest('a very long speech', 'en_US-lessac-medium')}.wav": 9.2}
+        lengths = {f"{speech_digest('a very long speech', DEFAULT)}.wav": 9.2}
         with tempfile.TemporaryDirectory() as tmp:
             placements, problems = self.placements(
                 units, project, tmp, {"aaaa.mp4": 6.0}, lengths
@@ -229,8 +232,8 @@ class TestSchedule(unittest.TestCase):
             Unit(slides=[second], digest="bbbb", clip=Path("/c/bbbb.mp4")),
         ]
         lengths = {
-            f"{speech_digest('a long speech', 'en_US-lessac-medium')}.wav": 9.2,
-            f"{speech_digest('the next voice', 'en_US-lessac-medium')}.wav": 2.0,
+            f"{speech_digest('a long speech', DEFAULT)}.wav": 9.2,
+            f"{speech_digest('the next voice', DEFAULT)}.wav": 2.0,
         }
         with tempfile.TemporaryDirectory() as tmp:
             placements, problems = self.placements(

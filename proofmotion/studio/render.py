@@ -53,6 +53,12 @@ class Unit:
 
     slides: list[Slide]
     digest: str
+    #: The figure standing on screen when this clip begins: the last slide of
+    #: the previous unit, when both sides of the boundary draw one. The clip
+    #: opens on it and dissolves it into its own — continuity across the cut.
+    carried: Slide | None = None
+    #: Whether this clip ends holding its figure for the next one to pick up.
+    holds: bool = False
     #: True when this unit was reused from cache rather than rendered.
     cached: bool = False
     clip: Path | None = None
@@ -115,15 +121,23 @@ def group(slides: list[Slide]) -> list[list[Slide]]:
     return runs
 
 
-def digest_of(slides: list[Slide], *, style: str = "dark", quality: str = QUALITY) -> str:
+def digest_of(
+    slides: list[Slide],
+    *,
+    style: str = "dark",
+    quality: str = QUALITY,
+    carried: Slide | None = None,
+    holds: bool = False,
+) -> str:
     """Content hash over everything that can change the pixels.
 
     The component's version is part of it. Improving a component in the library
     has to invalidate clips built from the old one, or an edited project
     silently mixes two generations of the same figure.
 
-    The style is part of it only when it is not the default, so every project
-    rendered before styles existed keeps its clips on upgrade.
+    The style is part of it only when it is not the default, and the carried
+    figure and the hold only when they exist — so every project rendered
+    before those features keeps its clips on upgrade.
     """
     payload = []
     for slide in slides:
@@ -145,16 +159,47 @@ def digest_of(slides: list[Slide], *, style: str = "dark", quality: str = QUALIT
     key: dict = {"slides": payload, "quality": quality, "fps": FPS}
     if style != "dark":
         key["style"] = style
+    if carried is not None:
+        # The opening frame draws the previous unit's figure, so that figure
+        # is part of this clip's pixels: editing it re-renders the seam too.
+        spec = COMPONENTS.get(carried.component or "")
+        key["carried"] = {
+            "component": carried.component,
+            "component_version": getattr(spec, "version", None),
+            "parameters": carried.parameters,
+            "overrides": carried.overrides,
+        }
+    if holds:
+        key["holds"] = True
     blob = json.dumps(key, sort_keys=True, default=str)
     return hashlib.sha256(blob.encode()).hexdigest()[:16]
 
 
 def units_of(project: Project) -> list[Unit]:
     style, quality = _look_of(project)
-    return [
-        Unit(slides=run, digest=digest_of(run, style=style, quality=quality))
-        for run in group(project.slides)
-    ]
+    runs = group(project.slides)
+    units = []
+    for position, run in enumerate(runs):
+        # Continuity across the cut, in both directions: this clip opens on
+        # the previous figure when both sides of the boundary draw one, and
+        # holds its own figure whenever the next clip will open on it.
+        carried = None
+        if position and _figure(run[0]) is not None:
+            previous = runs[position - 1][-1]
+            if _figure(previous) is not None:
+                carried = previous
+        holds = (
+            position + 1 < len(runs)
+            and _figure(run[-1]) is not None
+            and _figure(runs[position + 1][0]) is not None
+        )
+        units.append(Unit(
+            slides=run,
+            digest=digest_of(run, style=style, quality=quality, carried=carried, holds=holds),
+            carried=carried,
+            holds=holds,
+        ))
+    return units
 
 
 def _look_of(project: Project) -> tuple[str, str]:
@@ -217,7 +262,12 @@ def _render_one(unit: Unit, work: Path, clips: Path, style: str, quality: str) -
             return unit
     else:
         try:
-            code = assemble(unit.plan(), style=style)
+            code = assemble(
+                unit.plan(),
+                style=style,
+                carried=unit.carried.as_assignment() if unit.carried else None,
+                hold_stage=unit.holds,
+            )
         except ToolError as error:
             unit.error = f"could not assemble {unit.ids}: {error}"
             return unit

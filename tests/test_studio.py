@@ -169,20 +169,125 @@ class TestDigest(unittest.TestCase):
         self.assertEqual(before[2], after[2])
         self.assertNotEqual(before[1], after[1])
 
-    def test_reordering_whole_units_re_renders_nothing(self):
-        """Moving a figure past another figure is a re-cut, not a re-render.
-
-        Reordering *within* a unit does change it, because the unit is now the
-        animation and its order is what the animation does.
+    def test_reordering_whole_units_re_renders_only_the_seams(self):
+        """Moving a figure past another figure is a re-cut — and a cut now has
+        pixels of its own: each clip opens on its neighbour's figure and holds
+        for the next, so the seams re-render while everything the slides
+        actually say is untouched. Reordering *within* a unit still changes
+        it, because the unit is the animation and its order is what the
+        animation does.
         """
         p = project(
             slide("s1", title="a"),
             slide("s2", title="b", component="tangent_secant", parameters={**PLOT, "at": 3.0}),
         )
-        before = {u.digest for u in units_of(p)}
+        content_before = {digest_of([s]) for s in p.slides}
+        seams_before = {u.digest for u in units_of(p)}
         apply(p, Operation(kind="reorder", slide_id="s1"))
         self.assertEqual([s.id for s in p.slides], ["s2", "s1"])
-        self.assertEqual(before, {u.digest for u in units_of(p)})
+        # The slides' own content is exactly what it was...
+        self.assertEqual(content_before, {digest_of([s]) for s in p.slides})
+        # ...and the seams are not: who holds and who carries has swapped.
+        self.assertNotEqual(seams_before, {u.digest for u in units_of(p)})
+
+
+class TestContinuity(unittest.TestCase):
+    """The cut between clips lands on the same figure it left.
+
+    Every unit boundary used to be a fade to black — the thread of attention
+    broke sixteen times in a sixteen-slide deck. A clip now holds its figure
+    for the next one to open on, and the seam is part of both clips' digests.
+    """
+
+    TANGENT = {"expr": "x**2", "x_min": 0.0, "x_max": 3.0, "at": 2.0}
+
+    def figures(self):
+        return project(
+            slide("s1", title="a"),
+            slide("s2", title="b", component="tangent_secant", parameters=dict(self.TANGENT)),
+        )
+
+    def test_neighbouring_figures_carry_and_hold(self):
+        from proofmotion.studio.render import units_of
+
+        first, second = units_of(self.figures())
+        self.assertTrue(first.holds)
+        self.assertIsNone(first.carried)
+        self.assertFalse(second.holds)
+        self.assertIsNotNone(second.carried)
+        self.assertEqual(second.carried.id, "s1")
+
+    def test_editing_the_figure_re_renders_the_seam_too(self):
+        """The next clip opens on this figure, so its pixels changed as well."""
+        from proofmotion.studio.render import units_of
+
+        before = [u.digest for u in units_of(self.figures())]
+        changed = self.figures()
+        apply(changed, Operation(kind="set_parameter", slide_id="s1", name="x_max", value=4.0))
+        after = [u.digest for u in units_of(changed)]
+        self.assertNotEqual(before[0], after[0])
+        self.assertNotEqual(before[1], after[1], "the seam is part of the next clip")
+
+    def test_but_editing_its_words_does_not(self):
+        """Only the figure crosses the cut; the title has already faded."""
+        from proofmotion.studio.render import units_of
+
+        before = [u.digest for u in units_of(self.figures())]
+        changed = self.figures()
+        apply(changed, Operation(kind="edit", slide_id="s1", title="renamed"))
+        after = [u.digest for u in units_of(changed)]
+        self.assertNotEqual(before[0], after[0])
+        self.assertEqual(before[1], after[1])
+
+    def test_a_wordy_or_hand_drawn_boundary_keeps_the_cut(self):
+        from proofmotion.studio.render import units_of
+
+        units = units_of(project(
+            slide("s1"),
+            slide("s2", component=None, parameters={}, title="just words"),
+            slide("s3", component="tangent_secant", parameters=dict(self.TANGENT)),
+        ))
+        self.assertEqual([u.holds for u in units], [False, False, False])
+        self.assertEqual([u.carried for u in units], [None, None, None])
+
+    def test_a_lone_unit_keeps_its_old_digest(self):
+        """No neighbour, no new keys — decks from before keep their clips."""
+        one = slide("s1")
+        self.assertEqual(digest_of([one]), digest_of([one], carried=None, holds=False))
+
+    def test_the_emitted_clip_opens_on_the_carried_figure(self):
+        from proofmotion.compose.assembler import SceneAssignment, ScenePlan, assemble
+
+        woven = assemble(
+            ScenePlan(assignments=[SceneAssignment(
+                title="Next", component="tangent_secant", parameters=dict(self.TANGENT),
+            )]),
+            carried=SceneAssignment(component="function_plot", parameters=dict(PLOT)),
+            hold_stage=True,
+        )
+        body = woven.split("def construct")[1]
+        self.assertIn("carried = build('function_plot'", body)
+        self.assertIn("self.add(carried.group)", body)
+        self.assertIn("stage = carried.group", body)
+        # The first scene fades the standing figure as its own draws,
+        self.assertIn("self.play(FadeOut(stage), run_time=0.4)", body)
+        # and the clip ends holding its figure, not fading it.
+        tail = body[body.rindex("leaving = chrome"):]
+        self.assertNotIn("[stage]", tail)
+
+    def test_a_held_clip_still_posters(self):
+        """The poster hack strips from the closing marker; the marker stays."""
+        from proofmotion.compose.assembler import SceneAssignment, ScenePlan, assemble
+        from proofmotion.studio.render import _without_the_closing_fade
+
+        woven = assemble(
+            ScenePlan(assignments=[SceneAssignment(title="One", component="function_plot",
+                                                   parameters=dict(PLOT))]),
+            hold_stage=True,
+        )
+        stripped = _without_the_closing_fade(woven)
+        self.assertNotIn("leaving", stripped)
+        self.assertTrue(stripped.rstrip().endswith("self.wait(0.1)"))
 
 
 class TestBuild(unittest.TestCase):

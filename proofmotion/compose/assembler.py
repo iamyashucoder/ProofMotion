@@ -135,29 +135,45 @@ def check(plan: ScenePlan) -> list[str]:
     return problems
 
 
-def _nudge(name: str, overrides: dict[str, Any]) -> list[str]:
+def _nudge(name: str, overrides: dict[str, Any], target: str | None = None) -> list[str]:
     """Emit the hand corrections for one placed object, if there are any.
 
     Applied after `place`, so an override moves what the engine decided rather
     than fighting it. Nothing here guesses: an override exists only because a
-    person dragged something.
+    person dragged something. `target` is the emitted variable when it differs
+    from the override's key — a carried-in figure was dragged as "built.group"
+    but stands in the next clip under another name.
     """
     lines: list[str] = []
     shift = (overrides.get("shift") or {}).get(name) or {}
     dx, dy = float(shift.get("dx", 0.0)), float(shift.get("dy", 0.0))
     if dx or dy:
-        lines.append(f"        {name}.shift(RIGHT * {dx} + UP * {dy})")
+        lines.append(f"        {target or name}.shift(RIGHT * {dx} + UP * {dy})")
     scale = (overrides.get("scale") or {}).get(name)
     if scale:
-        lines.append(f"        {name}.scale({float(scale)})")
+        lines.append(f"        {target or name}.scale({float(scale)})")
     return lines
 
 
-def assemble(plan: ScenePlan, *, style: str = "dark") -> str:
+def assemble(
+    plan: ScenePlan,
+    *,
+    style: str = "dark",
+    carried: SceneAssignment | None = None,
+    hold_stage: bool = False,
+) -> str:
     """Turn chosen components into complete, runnable source.
 
     Raises when the plan does not fully check out. A half-assembled scene would
     be worse than either path, so the caller falls back to the coder instead.
+
+    `carried` and `hold_stage` are the two halves of continuity across clips.
+    A deck renders as separate clips joined by a cut, and each clip used to
+    open from nothing — every boundary was a fade to black, and the thread of
+    attention broke sixteen times in a sixteen-slide deck. A clip that holds
+    its figure at the end (`hold_stage`) lands its cut on a stable frame, and
+    the next clip opens on that same figure (`carried`) already standing —
+    then dissolves it into its own. The cut is still there; nobody sees it.
     """
     problems = check(plan)
     if problems:
@@ -175,6 +191,19 @@ def assemble(plan: ScenePlan, *, style: str = "dark") -> str:
     write("")
 
     standing: tuple[str, str] | None = None
+    if carried is not None:
+        # The figure the viewer was just looking at, rebuilt and added with no
+        # animation so the first frame of this clip matches the last frame of
+        # the previous one. The scene loop below then treats it exactly like
+        # any standing figure: the first scene fades it out as its own draws.
+        write("        # the previous clip's figure, standing where it stood")
+        write(f"        carried = build({carried.component!r}, {carried.parameters!r})")
+        write("        place(carried.group, regions['stage'])")
+        lines.extend(_nudge("built.group", carried.overrides, target="carried.group"))
+        write("        self.add(carried.group)")
+        write("        stage = carried.group")
+        write("")
+        standing = (carried.component, repr(carried.parameters))
     for index, scene in enumerate(plan.assignments, 1):
         write(f"        # ---- scene {index} ----")
         # The clock this scene settles against: `seconds` is a floor, not a
@@ -332,9 +361,17 @@ def assemble(plan: ScenePlan, *, style: str = "dark") -> str:
             write("            stage = None")
         write("")
 
-    write("        leaving = chrome + ([stage] if stage is not None else [])")
-    write("        if leaving:")
-    write("            self.play(*[FadeOut(m) for m in leaving], run_time=0.5)")
+    if hold_stage:
+        # The words go; the figure stays for the next clip to open on. The
+        # short hold gives the cut a stable frame to land on.
+        write("        leaving = chrome")
+        write("        if leaving:")
+        write("            self.play(*[FadeOut(m) for m in leaving], run_time=0.5)")
+        write("        self.wait(0.15)")
+    else:
+        write("        leaving = chrome + ([stage] if stage is not None else [])")
+        write("        if leaving:")
+        write("            self.play(*[FadeOut(m) for m in leaving], run_time=0.5)")
 
     return _header(style) + "\n".join(lines) + "\n"
 
