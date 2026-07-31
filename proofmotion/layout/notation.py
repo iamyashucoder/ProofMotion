@@ -46,7 +46,7 @@ SYMBOLS = {
     "ℝ": r"\mathbb{R}", "ℕ": r"\mathbb{N}", "ℤ": r"\mathbb{Z}",
     "ℚ": r"\mathbb{Q}", "ℂ": r"\mathbb{C}",
     # Punctuation a model reaches for that LaTeX does not know.
-    "—": "--", "–": "-", "…": r"\ldots",
+    "—": "--", "–": "-", "−": "-", "…": r"\ldots",
     "“": "``", "”": "''", "‘": "`", "’": "'",
 }
 
@@ -61,13 +61,29 @@ SPACES = {
 }
 SYMBOLS.update(SPACES)
 
-#: Superscript and subscript digits, which arrive as ``x²`` and ``∫₀³``.
+#: Superscript and subscript digits and letters, which arrive as ``x²``,
+#: ``∫₀³``, ``Wₜ`` and ``Vᵀ``. Unicode has no subscript b, and a model asked
+#: for readable notation writes every one it does have — a deck about weight
+#: matrices died on ``ₜ`` alone, four clips at once.
 SUPERSCRIPTS = {"⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4",
                 "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9",
-                "⁺": "+", "⁻": "-", "⁽": "(", "⁾": ")", "ⁿ": "n"}
+                "⁺": "+", "⁻": "-", "⁽": "(", "⁾": ")",
+                "ᵃ": "a", "ᵇ": "b", "ᶜ": "c", "ᵈ": "d", "ᵉ": "e",
+                "ᶠ": "f", "ᵍ": "g", "ʰ": "h", "ⁱ": "i", "ʲ": "j",
+                "ᵏ": "k", "ˡ": "l", "ᵐ": "m", "ⁿ": "n", "ᵒ": "o",
+                "ᵖ": "p", "ʳ": "r", "ˢ": "s", "ᵗ": "t", "ᵘ": "u",
+                "ᵛ": "v", "ʷ": "w", "ˣ": "x", "ʸ": "y", "ᶻ": "z",
+                "ᴬ": "A", "ᴮ": "B", "ᴰ": "D", "ᴱ": "E", "ᴳ": "G",
+                "ᴴ": "H", "ᴵ": "I", "ᴶ": "J", "ᴷ": "K", "ᴸ": "L",
+                "ᴹ": "M", "ᴺ": "N", "ᴼ": "O", "ᴾ": "P", "ᴿ": "R",
+                "ᵀ": "T", "ᵁ": "U", "ⱽ": "V", "ᵂ": "W"}
 SUBSCRIPTS = {"₀": "0", "₁": "1", "₂": "2", "₃": "3", "₄": "4",
               "₅": "5", "₆": "6", "₇": "7", "₈": "8", "₉": "9",
-              "₊": "+", "₋": "-", "₍": "(", "₎": ")", "ₙ": "n"}
+              "₊": "+", "₋": "-", "₍": "(", "₎": ")",
+              "ₐ": "a", "ₑ": "e", "ₕ": "h", "ᵢ": "i", "ⱼ": "j",
+              "ₖ": "k", "ₗ": "l", "ₘ": "m", "ₙ": "n", "ₒ": "o",
+              "ₚ": "p", "ᵣ": "r", "ₛ": "s", "ₜ": "t", "ᵤ": "u",
+              "ᵥ": "v", "ₓ": "x"}
 
 _SUPER = re.compile(f"[{''.join(SUPERSCRIPTS)}]+")
 _SUB = re.compile(f"[{''.join(SUBSCRIPTS)}]+")
@@ -137,6 +153,25 @@ def looks_like_maths(text: str) -> bool:
     if _PROSE.search(stripped):
         return False
     return bool(_MATHS.search(stripped)) or " " not in stripped
+
+
+#: Two or more ordinary words in a row, inside otherwise-mathematical text.
+_WORD_RUN = re.compile(r"\b[A-Za-z]{2,}\b(?: +\b[A-Za-z]{2,}\b)+")
+
+
+def mixes_prose(text: str) -> bool:
+    """Mathematics with sentences threaded through it.
+
+    "Δₜ is approximately Δₜ(r)" is maths by every marker, and MathTex would
+    set "is approximately" in italic with the space stripped out. Text draws
+    the Unicode notation natively, so for a caption that is both, Text is the
+    reader's side of the trade. A backslash means the author already chose
+    LaTeX, and their \\text{} is honoured there instead.
+    """
+    stripped = (text or "").strip()
+    if not stripped or "\\" in stripped:
+        return False
+    return bool(_WORD_RUN.search(stripped))
 
 
 #: The reverse of SYMBOLS, for showing LaTeX to a person instead of setting it.

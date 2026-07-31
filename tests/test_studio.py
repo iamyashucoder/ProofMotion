@@ -811,6 +811,34 @@ class TestNotation(unittest.TestCase):
         self.assertEqual(to_latex("Δv/Δt"), r"\Delta v/\Delta t")
         self.assertEqual(to_latex("ω = 2πf"), r"\omega = 2\pi f")
 
+    def test_letter_scripts_and_the_true_minus_translate(self):
+        """A deck about weight matrices died on ``ₜ`` alone — four clips at once."""
+        from proofmotion.layout.notation import to_latex, unsupported
+
+        self.assertEqual(to_latex("Wₜ = W₀ + Δₜ"), r"W_{t} = W_{0} + \Delta_{t}")
+        self.assertEqual(to_latex("Vᵀ"), "V^{T}")
+        self.assertEqual(to_latex("a − b"), "a - b")
+        self.assertEqual(unsupported("Wₜ = W₀ + Δₜ − Vᵀ"), [])
+
+    def test_maths_threaded_with_prose_is_set_as_text(self):
+        """MathTex would strip the spaces out of "is approximately"."""
+        from proofmotion.layout.notation import mixes_prose
+
+        self.assertTrue(mixes_prose("Δₜ is approximately Δₜ(r), with r = 1"))
+        self.assertFalse(mixes_prose("Wₜ = W₀ + Δₜ, for t = 1, 2"))
+        # The author who wrote LaTeX already chose; \text{} is honoured there.
+        self.assertFalse(mixes_prose(r"\Delta_1=\begin{bmatrix}2&0\\0&0\end{bmatrix}"))
+
+    def test_an_untranslatable_caption_never_reaches_latex(self):
+        """Whatever the classifier thinks, LaTeX only gets what it can set."""
+        from proofmotion.compose.assembler import SceneAssignment, ScenePlan, assemble
+
+        woven = assemble(ScenePlan(assignments=[SceneAssignment(
+            title="Mixed", caption="Δₜ is approximately Δₜ(r) = Uₜ(r) × Sₜ(r) × Vₜ(r)ᵀ",
+        )]))
+        self.assertIn("caption = Text(", woven)
+        self.assertNotIn("MathTex", woven.split("def construct")[1])
+
     def test_the_spacing_fix_does_not_split_the_command_itself(self):
         """A greedy control word with a lookahead backtracks into itself.
 

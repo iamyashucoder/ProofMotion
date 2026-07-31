@@ -131,13 +131,19 @@ def audio_schedule(units, project, directory: Path) -> tuple[list[tuple[Path, in
     Within a multi-slide unit the clip's real duration is split proportionally
     to the slides' declared seconds — the honest approximation, since exact
     per-slide offsets inside one animation do not exist. Speech longer than
-    its slot is placed anyway and reported: trimming would discard words
-    silently, and the report makes the fix a one-line edit.
+    its slot is reported, never trimmed — trimming discards words silently —
+    and the next speech waits for it to end: two voices at once is worse than
+    one running a little late, and `amix` plays overlapping inputs on top of
+    each other rather than in turn.
     """
+    #: Breathing room between one speech ending and the next beginning.
+    GAP = 0.35
+
     voice = getattr(project, "voice", "") or DEFAULT_VOICE
     placements: list[tuple[Path, int]] = []
     problems: list[str] = []
     cursor = 0.0
+    speaking_until = 0.0
     for unit in units:
         if not unit.clip:
             continue  # a failed unit is absent from the film, so from the timeline
@@ -155,7 +161,9 @@ def audio_schedule(units, project, directory: Path) -> tuple[list[tuple[Path, in
                         f"narration for {slide.id} runs {spoken:.1f}s in a ~{slot:.1f}s "
                         "slot — lengthen the slide or shorten the note"
                     )
-                placements.append((wav, int(round(offset * 1000))))
+                start = max(offset, speaking_until)
+                placements.append((wav, int(round(start * 1000))))
+                speaking_until = start + spoken + GAP
             offset += slot
         cursor += real
     return placements, problems

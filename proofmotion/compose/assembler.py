@@ -21,7 +21,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from proofmotion.components import COMPONENTS
-from proofmotion.layout.notation import looks_like_maths, to_latex
+from proofmotion.layout.notation import looks_like_maths, mixes_prose, to_latex, unsupported
 from proofmotion.runtime.registry import ToolError
 from schemas.storyboard import MAX_SCENES
 
@@ -258,8 +258,16 @@ def assemble(plan: ScenePlan, *, style: str = "dark") -> str:
             # maths with the spaces stripped out — unreadable when it compiles,
             # and a LaTeX error when it does not, which is how a caption about
             # a projectile took a render down. Text has no LaTeX to fail in and
-            # renders Unicode natively, so prose goes there untouched.
-            if looks_like_maths(scene.caption):
+            # renders Unicode natively, so prose goes there untouched — and so
+            # does maths threaded with prose, and maths carrying a character
+            # nobody has a LaTeX spelling for: a deck about weight matrices
+            # lost four clips at once to captions that were maths by every
+            # marker and undigestible by TeX.
+            if (
+                looks_like_maths(scene.caption)
+                and not mixes_prose(scene.caption)
+                and not unsupported(scene.caption)
+            ):
                 write(f"        caption = MathTex({to_latex(scene.caption)!r}, font_size={size})")
             else:
                 write(f"        caption = Text({scene.caption!r}, font_size={min(size, 30)})")

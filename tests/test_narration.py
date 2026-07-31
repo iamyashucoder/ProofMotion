@@ -216,6 +216,30 @@ class TestSchedule(unittest.TestCase):
         self.assertIn("s1", problems[0])
         self.assertIn("lengthen the slide or shorten the note", problems[0])
 
+    def test_voices_never_speak_over_each_other(self):
+        """Overrunning speech delays the next voice; amix would stack them."""
+        from proofmotion.studio.narrate import speech_digest
+        from proofmotion.studio.render import Unit
+
+        project = Project.create("test", "q")
+        first = Slide(id="s1", narration="a long speech", seconds=6.0)
+        second = Slide(id="s2", narration="the next voice", seconds=6.0)
+        units = [
+            Unit(slides=[first], digest="aaaa", clip=Path("/c/aaaa.mp4")),
+            Unit(slides=[second], digest="bbbb", clip=Path("/c/bbbb.mp4")),
+        ]
+        lengths = {
+            f"{speech_digest('a long speech', 'en_US-lessac-medium')}.wav": 9.2,
+            f"{speech_digest('the next voice', 'en_US-lessac-medium')}.wav": 2.0,
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            placements, problems = self.placements(
+                units, project, tmp, {"aaaa.mp4": 6.0, "bbbb.mp4": 6.0}, lengths
+            )
+        # The second voice waits for the first to finish, plus a breath.
+        self.assertEqual([ms for _, ms in placements], [0, 9550])
+        self.assertEqual(len(problems), 1)
+
     def test_a_failed_unit_is_absent_from_the_timeline(self):
         from unittest.mock import patch
 
