@@ -1,15 +1,16 @@
-"""Directable characters — a stick-figure hero, a living geometry, and their duel.
+"""Directable characters — a minimal stick-figure hero and the geometry that builds his world.
 
 The library drew apparatus: axes, springs, circuits. A question that is a story
-— someone doing something, something reacting — had nowhere to go, and the
-model hand-built figures out of raw Lines, differently and badly, every time.
+— someone doing something, somewhere — had nowhere to go, and the model
+hand-built figures out of raw Lines, differently and badly, every time.
 
-These three are characters. Spyder Math is an original glowing stick figure
-whose every ability is mathematics the component computes: a web is a taut line
-or a catenary, a swing is a pendulum arc, a leap is a projectile parabola.
-ProofMotion is a wireframe polyhedron orb — vertices, chords, glow — that
-idles or hunts. math_duel stages them against each other, and every move in it
-is a curve computed here, never a number taken on trust.
+Two characters carry the story. Spyder Math is an original glowing stick
+figure: human, minimal, a few mathematical tools — a web that is a line or a
+catenary, a swing that is a pendulum arc, a leap that is a projectile
+parabola. ProofMotion is not a creature: it is geometry that takes any form —
+orb, swing line, ramp, spiral, arches, steps — and builds the environments the
+hero moves through. math_scene stages the hero inside a world ProofMotion
+built, and every traversal is a curve computed here, never taken on trust.
 """
 
 from __future__ import annotations
@@ -18,7 +19,7 @@ import math
 import random
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator
 
 from proofmotion.components.base import Built, component
 from proofmotion.components.palette import PALETTE
@@ -58,18 +59,32 @@ POSES: dict[str, dict[str, float]] = {
                     hip_f=10, knee_f=-4, hip_b=-10, knee_b=4),
     "defeated": dict(lean=38, shoulder_f=22, elbow_f=6, shoulder_b=12, elbow_b=6,
                      hip_f=78, knee_f=-118, hip_b=-20, knee_b=-130),
+    # The playful ones: a dab tucks the face into the leading elbow while both
+    # arms point the same way; a flail throws every limb wide, mid-air.
+    "dab": dict(lean=6, shoulder_f=118, elbow_f=62, shoulder_b=152, elbow_b=8,
+                hip_f=12, knee_f=-6, hip_b=-12, knee_b=6),
+    "flail": dict(lean=-5, shoulder_f=120, elbow_f=-28, shoulder_b=-120, elbow_b=28,
+                  hip_f=58, knee_f=24, hip_b=-58, knee_b=-24),
 }
 
 
-def _glowed(mobject: Any, *, factor: float = 3.0, opacity: float = 0.13) -> Any:
-    """A soft halo behind a stroke: the same geometry, wider and fainter."""
-    from manim import VGroup
-
+def _halo(mobject: Any, *, factor: float = 2.4, opacity: float = 0.10, colour: str | None = None) -> Any:
+    """A single soft halo behind a stroke: the same geometry, wider and fainter."""
     halo = mobject.copy()
     for piece in halo.family_members_with_points():
         piece.set_fill(opacity=0.0)
-        piece.set_stroke(width=float(piece.get_stroke_width()) * factor, opacity=opacity)
-    return VGroup(halo, mobject)
+        stroke: dict[str, Any] = {"width": float(piece.get_stroke_width()) * factor, "opacity": opacity}
+        if colour:
+            stroke["color"] = colour
+        piece.set_stroke(**stroke)
+    return halo
+
+
+def _glowed(mobject: Any, *, colour: str | None = None) -> Any:
+    """The stroke with its single halo behind it, as one group."""
+    from manim import VGroup
+
+    return VGroup(_halo(mobject, colour=colour), mobject)
 
 
 def _stick_figure(
@@ -78,9 +93,9 @@ def _stick_figure(
     """The rig: head, torso, and two-segment limbs driven by a pose's joint angles.
 
     The lowest point of the pose is computed and set on y = 0 of the rig's
-    local frame, so a grounded figure stands exactly on a ground line drawn at
-    the same height. Returns (group, joints) — joints are final scene points,
-    so a web can anchor to "wrist_f" without re-deriving the arm.
+    local frame, so a grounded figure stands exactly on a surface drawn at the
+    same height. Returns (group, joints) — joints are final scene points, so a
+    web can anchor to "wrist_f" without re-deriving the arm.
     """
     import numpy as np
     from manim import Circle, Line, VGroup
@@ -130,14 +145,13 @@ def _stick_figure(
     return VGroup(limbs, torso, head), joints
 
 
-def _pendulum_guide(anchor: Any, wrist: Any) -> tuple[Any, float, float]:
-    """Dashed arc of the wrist's pendulum circle, shrunk until it stays on stage.
+def _pendulum_sweep(anchor: Any, wrist: Any) -> tuple[float, float, float]:
+    """Radius, start angle and mirror sweep of the wrist's pendulum circle.
 
-    The radius is |wrist - anchor| and the sweep mirrors the wrist's angle
-    about the vertical through the anchor — the actual swing, not a flourish.
+    The sweep mirrors the wrist's angle about the vertical through the anchor
+    and shrinks until the whole arc stays on stage.
     """
     import numpy as np
-    from manim import Arc, DashedVMobject
 
     v = wrist - anchor
     r = float(np.linalg.norm(v[:2]))
@@ -152,22 +166,41 @@ def _pendulum_guide(anchor: Any, wrist: Any) -> tuple[Any, float, float]:
         if max(abs(x) for x in xs) <= 4.55 and min(ys) >= 0.05:
             break
         sweep *= 0.88
-    arc = Arc(radius=r, start_angle=phi, angle=sweep, arc_center=anchor,
-              color=PALETTE.accent, stroke_width=1.8)
-    guide = DashedVMobject(arc, num_dashes=24)
-    guide.set_stroke(opacity=0.75)
-    return guide, r, sweep
+    return r, phi, sweep
 
 
-def _catenary_guide(p0: Any, p1: Any) -> tuple[Any, float]:
-    """Dashed y = a cosh((x - xv)/a) + c through both points, sag kept off the ground.
+def _mirrored_arc(centre: Any, start: Any) -> tuple[Any, float, Any]:
+    """The pendulum arc a rigid swing follows, from `start` to its mirror below `centre`.
 
-    The vertex comes from the identity cosh P - cosh Q = 2 sinh((P+Q)/2)
-    sinh((P-Q)/2), which gives xv in closed form; a grows until the sag clears
-    the ground line, so the curve is a genuine catenary at every parameter.
+    Built from live coordinates at play time, so it is correct whatever the
+    layout engine did to the group. Returns (arc path, swept angle, end point).
     """
     import numpy as np
-    from manim import DashedVMobject, VMobject
+    from manim import Arc
+
+    v = start - centre
+    r = float(np.linalg.norm(v[:2]))
+    phi = math.atan2(float(v[1]), float(v[0]))
+    delta = -math.pi - 2.0 * phi
+    if abs(delta) < 0.25:
+        delta = -0.9 if float(v[0]) >= 0 else 0.9
+    end = start
+    for _ in range(40):
+        end = centre + r * np.array([math.cos(phi + delta), math.sin(phi + delta), 0.0])
+        if abs(float(end[0])) <= 6.3 and float(end[1]) >= -3.7:
+            break
+        delta *= 0.85
+    return Arc(radius=r, start_angle=phi, angle=delta, arc_center=centre), delta, end
+
+
+def _catenary_points(p0: Any, p1: Any, *, min_y: float = 0.06, samples: int = 36) -> tuple[list[Any], float]:
+    """Points of y = a cosh((x - xv)/a) + c through both endpoints, sag kept above min_y.
+
+    The vertex comes from the identity cosh P - cosh Q = 2 sinh((P+Q)/2)
+    sinh((P-Q)/2), which gives xv in closed form; a grows until the sag
+    clears, so the curve is a genuine catenary at every parameter.
+    """
+    import numpy as np
 
     x0, y0 = float(p0[0]), float(p0[1])
     x1, y1 = float(p1[0]), float(p1[1])
@@ -175,72 +208,71 @@ def _catenary_guide(p0: Any, p1: Any) -> tuple[Any, float]:
         x0, y0, x1, y1 = x1, y1, x0, y0
     span = x1 - x0
     if span < 0.05:
-        return None, 0.0
-    a = 0.75 * span
+        return [], 0.0
+    a = 0.6 * span
     points: list[Any] = []
     for _ in range(8):
         xv = (x0 + x1) / 2 - a * math.asinh((y1 - y0) / (2 * a * math.sinh(span / (2 * a))))
         c = y0 - a * math.cosh((x0 - xv) / a)
         points = [
             np.array([x, a * math.cosh((x - xv) / a) + c, 0.0])
-            for x in (x0 + span * i / 35 for i in range(36))
+            for x in (x0 + span * i / (samples - 1) for i in range(samples))
         ]
-        if min(float(pt[1]) for pt in points) >= 0.06:
+        if min(float(pt[1]) for pt in points) >= min_y:
             break
         a *= 1.6
-    curve = VMobject(color=PALETTE.accent, stroke_width=1.8)
-    curve.set_points_smoothly(points)
-    guide = DashedVMobject(curve, num_dashes=26)
-    guide.set_stroke(opacity=0.75)
-    return guide, a
+    return points, a
 
 
-def _leap_guide(x_start: float, direction: float, y0: float = 0.0) -> tuple[Any, float, float, float]:
-    """Dashed 45-degree projectile arc. The apex is span/4 — the physics, not a style."""
+def _leap_track(x_start: float, direction: float, y0: float = 0.0) -> tuple[list[Any], float, float]:
+    """A 45-degree projectile arc from x_start. The apex is span/4 — physics, not style."""
     import numpy as np
-    from manim import DashedVMobject, VMobject
 
     x_end = min(max(x_start + 1.5 * direction, -4.45), 4.45)
     span = x_end - x_start
     if abs(span) < 0.35:
-        return None, 0.0, 0.0, 0.0
+        return [], 0.0, 0.0
     apex = abs(span) / 4.0
     points = [
         np.array([x_start + span * i / 35, y0 + 4 * apex * (i / 35) * (1 - i / 35), 0.0])
         for i in range(36)
     ]
+    return points, apex, span
+
+
+def _dashed(points: list[Any], *, num_dashes: int = 24) -> Any:
+    """One dashed accent guide through the given points — the only maths decoration allowed."""
+    from manim import DashedVMobject, VMobject
+
     curve = VMobject(color=PALETTE.accent, stroke_width=1.8)
     curve.set_points_smoothly(points)
-    guide = DashedVMobject(curve, num_dashes=20)
-    guide.set_stroke(opacity=0.75)
-    return guide, apex, x_start + span / 2, span
+    guide = DashedVMobject(curve, num_dashes=num_dashes)
+    guide.set_stroke(opacity=0.7)
+    return guide
 
 
-def _orb(
-    *, vertices: int, chords: int, seed: int, radius: float, jitter: float,
-    centre: tuple[float, float],
-) -> tuple[dict[str, Any], list[Any], dict[str, float]]:
-    """The wireframe orb, shared by proofmotion_orb and math_duel.
+# ---------------------------------------------------------------------------
+# ProofMotion's forms. Each builder returns (pieces, draw order, geometry,
+# facts) so the component and math_scene share one construction.
+# ---------------------------------------------------------------------------
 
-    A jittered ring of vertices, its boundary polygon, random chords, accent
-    dots, a layered glow, and stray particles — all from one seeded RNG, so the
-    same seed rebuilds the same creature to the last chord.
-    """
+
+def _orb_form(*, seed: int, jitter: float, at_x: float, radius: float) -> tuple[dict[str, Any], list[str], dict[str, Any], str]:
+    """A jittered vertex ring, boundary polygon, random chords, dots, glow, particles."""
     import numpy as np
     from manim import Dot, Line, Polygon, VGroup
 
     rng = random.Random(seed)
-    cx, cy = float(centre[0]), float(centre[1])
+    vertices, chords = 16, 24
     points = []
     for i in range(vertices):
         theta = 2 * math.pi * i / vertices + jitter * rng.uniform(-1.0, 1.0)
         rr = radius * (1.0 + jitter * rng.uniform(-0.9, 0.9))
-        points.append(np.array([cx + rr * math.cos(theta), cy + rr * math.sin(theta), 0.0]))
+        points.append(np.array([at_x + rr * math.cos(theta), rr * math.sin(theta), 0.0]))
 
     boundary = Polygon(*points, color=PALETTE.ink, stroke_width=2.4, fill_opacity=0.0)
-    wanted = min(chords, vertices * (vertices - 1) // 2)
     chosen: set[tuple[int, int]] = set()
-    while len(chosen) < wanted:
+    while len(chosen) < chords:
         i, k = rng.randrange(vertices), rng.randrange(vertices)
         if i != k:
             chosen.add((min(i, k), max(i, k)))
@@ -249,35 +281,224 @@ def _orb(
         for i, k in sorted(chosen)
     ])
     dots = VGroup(*[Dot(pt, radius=0.045, color=PALETTE.accent) for pt in points])
-    glow = VGroup(
-        boundary.copy().set_fill(opacity=0.0).set_stroke(width=7.5, opacity=0.13),
-        boundary.copy().set_fill(opacity=0.0).set_stroke(width=15.0, opacity=0.06),
-    )
+    glow = _halo(boundary)
     particles = VGroup()
     for _ in range(6):
         angle = rng.uniform(0.0, 2 * math.pi)
         rr = radius * rng.uniform(1.16, 1.45)
         particles.add(Dot(
-            np.array([cx + rr * math.cos(angle), cy + rr * math.sin(angle), 0.0]),
+            np.array([at_x + rr * math.cos(angle), rr * math.sin(angle), 0.0]),
             radius=0.022, color=PALETTE.accent, fill_opacity=0.7,
         ))
 
     lengths = [float(np.linalg.norm(points[i] - points[k])) for i, k in chosen]
-    facts = {
-        "count": float(len(chosen)),
-        "mean": sum(lengths) / len(lengths) if lengths else 0.0,
-    }
-    pieces = {"boundary": boundary, "chords": chord_lines, "dots": dots,
-              "glow": glow, "particles": particles}
-    return pieces, points, facts
+    pieces = {"glow": glow, "chords": chord_lines, "boundary": boundary, "dots": dots, "particles": particles}
+    order = ["glow", "chords", "boundary", "dots", "particles"]
+    geom = {"centre": np.array([at_x, 0.0, 0.0]), "radius": radius}
+    facts = f"orb of {vertices} vertices and {len(chosen)} chords, mean chord {sum(lengths) / len(lengths):.2f}"
+    return pieces, order, geom, facts
+
+
+def _swing_line_form(*, seed: int, jitter: float, at_x: float, span: float, height: float) -> tuple[dict[str, Any], list[str], dict[str, Any], str]:
+    """Two masts and a real catenary strung between their tops."""
+    import numpy as np
+    from manim import Dot, Line, VGroup, VMobject
+
+    rng = random.Random(seed)
+    top_l = np.array([at_x - span / 2, height, 0.0])
+    top_r = np.array([at_x + span / 2, height, 0.0])
+    masts = VGroup(
+        Line([float(top_l[0]), 0, 0], top_l, color=PALETTE.ink, stroke_width=3),
+        Line([float(top_r[0]), 0, 0], top_r, color=PALETTE.ink, stroke_width=3),
+        Dot(top_l, radius=0.05, color=PALETTE.accent),
+        Dot(top_r, radius=0.05, color=PALETTE.accent),
+    )
+    points, a = _catenary_points(top_l, top_r)
+    if jitter:
+        points = [points[0]] + [
+            pt + np.array([0.0, jitter * rng.uniform(-1.0, 1.0), 0.0]) for pt in points[1:-1]
+        ] + [points[-1]]
+    curve = VMobject(color=PALETTE.ink, stroke_width=2.4)
+    curve.set_points_smoothly(points)
+    cable = _glowed(curve, colour=PALETTE.bad if jitter else None)
+    sag = height - min(float(pt[1]) for pt in points)
+    pieces = {"masts": masts, "cable": cable}
+    geom = {"cable_points": points, "tops": (top_l, top_r), "a": a}
+    facts = f"masts {height:g} tall; the cable is the catenary a = {a:.2f}, sag {sag:.2f}"
+    return pieces, ["masts", "cable"], geom, facts
+
+
+def _ramp_form(*, seed: int, jitter: float, at_x: float, span: float, height: float) -> tuple[dict[str, Any], list[str], dict[str, Any], str]:
+    """A smooth incline — cubic easing from the ground to its height — on thin supports."""
+    import numpy as np
+    from manim import Line, VGroup, VMobject
+
+    rng = random.Random(seed)
+    x0, x1 = at_x - span / 2, at_x + span / 2
+
+    def y_of(x: float) -> float:
+        t = min(max((x - x0) / span, 0.0), 1.0)
+        return height * (3 * t * t - 2 * t * t * t)
+
+    points = [np.array([x0 + span * i / 35, y_of(x0 + span * i / 35), 0.0]) for i in range(36)]
+    if jitter:
+        points = [points[0]] + [
+            pt + np.array([0.0, jitter * rng.uniform(-1.0, 1.0), 0.0]) for pt in points[1:-1]
+        ] + [points[-1]]
+    curve = VMobject(color=PALETTE.ink, stroke_width=2.6)
+    curve.set_points_smoothly(points)
+    surface = _glowed(curve, colour=PALETTE.bad if jitter else None)
+    supports = VGroup()
+    x = x0 + 0.9
+    while x < x1 - 0.15:
+        if y_of(x) > 0.18:
+            supports.add(Line([x, 0, 0], [x, y_of(x), 0], color=PALETTE.muted, stroke_width=1.4))
+        x += 0.9
+    pieces = {"supports": supports, "surface": surface}
+    geom = {"track": points, "y_of": y_of, "x0": x0, "x1": x1, "top": height}
+    facts = f"ramp climbs {height:g} over {span:g} on a cubic easing, {height / span * 100:.0f}% mean grade"
+    return pieces, ["supports", "surface"], geom, facts
+
+
+def _spiral_form(*, seed: int, jitter: float, at_x: float, span: float, height: float) -> tuple[dict[str, Any], list[str], dict[str, Any], str]:
+    """Seven nested quarter-arcs whose radii grow by the golden ratio."""
+    import numpy as np
+    from manim import Dot, VGroup, VMobject
+
+    rng = random.Random(seed)
+    phi_ratio = (1 + math.sqrt(5)) / 2
+    centre = np.zeros(3)
+    theta, r = math.pi, 1.0
+    raw: list[Any] = []
+    joints_at: list[int] = []
+    for _ in range(7):
+        joints_at.append(len(raw))
+        for i in range(13):
+            t = theta + (math.pi / 2) * i / 12
+            raw.append(centre + r * np.array([math.cos(t), math.sin(t), 0.0]))
+        theta += math.pi / 2
+        centre = centre + (r - r * phi_ratio) * np.array([math.cos(theta), math.sin(theta), 0.0])
+        r *= phi_ratio
+
+    xs = [float(pt[0]) for pt in raw]
+    ys = [float(pt[1]) for pt in raw]
+    scale = min(span / (max(xs) - min(xs)), height / (max(ys) - min(ys)))
+    cx = (max(xs) + min(xs)) / 2
+    points = [
+        np.array([(float(pt[0]) - cx) * scale + at_x, (float(pt[1]) - min(ys)) * scale + 0.25, 0.0])
+        for pt in raw
+    ]
+    if jitter:
+        points = [
+            pt + 0.6 * jitter * np.array([rng.uniform(-1.0, 1.0), rng.uniform(-1.0, 1.0), 0.0])
+            for pt in points
+        ]
+    curve = VMobject(color=PALETTE.ink, stroke_width=2.4)
+    curve.set_points_smoothly(points)
+    spiral = _glowed(curve, colour=PALETTE.bad if jitter else None)
+    joints = VGroup(*[Dot(points[i], radius=0.04, color=PALETTE.accent) for i in joints_at])
+    pieces = {"spiral": spiral, "joints": joints}
+    geom = {"track": list(reversed(points))}
+    facts = f"7 quarter-arcs, radii in the golden ratio {phi_ratio:.3f}"
+    return pieces, ["spiral", "joints"], geom, facts
+
+
+def _arches_form(*, seed: int, jitter: float, at_x: float, span: float, height: float) -> tuple[dict[str, Any], list[str], dict[str, Any], str]:
+    """A row of parabolic arches standing on the ground line."""
+    import numpy as np
+    from manim import VGroup, VMobject
+
+    rng = random.Random(seed)
+    count = max(2, min(4, round(span / 2.0)))
+    width = span / count
+    x0 = at_x - span / 2
+    arches = VGroup()
+    for k in range(count):
+        apex = height * (1.0 + (jitter * rng.uniform(-0.5, 0.5) if jitter else 0.0))
+        pts = [
+            np.array([x0 + k * width + width * i / 23, 4 * apex * (i / 23) * (1 - i / 23), 0.0])
+            for i in range(24)
+        ]
+        curve = VMobject(color=PALETTE.ink, stroke_width=2.4)
+        curve.set_points_smoothly(pts)
+        arches.add(curve)
+    glow = _halo(arches, colour=PALETTE.bad if jitter else None)
+    pieces = {"glow": glow, "arches": arches}
+    geom = {"count": count, "width": width}
+    facts = f"{count} parabolic arches, {width:.2f} wide, apex {height:g}"
+    return pieces, ["glow", "arches"], geom, facts
+
+
+def _steps_form(*, seed: int, jitter: float, at_x: float, span: float, height: float) -> tuple[dict[str, Any], list[str], dict[str, Any], str]:
+    """A staircase quantising a slope into risers and treads."""
+    import numpy as np
+    from manim import VGroup, VMobject
+
+    rng = random.Random(seed)
+    count = 5
+    run = span / count
+    x0 = at_x - span / 2
+    rises = [1.0 + (0.12 * rng.uniform(-1.0, 1.0) if jitter else 0.0) for _ in range(count)]
+    factor = height / sum(rises)
+    rises = [rise * factor for rise in rises]
+
+    steps = VGroup()
+    treads: list[tuple[float, float, float]] = []
+    y = 0.0
+    for k in range(count):
+        x = x0 + k * run
+        y1 = y + rises[k]
+        step = VMobject(color=PALETTE.ink, stroke_width=2.4)
+        step.set_points_as_corners([
+            np.array([x, y, 0.0]), np.array([x, y1, 0.0]), np.array([x + run, y1, 0.0]),
+        ])
+        steps.add(step)
+        treads.append((x, x + run, y1))
+        y = y1
+    glow = _halo(steps, colour=PALETTE.bad if jitter else None)
+    pieces = {"glow": glow, "steps": steps}
+    geom = {"treads": treads, "top": y, "x0": x0}
+    facts = f"{count} steps quantise a {height:g} rise over {span:g}, mean rise {height / count:.2f}"
+    return pieces, ["glow", "steps"], geom, facts
+
+
+#: Per-form sizing chosen when the caller passes 0 ("choose for me").
+FORM_DEFAULTS: dict[str, tuple[float, float]] = {
+    "orb": (0.0, 2.8),        # span unused; height is the orb's diameter
+    "swing_line": (5.6, 3.4),
+    "ramp": (5.0, 2.2),
+    "spiral": (4.2, 3.2),
+    "arches": (6.0, 1.6),
+    "steps": (5.0, 2.4),
+}
+
+
+def _world_form(form: str, *, seed: int, mood: str, at_x: float, span: float, height: float) -> tuple[dict[str, Any], list[str], dict[str, Any], str]:
+    """Build one of ProofMotion's forms; agitated moods jitter it and tint the glow."""
+    default_span, default_height = FORM_DEFAULTS[form]
+    span = span or default_span
+    height = height or default_height
+    agitated = mood == "agitated"
+    if form == "orb":
+        pieces, order, geom, facts = _orb_form(
+            seed=seed, jitter=0.20 if agitated else 0.09, at_x=at_x, radius=height / 2,
+        )
+        if agitated:
+            pieces["glow"].set_stroke(color=PALETTE.bad)
+        return pieces, order, geom, facts
+    builder = {
+        "swing_line": _swing_line_form, "ramp": _ramp_form, "spiral": _spiral_form,
+        "arches": _arches_form, "steps": _steps_form,
+    }[form]
+    return builder(seed=seed, jitter=0.05 if agitated else 0.0, at_x=at_x, span=span, height=height)
 
 
 class SpyderMathParams(BaseModel):
-    """An original glowing stick-figure hero whose abilities are mathematics."""
+    """A minimal glowing stick-figure human with a few mathematical tools."""
 
     pose: str = Field(
         default="stand",
-        description="Named pose, e.g. 'swing' or 'run_contact'. One of: " + ", ".join(sorted(POSES)) + ".",
+        description="Named pose, e.g. 'swing', 'run_contact' or 'dab'. One of: " + ", ".join(sorted(POSES)) + ".",
     )
     facing: Literal["left", "right"] = Field(
         default="right", description="Which way the hero faces, e.g. 'right'.",
@@ -297,8 +518,8 @@ class SpyderMathParams(BaseModel):
         default=3.2, ge=1, le=4, description="Web anchor height, e.g. 3.2. Used when web is true.",
     )
     show_maths: bool = Field(
-        default=True,
-        description="Dashed guide plus one short formula for the governing curve, e.g. the pendulum circle of a swing.",
+        default=False,
+        description="Draw one dashed guide for the governing curve — pendulum arc, catenary, or leap parabola.",
     )
     region: str = "stage"
 
@@ -314,16 +535,16 @@ class SpyderMathParams(BaseModel):
 
 @component(version=1, domain="story", params=SpyderMathParams)
 def spyder_math(p: SpyderMathParams) -> Built:
-    """A stick-figure hero character in action — spider-style web line, pendulum swing, projectile leap.
+    """A stick-figure hero character in action — Spyder Math runs, swings a web, leaps, pulls funny poses.
 
-    An original glowing stick figure, not a picture of anyone. Every ability is
-    mathematics the component computes: the web is a taut line from wrist to
-    anchor (a catenary when slack), the swing is an arc of the circle of radius
-    |wrist - anchor|, and a running leap follows the 45-degree projectile
-    parabola whose apex is a quarter of its range.
+    An original glowing stick figure, not a picture of anyone, and deliberately
+    minimal: the figure, the ground, optionally a web. His tools are
+    mathematics the component computes — the web is a taut line from wrist to
+    anchor, a swing is an arc of the circle of radius |wrist - anchor|, a leap
+    is the 45-degree projectile parabola whose apex is a quarter of its range.
     """
     import numpy as np
-    from manim import Dot, Line, MathTex, VGroup
+    from manim import Dot, Line, VGroup
 
     scale = 1.15
     raw, joints = _stick_figure(p.pose, at=(p.at_x, 0.0), scale=scale, facing=p.facing)
@@ -351,27 +572,26 @@ def spyder_math(p: SpyderMathParams) -> Built:
         notes.append(f"web length {length:.2f} from wrist to anchor ({p.anchor_x:g}, {p.anchor_y:g})")
 
     if p.show_maths:
+        # At most one dashed guide, and never a label: the hero stays minimal.
         maths = None
         if p.web and p.pose == "swing":
-            guide, r, sweep = _pendulum_guide(anchor_pt, wrist)
-            label = MathTex(f"r = {r:.2f}", font_size=22, color=PALETTE.accent)
-            label.next_to(anchor_dot, np.array([0, 1, 0]), buff=0.2)
-            maths = VGroup(guide, label)
+            r, phi, sweep = _pendulum_sweep(anchor_pt, wrist)
+            arc = [
+                anchor_pt + r * np.array([math.cos(phi + sweep * i / 24), math.sin(phi + sweep * i / 24), 0.0])
+                for i in range(25)
+            ]
+            maths = _dashed(arc)
             notes.append(f"swing sweeps {abs(math.degrees(sweep)):.0f} degrees on radius {r:.2f}")
         elif p.web:
-            guide, a = _catenary_guide(wrist, anchor_pt)
-            label = MathTex(r"y = a\cosh(x/a)", font_size=22, color=PALETTE.accent)
-            label.next_to(anchor_dot, np.array([0, 1, 0]), buff=0.2)
-            maths = VGroup(label) if guide is None else VGroup(guide, label)
-            if guide is not None:
+            points, a = _catenary_points(wrist, anchor_pt)
+            if points:
+                maths = _dashed(points)
                 notes.append(f"slack web is the catenary a = {a:.2f}")
         elif p.pose.startswith("run_"):
             direction = 1.0 if p.facing == "right" else -1.0
-            guide, apex, apex_x, span = _leap_guide(p.at_x + 0.5 * direction, direction)
-            if guide is not None:
-                label = MathTex(r"h = \tfrac{R}{4}", font_size=22, color=PALETTE.accent)
-                label.move_to(np.array([apex_x, apex + 0.55, 0.0]))
-                maths = VGroup(guide, label)
+            points, apex, span = _leap_track(p.at_x + 0.5 * direction, direction)
+            if points:
+                maths = _dashed(points, num_dashes=18)
                 notes.append(f"leap parabola spans {abs(span):.2f}, apex {apex:.2f} = span/4")
         if maths is not None:
             parts["maths"] = maths
@@ -386,25 +606,12 @@ def spyder_math(p: SpyderMathParams) -> Built:
     if p.pose == "swing" and p.web:
         def act() -> Any:
             """Swing the whole figure along the pendulum arc, web pivoting at the anchor."""
-            from manim import AnimationGroup, Arc, MoveAlongPath, Rotate
+            from manim import AnimationGroup, MoveAlongPath, Rotate
 
-            a = anchor_dot.get_center()
-            c = figure.get_center()
-            v = c - a
-            r_c = float(np.linalg.norm(v[:2]))
-            phi = math.atan2(float(v[1]), float(v[0]))
-            delta = -math.pi - 2.0 * phi
-            if abs(delta) < 0.25:
-                delta = -0.9 if float(v[0]) >= 0 else 0.9
-            for _ in range(40):
-                end = a + r_c * np.array([math.cos(phi + delta), math.sin(phi + delta), 0.0])
-                if abs(float(end[0])) <= 6.3 and float(end[1]) >= -3.7:
-                    break
-                delta *= 0.85
-            path = Arc(radius=r_c, start_angle=phi, angle=delta, arc_center=a)
+            path, delta, _ = _mirrored_arc(anchor_dot.get_center(), figure.get_center())
             return AnimationGroup(
                 MoveAlongPath(figure, path),
-                Rotate(web, angle=delta, about_point=a),
+                Rotate(web, angle=delta, about_point=anchor_dot.get_center()),
                 run_time=2.4,
             )
     elif p.pose.startswith("run_"):
@@ -424,11 +631,16 @@ def spyder_math(p: SpyderMathParams) -> Built:
             for hop in range(2):
                 for i in range(13):
                     t = i / 12
-                    x = x0 + span * (hop + t) / 2
-                    points.append(np.array([x, y0 + 4 * hop_h * t * (1 - t), 0.0]))
+                    points.append(np.array([x0 + span * (hop + t) / 2, y0 + 4 * hop_h * t * (1 - t), 0.0]))
             path = VMobject()
             path.set_points_smoothly(points)
             return MoveAlongPath(figure, path, run_time=1.5)
+    elif p.pose in ("dab", "flail"):
+        def act() -> Any:
+            """A comic little wiggle — the funny poses are meant to be laughed at."""
+            from manim import Wiggle
+
+            return Wiggle(figure, scale_value=1.06, rotation_angle=0.035, run_time=1.2)
     else:
         def act() -> Any:
             """A subtle breathing pulse, so a held pose still reads as alive."""
@@ -439,301 +651,330 @@ def spyder_math(p: SpyderMathParams) -> Built:
     return Built(group=group, parts=parts, beats=beats, motions=[act], notes="; ".join(notes))
 
 
-class ProofMotionOrbParams(BaseModel):
-    """A living wireframe polyhedron orb, calm or agitated."""
+class ProofMotionParams(BaseModel):
+    """Geometry that takes any form and builds an environment."""
 
-    vertices: int = Field(default=16, ge=8, le=24, description="Vertices on the boundary ring, e.g. 16.")
-    chords: int = Field(
-        default=24, ge=10, le=40,
-        description="Interior chords between random vertex pairs, e.g. 24. Capped at the distinct pairs available.",
+    form: Literal["orb", "swing_line", "ramp", "spiral", "arches", "steps"] = Field(
+        default="orb", description="Which form the geometry takes, e.g. 'swing_line' or 'ramp'.",
     )
-    seed: int = Field(default=7, description="Seed for the deterministic jitter and chord choice, e.g. 7.")
+    seed: int = Field(default=7, description="Seed for the deterministic construction, e.g. 7.")
     mood: Literal["calm", "agitated"] = Field(
-        default="calm", description="calm turns slowly; agitated jitters harder, vibrates, and pulses its glow.",
+        default="calm", description="calm is steady; agitated jitters the form and tints its glow.",
     )
     at_x: float = Field(
         default=0.0, ge=-4, le=4, description="Horizontal position on the stage, e.g. 1.5. 0 is centre stage.",
     )
-    radius: float = Field(default=1.4, ge=0.8, le=2.2, description="Mean boundary radius in scene units, e.g. 1.4.")
+    span: float = Field(
+        default=0.0, ge=0, le=9,
+        description="Overall width in scene units, e.g. 6.0. 0 chooses a sensible width per form.",
+    )
+    height: float = Field(
+        default=0.0, ge=0, le=4.2,
+        description="Overall height in scene units, e.g. 2.5. 0 chooses a sensible height per form.",
+    )
     region: str = "stage"
 
+    @field_validator("span")
+    @classmethod
+    def _usable_span(cls, span: float) -> float:
+        if 0 < span < 1.5:
+            raise ValueError(f"span {span:g} is too narrow to draw; give at least 1.5, or 0 to choose per form.")
+        return span
 
-@component(version=1, domain="story", params=ProofMotionOrbParams)
-def proofmotion_orb(p: ProofMotionOrbParams) -> Built:
-    """A living wireframe geometry creature — a chaotic polyhedron orb of vertices, chords and glow.
+    @field_validator("height")
+    @classmethod
+    def _usable_height(cls, height: float) -> float:
+        if 0 < height < 0.8:
+            raise ValueError(f"height {height:g} is too low to draw; give at least 0.8, or 0 to choose per form.")
+        return height
 
-    Every vertex, chord and particle comes from one seeded RNG, so the same
-    seed rebuilds the same creature and a different seed grows a different one.
-    Calm, it turns slowly; agitated, it vibrates and its glow flares red.
+
+@component(version=1, domain="story", params=ProofMotionParams)
+def proofmotion(p: ProofMotionParams) -> Built:
+    """Geometry that takes any form — ProofMotion builds the world and environment the hero acts in: anchors, ramps, spirals, arches, steps.
+
+    Not a creature: a shape-shifter. Every form is real construction — the
+    swing line is a genuine catenary, the ramp a cubic easing, the spiral
+    golden-ratio quarter-arcs, the steps a quantised slope — and every form is
+    deterministic under its seed.
     """
     from manim import VGroup
 
-    jitter = 0.09 if p.mood == "calm" else 0.20
-    pieces, _, facts = _orb(
-        vertices=p.vertices, chords=p.chords, seed=p.seed,
-        radius=p.radius, jitter=jitter, centre=(p.at_x, 0.0),
+    pieces, order, _, facts = _world_form(
+        p.form, seed=p.seed, mood=p.mood, at_x=p.at_x, span=p.span, height=p.height,
     )
-    if p.mood == "agitated":
-        for halo in pieces["glow"]:
-            halo.set_stroke(color=PALETTE.bad)
-
-    group = VGroup(pieces["glow"], pieces["chords"], pieces["boundary"], pieces["dots"], pieces["particles"])
-    parts: dict[str, Any] = {name: pieces[name] for name in ("boundary", "chords", "dots", "glow", "particles")}
+    group = VGroup(*[pieces[name] for name in order])
+    parts: dict[str, Any] = dict(pieces)
     place(group, layout("title_stage_caption")[p.region])
 
-    def turn() -> Any:
-        """The orb revolves about its own centre — slower when calm."""
-        from manim import Rotate, VGroup as Core
+    beats_of = {
+        "orb": [["boundary", "glow"], ["chords"], ["dots", "particles"]],
+        "swing_line": [["masts"], ["cable"]],
+        "ramp": [["supports"], ["surface"]],
+        "spiral": [["spiral"], ["joints"]],
+        "arches": [["glow", "arches"]],
+        "steps": [["glow", "steps"]],
+    }
 
-        core = Core(pieces["glow"], pieces["chords"], pieces["boundary"], pieces["dots"])
-        return Rotate(core, angle=math.tau / (8 if p.mood == "calm" else 4), run_time=3.0)
+    motions: list[Any] = []
+    if p.form == "orb":
+        def turn() -> Any:
+            """The orb revolves about its own centre — slower when calm."""
+            from manim import Rotate
 
-    motions = [turn]
-    if p.mood == "agitated":
-        def shudder() -> Any:
-            """Seeded jolts, each there-and-back, while the glow swells once."""
-            import numpy as np
-            from manim import AnimationGroup, ApplyMethod, ScaleInPlace, Succession, there_and_back
+            return Rotate(group, angle=math.tau / (8 if p.mood == "calm" else 4), run_time=3.0)
 
-            rng = random.Random(p.seed + 101)
-            from manim import VGroup as Core
+        motions.append(turn)
+        if p.mood == "agitated":
+            def shudder() -> Any:
+                """Seeded jolts, each there-and-back, while the glow swells once."""
+                import numpy as np
+                from manim import AnimationGroup, ApplyMethod, ScaleInPlace, Succession, there_and_back
 
-            core = Core(pieces["glow"], pieces["chords"], pieces["boundary"], pieces["dots"])
-            jolts = [
-                ApplyMethod(
-                    core.shift,
-                    np.array([rng.uniform(-0.08, 0.08), rng.uniform(-0.08, 0.08), 0.0]),
-                    rate_func=there_and_back, run_time=0.14,
+                rng = random.Random(p.seed + 101)
+                jolts = [
+                    ApplyMethod(
+                        group.shift,
+                        np.array([rng.uniform(-0.08, 0.08), rng.uniform(-0.08, 0.08), 0.0]),
+                        rate_func=there_and_back, run_time=0.14,
+                    )
+                    for _ in range(6)
+                ]
+                return AnimationGroup(
+                    Succession(*jolts),
+                    ScaleInPlace(pieces["glow"], 1.2, rate_func=there_and_back, run_time=0.84),
                 )
-                for _ in range(6)
-            ]
-            return AnimationGroup(
-                Succession(*jolts),
-                ScaleInPlace(pieces["glow"], 1.2, rate_func=there_and_back, run_time=0.84),
+
+            motions.append(shudder)
+    elif p.form == "swing_line":
+        def sway() -> Any:
+            """The cable sways gently, there and back."""
+            import numpy as np
+            from manim import ApplyMethod, there_and_back
+
+            return ApplyMethod(
+                pieces["cable"].shift, np.array([0.08, 0.0, 0.0]),
+                rate_func=there_and_back, run_time=1.8,
             )
 
-        motions.append(shudder)
+        motions.append(sway)
+    elif p.form == "ramp":
+        def shimmer() -> Any:
+            """The support chords catch the light one after another."""
+            from manim import Indicate, ScaleInPlace, Succession, there_and_back
+
+            supports = list(pieces["supports"])
+            if not supports:
+                return ScaleInPlace(pieces["surface"], 1.02, rate_func=there_and_back, run_time=1.2)
+            return Succession(*[
+                Indicate(chord, scale_factor=1.06, color=PALETTE.accent) for chord in supports
+            ])
+
+        motions.append(shimmer)
+    elif p.form == "spiral":
+        def revolve() -> Any:
+            """The spiral turns slowly about its own centre."""
+            from manim import Rotate
+
+            return Rotate(group, angle=math.tau / 10, run_time=3.0)
+
+        motions.append(revolve)
+    elif p.form == "arches":
+        def pulse() -> Any:
+            """A pulse travels the row, arch to arch."""
+            from manim import Indicate, Succession
+
+            return Succession(*[Indicate(arch, color=PALETTE.accent) for arch in pieces["arches"]])
+
+        motions.append(pulse)
+    else:  # steps
+        def rise() -> Any:
+            """Each step lifts slightly in turn, bottom-up, as if settling into place."""
+            import numpy as np
+            from manim import ApplyMethod, Succession, there_and_back
+
+            return Succession(*[
+                ApplyMethod(step.shift, np.array([0.0, 0.07, 0.0]), rate_func=there_and_back, run_time=0.22)
+                for step in pieces["steps"]
+            ])
+
+        motions.append(rise)
 
     return Built(
-        group=group, parts=parts,
-        beats=[["boundary", "glow"], ["chords"], ["dots", "particles"]],
-        motions=motions,
-        notes=(
-            f"{p.vertices} vertices, {facts['count']:.0f} chords, mean chord {facts['mean']:.2f} units; "
-            f"radius {p.radius:g}, mood {p.mood}"
-        ),
+        group=group, parts=parts, beats=beats_of[p.form], motions=motions,
+        notes=f"{facts}; mood {p.mood}",
     )
 
 
-class MathDuelParams(BaseModel):
-    """Hero versus orb, one beat of the fight at a time."""
+class MathSceneParams(BaseModel):
+    """The hero inside a world ProofMotion built, one beat at a time."""
 
-    beat: Literal["standoff", "chase", "swing_dodge", "web_capture"] = Field(
-        default="standoff", description="Which beat of the duel to stage, e.g. 'swing_dodge'.",
+    beat: Literal["swing_across", "run_the_ramp", "climb_the_steps", "ride_the_spiral", "standoff"] = Field(
+        default="swing_across", description="Which beat to stage, e.g. 'run_the_ramp'.",
     )
+    seed: int = Field(default=7, description="Seed for the world's deterministic construction, e.g. 7.")
     hero_x: float = Field(
-        default=-2.6, ge=-4, le=0, description="Hero position, left half of the stage, e.g. -2.6.",
+        default=0.0, ge=-4, le=4,
+        description="Hero start position, e.g. -3.0. 0 chooses the natural start of the world.",
     )
-    orb_x: float = Field(
-        default=2.6, ge=0, le=4, description="Orb position, right half of the stage, e.g. 2.6.",
-    )
-    seed: int = Field(default=7, description="Seed for the orb's deterministic jitter, e.g. 7.")
     show_maths: bool = Field(
-        default=True,
-        description="Dashed trajectory of the action plus one short label, e.g. the pendulum radius of a dodge.",
+        default=False,
+        description="Draw the computed trajectory the traversal follows, as one thin guide. No labels.",
     )
     region: str = "stage"
 
-    @model_validator(mode="after")
-    def _air_between(self) -> MathDuelParams:
-        gap = self.orb_x - self.hero_x
-        if gap < 3.0:
-            raise ValueError(
-                f"hero at x={self.hero_x:g} and orb at x={self.orb_x:g} leave {gap:.2f} units "
-                "between them; keep at least 3 so the fight has air."
-            )
-        return self
 
+@component(version=1, domain="story", params=MathSceneParams)
+def math_scene(p: MathSceneParams) -> Built:
+    """Spyder Math moves through a world ProofMotion built — the hero swings, runs the ramp, climbs steps in a staged action scene.
 
-@component(version=1, domain="story", params=MathDuelParams)
-def math_duel(p: MathDuelParams) -> Built:
-    """A duel fight scene — stick-figure hero versus the geometry orb: chase, swing dodge, web capture.
-
-    Every action is a computed curve: the standoff measures the gap, the chase
-    hops on 45-degree parabolas while the orb advances, the dodge sweeps a
-    pendulum arc about an anchor placed over the midpoint, and the capture
-    winds a web polyline around the orb until its vibration decays.
+    Each beat asks ProofMotion for the matching environment and computes the
+    hero's traversal on it: pendulum arcs chained between the swing line's
+    anchors, run poses with feet on the ramp's cubic curve, parabolic hops
+    landing on the stair treads, a sweep along the golden spiral, or a quiet
+    standoff with the orb. Every path is baked geometry, never an updater.
     """
     import numpy as np
-    from manim import DashedLine, Dot, Line, MathTex, VGroup, VMobject
-
-    pose_of = {"standoff": "stand", "chase": "run_contact", "swing_dodge": "swing", "web_capture": "cast"}
-    facing = "left" if p.beat == "chase" else "right"
-    raw, joints = _stick_figure(pose_of[p.beat], at=(p.hero_x, 0.0), scale=1.05, facing=facing)
-    hero = _glowed(raw)
-
-    orb_radius = 1.05
-    jitter = 0.18 if p.beat in ("chase", "swing_dodge") else 0.10
-    pieces, orb_points, _ = _orb(
-        vertices=14, chords=22, seed=p.seed, radius=orb_radius, jitter=jitter, centre=(p.orb_x, 0.0),
-    )
-    if p.beat == "chase":
-        for halo in pieces["glow"]:
-            halo.set_stroke(color=PALETTE.bad)
-    orb = VGroup(pieces["glow"], pieces["chords"], pieces["boundary"], pieces["dots"], pieces["particles"])
-    lift = 0.03 - float(orb.get_bottom()[1])
-    orb.shift(np.array([0.0, lift, 0.0]))
-    orb_centre = np.array([p.orb_x, lift, 0.0])
-    wrap_radius = max(float(np.linalg.norm(pt - np.array([p.orb_x, 0.0, 0.0]))) for pt in orb_points) * 1.08
+    from manim import Dot, Line, VGroup, VMobject
 
     ground = Line([-4.6, 0, 0], [4.6, 0, 0], color=PALETTE.muted, stroke_width=2)
-    parts: dict[str, Any] = {"ground": ground, "hero": hero, "orb": orb}
-    group = VGroup(ground, orb, hero)
-    beats: list[list[str]] = [["ground"], ["hero", "orb"]]
-    notes = [f"beat {p.beat}: hero at {p.hero_x:g}, orb at {p.orb_x:g}"]
+    parts: dict[str, Any] = {}
+    notes: list[str] = [f"beat {p.beat}"]
+    track_points: list[Any] = []
+    web = None
+    a1_dot = a2_dot = None
 
-    wrist = joints["wrist_f"]
-    mid_x = (p.hero_x + p.orb_x) / 2
-    anchor_dot = web = None
-    trajectory = maths = None
-
-    if p.beat == "swing_dodge":
-        anchor_pt = np.array([mid_x, 3.45, 0.0])
-        anchor_dot = Dot(anchor_pt, radius=0.055, color=PALETTE.accent)
-        strand = Line(anchor_pt, wrist, color=PALETTE.accent, stroke_width=2.5)
-        web = VGroup(_glowed(strand), anchor_dot)
-        guide, r, sweep = _pendulum_guide(anchor_pt, wrist)
-        notes.append(f"swing sweeps {abs(math.degrees(sweep)):.0f} degrees on radius {r:.2f}")
-        if p.show_maths:
-            trajectory = guide
-            maths = MathTex(f"r = {r:.2f}", font_size=22, color=PALETTE.accent)
-            maths.next_to(anchor_dot, np.array([0, 1, 0]), buff=0.2)
-    elif p.beat == "web_capture":
-        gamma0 = math.atan2(float(wrist[1] - orb_centre[1]), float(wrist[0] - orb_centre[0]))
-        turns, segments = 1.25, 10
-        wrap = [wrist]
-        for k in range(segments + 1):
-            angle = gamma0 - turns * math.tau * k / segments
-            rr = wrap_radius * (1.0 - 0.18 * k / segments)
-            wrap.append(orb_centre + rr * np.array([math.cos(angle), math.sin(angle), 0.0]))
-        binding = VMobject(color=PALETTE.accent, stroke_width=2.2)
-        binding.set_points_as_corners(wrap)
-        web = _glowed(binding)
-        length = sum(float(np.linalg.norm(b - a)) for a, b in zip(wrap, wrap[1:]))
-        notes.append(f"web winds {turns:g} turns around the orb, length {length:.2f} units")
-        if p.show_maths:
-            trajectory = DashedLine(wrist, wrap[1], color=PALETTE.accent, stroke_width=1.8)
-            trajectory.set_stroke(opacity=0.75)
-            maths = MathTex(f"L = {length:.2f}", font_size=22, color=PALETTE.accent)
-            maths.move_to(np.array([mid_x, 2.9, 0.0]))
-    elif p.beat == "chase":
-        guide, apex, _, span = _leap_guide(p.hero_x - 0.5, -1.0)
-        if guide is not None:
-            notes.append(f"flight hops span {abs(span):.2f}, apex {apex:.2f} = span/4")
-        if p.show_maths and guide is not None:
-            trajectory = guide
-            maths = MathTex(r"h = \tfrac{R}{4}", font_size=22, color=PALETTE.accent)
-            maths.move_to(np.array([mid_x, 2.9, 0.0]))
+    if p.beat == "swing_across":
+        pieces, order, geom, facts = _world_form(
+            "swing_line", seed=p.seed, mood="calm", at_x=0.0, span=5.6, height=3.4,
+        )
+        cable = geom["cable_points"]
+        a1, a2 = cable[len(cable) // 3], cable[2 * len(cable) // 3]
+        a1_dot = Dot(a1, radius=0.05, color=PALETTE.accent)
+        a2_dot = Dot(a2, radius=0.05, color=PALETTE.accent)
+        world = VGroup(ground, *[pieces[name] for name in order], a1_dot, a2_dot)
+        hx = p.hero_x or float(a1[0]) - 1.6
+        hx = min(max(hx, -4.2), float(a1[0]) - 0.8)
+        hero_pose, hero_at = "swing", (hx, 0.0)
+    elif p.beat == "run_the_ramp":
+        pieces, order, geom, facts = _world_form(
+            "ramp", seed=p.seed, mood="calm", at_x=0.4, span=5.6, height=2.2,
+        )
+        world = VGroup(ground, *[pieces[name] for name in order])
+        x0, x1, y_of = geom["x0"], geom["x1"], geom["y_of"]
+        hx = p.hero_x or x0 + 0.2
+        hx = min(max(hx, x0 + 0.1), x1 - 1.0)
+        hero_pose, hero_at = "run_contact", (hx, y_of(hx))
+        track_points = [
+            np.array([x, y_of(x), 0.0])
+            for x in (hx + (x1 - 0.3 - hx) * i / 29 for i in range(30))
+        ]
+        notes.append(f"feet on the curve from y = {y_of(hx):.2f} up to {y_of(x1 - 0.3):.2f}")
+    elif p.beat == "climb_the_steps":
+        pieces, order, geom, facts = _world_form(
+            "steps", seed=p.seed, mood="calm", at_x=1.2, span=4.6, height=2.3,
+        )
+        world = VGroup(ground, *[pieces[name] for name in order])
+        x0 = geom["x0"]
+        hx = p.hero_x or x0 - 1.0
+        hx = min(max(hx, -4.2), x0 - 0.6)
+        hero_pose, hero_at = "crouch", (hx, 0.0)
+        landings = [np.array([hx, 0.0, 0.0])] + [
+            np.array([(left + right) / 2, top, 0.0]) for left, right, top in geom["treads"]
+        ]
+        for start, end in zip(landings, landings[1:]):
+            hop = max(0.18, float(end[0] - start[0]) / 4)  # never flatter than a quarter of the gap
+            for i in range(12):
+                t = i / 11
+                track_points.append(start + t * (end - start) + np.array([0.0, 4 * hop * t * (1 - t), 0.0]))
+        notes.append(f"{len(geom['treads'])} parabolic hops land on the treads, top at {geom['top']:.2f}")
+    elif p.beat == "ride_the_spiral":
+        pieces, order, geom, facts = _world_form(
+            "spiral", seed=p.seed, mood="calm", at_x=0.8, span=4.2, height=3.2,
+        )
+        world = VGroup(ground, *[pieces[name] for name in order])
+        track_points = geom["track"]
+        start = track_points[0]
+        hero_pose, hero_at = "flail", (float(start[0]), float(start[1]))
+        notes.append("the hero rides the spiral from its outermost arc inward")
     else:  # standoff
-        chest = joints["neck"]
-        gap = float(np.linalg.norm(orb_centre - chest))
-        notes.append(f"{gap:.2f} units apart, eye to centre")
-        if p.show_maths:
-            trajectory = DashedLine(chest, orb_centre, color=PALETTE.accent, stroke_width=1.8)
-            trajectory.set_stroke(opacity=0.75)
-            maths = MathTex(f"d = {gap:.2f}", font_size=22, color=PALETTE.accent)
-            maths.move_to(np.array([mid_x, 2.9, 0.0]))
+        pieces, order, geom, facts = _world_form(
+            "orb", seed=p.seed, mood="calm", at_x=2.4, span=0.0, height=2.1,
+        )
+        orb = VGroup(*[pieces[name] for name in order])
+        orb.shift(np.array([0.0, 0.03 - float(orb.get_bottom()[1]), 0.0]))
+        world = VGroup(ground, orb)
+        hx = p.hero_x or -2.6
+        hx = min(max(hx, -4.2), 0.3)
+        hero_pose, hero_at = "stand", (hx, 0.0)
+        notes.append(f"the hero regards the orb from {abs(2.4 - hx):.2f} units away")
+    notes.append(facts)
 
-    if web is not None:
+    raw, joints = _stick_figure(hero_pose, at=hero_at, scale=1.05, facing="right")
+    hero = _glowed(raw)
+    group = VGroup(world, hero)
+    parts["world"], parts["hero"] = world, hero
+    beats: list[list[str]] = [["world"], ["hero"]]
+
+    if p.beat == "swing_across":
+        strand = Line(a1_dot.get_center(), joints["wrist_f"], color=PALETTE.accent, stroke_width=2.5)
+        web = _glowed(strand)
         parts["web"] = web
         group.add(web)
         beats.append(["web"])
-    reveal = []
-    if trajectory is not None:
-        parts["trajectory"] = trajectory
-        group.add(trajectory)
-        reveal.append("trajectory")
-    if maths is not None:
-        parts["maths"] = maths
-        group.add(maths)
-        reveal.append("maths")
-    if reveal:
-        beats.append(reveal)
+        r, phi, sweep = _pendulum_sweep(a1_dot.get_center(), joints["wrist_f"])
+        track_points = [
+            a1_dot.get_center()
+            + r * np.array([math.cos(phi + sweep * i / 24), math.sin(phi + sweep * i / 24), 0.0])
+            for i in range(25)
+        ]
+        notes.append(f"first swing sweeps {abs(math.degrees(sweep)):.0f} degrees on radius {r:.2f}")
+
+    track = None
+    if track_points:
+        # Baked in the group so every layout transform carries it, but never a
+        # part and never visible: the motion reads its placed coordinates.
+        track = VMobject(stroke_opacity=0.0, stroke_width=1.0)
+        track.set_points_smoothly(track_points)
+        group.add(track)
+        if p.show_maths:
+            trajectory = track.copy()
+            trajectory.set_stroke(color=PALETTE.accent, width=1.6, opacity=0.5)
+            parts["trajectory"] = trajectory
+            group.add(trajectory)
+            beats.append(["trajectory"])
 
     place(group, layout("title_stage_caption")[p.region])
 
-    if p.beat == "swing_dodge":
+    if p.beat == "swing_across":
         def act() -> Any:
-            """Hero sweeps the pendulum arc over the orb; the orb lunges under him."""
-            from manim import AnimationGroup, Arc, ApplyMethod, MoveAlongPath, Rotate
+            """Chained pendulum arcs: swing from the first anchor, release, catch the second."""
+            from manim import AnimationGroup, FadeOut, MoveAlongPath, Rotate, Succession
 
-            a = anchor_dot.get_center()
-            c = hero.get_center()
-            v = c - a
-            r_c = float(np.linalg.norm(v[:2]))
-            phi = math.atan2(float(v[1]), float(v[0]))
-            delta = -math.pi - 2.0 * phi
-            if abs(delta) < 0.25:
-                delta = -0.9 if float(v[0]) >= 0 else 0.9
-            for _ in range(40):
-                end = a + r_c * np.array([math.cos(phi + delta), math.sin(phi + delta), 0.0])
-                if abs(float(end[0])) <= 6.3 and float(end[1]) >= -3.7:
-                    break
-                delta *= 0.85
-            path = Arc(radius=r_c, start_angle=phi, angle=delta, arc_center=a)
-            lunge = np.array([0.45 * (float(c[0]) - float(orb.get_center()[0])), 0.0, 0.0])
-            return AnimationGroup(
-                MoveAlongPath(hero, path),
-                Rotate(web, angle=delta, about_point=a),
-                ApplyMethod(orb.shift, lunge),
-                run_time=2.2,
-            )
-    elif p.beat == "web_capture":
-        def act() -> Any:
-            """The web wraps the orb; its vibration decays and it shrinks slightly."""
-            from manim import AnimationGroup, ApplyMethod, Create, ScaleInPlace, Succession, there_and_back
-
-            jolts = [
-                ApplyMethod(orb.shift, np.array([amp, 0.0, 0.0]), rate_func=there_and_back, run_time=0.16)
-                for amp in (0.09, 0.055, 0.03)
-            ]
+            a1, a2 = a1_dot.get_center(), a2_dot.get_center()
+            arc1, d1, e1 = _mirrored_arc(a1, hero.get_center())
+            arc2, _, _ = _mirrored_arc(a2, e1)
             return Succession(
-                Create(web, run_time=1.1),
-                AnimationGroup(Succession(*jolts), ScaleInPlace(orb, 0.93), run_time=0.9),
+                AnimationGroup(MoveAlongPath(hero, arc1), Rotate(web, angle=d1, about_point=a1), run_time=1.6),
+                AnimationGroup(MoveAlongPath(hero, arc2), FadeOut(web, run_time=0.5), run_time=1.6),
             )
-    elif p.beat == "chase":
-        def act() -> Any:
-            """The orb advances while turning; the hero flees on projectile hops."""
-            from manim import AnimationGroup, ApplyMethod, MoveAlongPath, Rotate, Succession, VMobject
-
-            h, o = hero.get_center(), orb.get_center()
-            advance = 0.35 * float(o[0] - h[0])
-            x0, y0 = float(h[0]), float(h[1])
-            target = max(x0 - advance, -6.0)
-            span = target - x0
-            hop_h = abs(span) / 8.0
-            points = []
-            for hop in range(2):
-                for i in range(13):
-                    t = i / 12
-                    points.append(np.array([x0 + span * (hop + t) / 2, y0 + 4 * hop_h * t * (1 - t), 0.0]))
-            path = VMobject()
-            path.set_points_smoothly(points)
-            pursuit = Succession(
-                ApplyMethod(orb.shift, np.array([-advance / 2, 0.0, 0.0])),
-                Rotate(orb, angle=-math.tau / 6),
-                ApplyMethod(orb.shift, np.array([-advance / 2, 0.0, 0.0])),
-            )
-            return AnimationGroup(MoveAlongPath(hero, path), pursuit, run_time=2.4)
-    else:  # standoff
+    elif p.beat == "standoff":
         def act() -> Any:
             """The hero breathes; the orb turns slowly. Nobody moves first."""
             from manim import AnimationGroup, Rotate, ScaleInPlace, there_and_back
 
             return AnimationGroup(
                 ScaleInPlace(hero, 1.04, rate_func=there_and_back),
-                Rotate(orb, angle=math.tau / 8),
+                Rotate(world[1], angle=math.tau / 8),
                 run_time=2.0,
             )
+    else:
+        def act() -> Any:
+            """Carry the hero along the baked track, feet where the surface is."""
+            from manim import MoveAlongPath
+
+            path = track.copy()
+            path.shift(hero.get_center() - track.get_start())
+            return MoveAlongPath(hero, path, run_time=2.6)
 
     return Built(group=group, parts=parts, beats=beats, motions=[act], notes="; ".join(notes))

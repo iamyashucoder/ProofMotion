@@ -670,25 +670,30 @@ class ComponentTests(unittest.TestCase):
         ],
         "spyder_math": [
             dict(),
-            dict(pose="swing", web=True, anchor_x=2.0, anchor_y=3.2),
-            dict(pose="cast", web=True, facing="left", at_x=1.5, anchor_x=-3.0, anchor_y=3.5),
-            dict(pose="run_contact", facing="left", at_x=-2.0),
-            dict(pose="victory", at_x=3.0, show_maths=False),
-            dict(pose="crouch", web=True, anchor_x=-1.0, anchor_y=4.0, at_x=-3.5),
+            dict(pose="swing", web=True, anchor_x=2.0, anchor_y=3.2, show_maths=True),
+            dict(pose="cast", web=True, facing="left", at_x=1.5, anchor_x=-3.0, anchor_y=3.5, show_maths=True),
+            dict(pose="run_contact", facing="left", at_x=-2.0, show_maths=True),
+            dict(pose="dab", at_x=3.0),
+            dict(pose="flail", web=True, anchor_x=-1.0, anchor_y=4.0, at_x=-3.5, show_maths=True),
+            dict(pose="victory"),
         ],
-        "proofmotion_orb": [
+        "proofmotion": [
             dict(),
-            dict(vertices=8, chords=10, radius=0.8, mood="agitated", seed=3),
-            dict(vertices=24, chords=40, radius=2.2, seed=11, at_x=1.5),
-            dict(mood="agitated", at_x=-2.0, seed=99),
+            dict(form="swing_line"),
+            dict(form="ramp", mood="agitated", seed=3),
+            dict(form="spiral", at_x=1.0),
+            dict(form="arches", span=7.5, mood="agitated"),
+            dict(form="steps", height=3.0, seed=11),
+            dict(form="orb", mood="agitated", at_x=-2.0, seed=99),
+            dict(form="swing_line", span=8.0, height=4.0, at_x=0.0),
         ],
-        "math_duel": [
+        "math_scene": [
             dict(),
-            dict(beat="chase", hero_x=-3.2, orb_x=3.2, seed=4),
-            dict(beat="swing_dodge"),
-            dict(beat="swing_dodge", hero_x=-4.0, orb_x=4.0, seed=2),
-            dict(beat="web_capture"),
-            dict(beat="web_capture", hero_x=-1.5, orb_x=1.8, show_maths=False),
+            dict(beat="run_the_ramp", show_maths=True),
+            dict(beat="climb_the_steps", show_maths=True, seed=4),
+            dict(beat="ride_the_spiral"),
+            dict(beat="standoff"),
+            dict(beat="swing_across", hero_x=-3.5, show_maths=True),
         ],
     }
 
@@ -832,7 +837,7 @@ class ComponentTests(unittest.TestCase):
 
 
 class CharacterTests(unittest.TestCase):
-    """The rig, the orb and the duel keep their computed promises."""
+    """The rig, the shape-shifter and the scene keep their computed promises."""
 
     def test_an_unknown_pose_is_refused_with_the_choices(self):
         from proofmotion.runtime.registry import ToolError
@@ -840,13 +845,22 @@ class CharacterTests(unittest.TestCase):
         with self.assertRaises(ToolError) as caught:
             build("spyder_math", {"pose": "moonwalk"})
         message = str(caught.exception)
-        for choice in ("stand", "crouch", "swing", "cast", "run_contact", "victory", "defeated"):
+        for choice in ("stand", "crouch", "swing", "cast", "run_contact", "victory", "defeated", "dab", "flail"):
+            self.assertIn(choice, message, f"the refusal must list {choice!r}")
+
+    def test_an_unknown_form_is_refused_with_the_choices(self):
+        from proofmotion.runtime.registry import ToolError
+
+        with self.assertRaises(ToolError) as caught:
+            build("proofmotion", {"form": "cube"})
+        message = str(caught.exception)
+        for choice in ("orb", "swing_line", "ramp", "spiral", "arches", "steps"):
             self.assertIn(choice, message, f"the refusal must list {choice!r}")
 
     def test_orb_chords_are_deterministic_in_the_seed(self):
         def endpoints(seed):
             with tempconfig({"dry_run": True}):
-                built = build("proofmotion_orb", {"seed": seed})
+                built = build("proofmotion", {"form": "orb", "seed": seed})
             return [
                 (tuple(round(float(v), 6) for v in line.get_start()),
                  tuple(round(float(v), 6) for v in line.get_end()))
@@ -874,19 +888,32 @@ class CharacterTests(unittest.TestCase):
         self.assertTrue(left - 1e-6 <= x <= right + 1e-6)
         self.assertTrue(bottom - 1e-6 <= y <= top + 1e-6)
 
-    def test_the_duel_resolves_every_beat_with_both_characters(self):
-        for beat in ("standoff", "chase", "swing_dodge", "web_capture"):
+    def test_the_scene_resolves_every_beat_with_hero_and_world(self):
+        for beat in ("swing_across", "run_the_ramp", "climb_the_steps", "ride_the_spiral", "standoff"):
             with self.subTest(beat=beat), tempconfig({"dry_run": True}):
-                built = build("math_duel", {"beat": beat})
+                built = build("math_scene", {"beat": beat})
                 self.assertIn("hero", built.parts)
-                self.assertIn("orb", built.parts)
+                self.assertIn("world", built.parts)
                 for reveal in built.beats:
                     for part in reveal:
                         self.assertIn(part, built.parts, f"{beat}: beat names missing part {part!r}")
                 self.assertTrue(built.motions, f"{beat} carries no motion")
 
+    def test_traversals_keep_the_hero_on_the_surface(self):
+        """The trajectory starts under the hero's feet and ends on the world's top."""
+        for beat in ("run_the_ramp", "climb_the_steps"):
+            with self.subTest(beat=beat), tempconfig({"dry_run": True}):
+                built = build("math_scene", {"beat": beat, "show_maths": True})
+                trajectory = built.parts["trajectory"]
+                hero_lowest = bounds(built.parts["hero"])[2]
+                start_y = float(trajectory.get_start()[1])
+                self.assertLess(abs(hero_lowest - start_y), 0.08, f"{beat}: the hero floats at the start")
+                world_top = bounds(built.parts["world"])[3]
+                end_y = float(trajectory.get_end()[1])
+                self.assertLess(abs(end_y - world_top), 0.08, f"{beat}: the traversal misses the summit")
+
     def test_planted_poses_stand_on_the_ground_line(self):
-        for pose in ("stand", "crouch", "run_contact", "cast", "brace", "victory", "defeated"):
+        for pose in ("stand", "crouch", "run_contact", "cast", "brace", "victory", "defeated", "dab"):
             with self.subTest(pose=pose), tempconfig({"dry_run": True}):
                 built = build("spyder_math", {"pose": pose, "show_maths": False})
                 ground_y = float(built.parts["ground"].get_start()[1])

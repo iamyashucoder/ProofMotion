@@ -86,7 +86,12 @@ class Edit(BaseModel):
     #: checker to measure against — none of which this agent has.
     needs_hand_drawn: str = Field(
         default="",
-        description="Describe the scene to draw by hand when no component can express it.",
+        description=(
+            "Describe the scene to draw by hand when no component can express "
+            "it — claimed only after component_search actually returned "
+            "nothing that fits. The catalogue includes characters and staged "
+            "action scenes, not only curves."
+        ),
     )
 
 
@@ -106,6 +111,17 @@ def _check_component(name: str | None, parameters: dict[str, Any]) -> None:
         spec.params.model_validate(parameters)
     except Exception as error:
         raise ToolError(f"{name}: {error}") from error
+    # Pydantic ignores keys it does not know, which turns an invented
+    # parameter into silence: "make it bigger" arrived as {"size": "bigger"},
+    # validated, and changed nothing. At this gate a stray key is a refusal
+    # that names the real ones — renders stay tolerant, so old documents with
+    # stray keys still play.
+    unknown = set(parameters) - set(spec.params.model_fields)
+    if unknown:
+        raise ToolError(
+            f"{name} does not take {sorted(unknown)}; "
+            f"its parameters are {sorted(spec.params.model_fields)}"
+        )
 
 
 def usable_code(code: str) -> str:

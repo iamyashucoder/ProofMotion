@@ -50,6 +50,13 @@ A slide with no component is allowed when the mathematics genuinely has no
 picture, and then it needs a title and a caption. It is the exception, not the
 habit.
 
+The catalogue is wider than curves and diagrams: it holds characters and
+staged action — a stick-figure hero with poses and physics, a shape-shifting
+geometric presence, whole scenes staged in beats. A request for characters,
+a fight, a chase, or an action scene is a component request first. Hand-drawn
+is claimed only after component_search has actually come back with nothing
+that fits, never instead of searching.
+
 Connect the slides. Explaining is mostly showing how one step follows from the
 last, and a deck of true statements in a row is not an explanation. Give a
 slide a `bridge` — a few words carrying the previous step into this one:
@@ -97,6 +104,26 @@ Give a `reason` of a few words on each operation, and a `reply` of one or two
 sentences to the person. Say what you changed, not what you were asked."""
 
 
+def _catalogue() -> str:
+    """Every component's name and one-line summary, straight into the prompt.
+
+    The agent was told to search before concluding nothing fits, and it kept
+    concluding anyway — asked for a hero swinging through a built world, with
+    both components sitting in the library, it answered "the catalogue has no
+    component for that" without one search. A model will trust its prior over
+    a tool it has not called; it cannot claim something listed in front of it
+    does not exist. Names and summaries only — parameters still come from
+    component_search, which stays worth calling.
+    """
+    from proofmotion.components import COMPONENTS
+
+    lines = [
+        f"  {spec.name} — {spec.summary}"
+        for spec in sorted(COMPONENTS.values(), key=lambda s: (s.domain, s.name))
+    ]
+    return "The catalogue, in full:\n" + "\n".join(lines)
+
+
 def _describe(project: Project) -> str:
     """The deck as the model needs to see it: identity, content, and lock state."""
     return json.dumps(
@@ -126,17 +153,60 @@ def _describe(project: Project) -> str:
 def propose(client: Any, project: Project, message: str, *, max_iterations: int = 6) -> Edit:
     """What should change, given the deck and what the person said."""
     deck = _describe(project) if project.slides else "(the deck is empty)"
+    briefing = (
+        f"{_catalogue()}\n\n"
+        f"The deck so far:\n{deck}\n\n"
+        f"The person says:\n{message}\n\n"
+        "Answer with the operations that do what they asked. Call "
+        "component_search for the exact parameters of anything above "
+        "you intend to use."
+    )
+    tools = toolset("visual").subset(["component_search", "component_build", "typeset_check"])
+    edit = run_structured(
+        client, SYSTEM, briefing, tools, Edit,
+        max_iterations=max_iterations, max_tokens=6000, agent_name="studio",
+    )
+    return _repaired(client, edit, briefing, tools, max_iterations)
+
+
+def _repaired(client: Any, edit: Edit, briefing: str, tools: Any, max_iterations: int) -> Edit:
+    """One retry with the exact schemas of whatever was guessed wrong.
+
+    Knowing a component exists is not knowing its parameters, and the agent
+    reaches for plausible names instead of calling the search — its first
+    math_scene arrived with invented fields, was refused at apply, and the
+    person saw a refusal where a slide should be. Rejected operations come
+    back here with the real schema of exactly the components they named, so
+    the second answer is written against the truth rather than a guess.
+    """
+    from proofmotion.components import COMPONENTS
+    from proofmotion.runtime.registry import ToolError
+    from proofmotion.studio.operations import _check_component
+
+    problems = []
+    for operation in edit.operations:
+        if operation.kind in ("add", "edit") and operation.component:
+            try:
+                _check_component(operation.component, operation.parameters or {})
+            except ToolError as error:
+                problems.append((operation.component, str(error)[:400]))
+    if not problems:
+        return edit
+
+    schemas = {
+        name: COMPONENTS[name].describe()
+        for name, _ in problems
+        if name in COMPONENTS
+    }
+    retry = (
+        f"{briefing}\n\n"
+        "Your previous operations were rejected before reaching the deck:\n"
+        + "\n".join(f"- {name}: {reason}" for name, reason in problems)
+        + "\n\nThese are the exact parameters of the components you named:\n"
+        + json.dumps(schemas, indent=2, default=str)
+        + "\n\nAnswer again with parameters that match these schemas exactly."
+    )
     return run_structured(
-        client,
-        SYSTEM,
-        (
-            f"The deck so far:\n{deck}\n\n"
-            f"The person says:\n{message}\n\n"
-            "Answer with the operations that do what they asked."
-        ),
-        toolset("visual").subset(["component_search", "component_build", "typeset_check"]),
-        Edit,
-        max_iterations=max_iterations,
-        max_tokens=6000,
-        agent_name="studio",
+        client, SYSTEM, retry, tools, Edit,
+        max_iterations=max_iterations, max_tokens=6000, agent_name="studio",
     )
