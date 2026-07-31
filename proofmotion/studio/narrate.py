@@ -24,7 +24,11 @@ from proofmotion.runtime.registry import ToolError
 #: invalidating cached speech the way a component version invalidates clips.
 ENGINE_VERSION = 1
 
-DEFAULT_VOICE = "en_US-lessac-medium"
+#: A male English voice, at the `high` tier because narration is the one
+#: output a listener judges continuously. `Project.voice` overrides it per
+#: deck, and the voice is part of the speech digest — so changing this
+#: re-synthesizes the words and re-renders none of the pictures.
+DEFAULT_VOICE = "en_US-ryan-high"
 
 
 def voice_dir() -> Path:
