@@ -668,6 +668,28 @@ class ComponentTests(unittest.TestCase):
             dict(expr="(x-2)**2+1", update_rule="x - 0.05*2*(x-2)", start=5.5, steps=40, x_min=-3, x_max=6),
             dict(expr="x**2", update_rule="x - 1.1*2*x", start=0.5, steps=12, x_min=-3, x_max=3),
         ],
+        "spyder_math": [
+            dict(),
+            dict(pose="swing", web=True, anchor_x=2.0, anchor_y=3.2),
+            dict(pose="cast", web=True, facing="left", at_x=1.5, anchor_x=-3.0, anchor_y=3.5),
+            dict(pose="run_contact", facing="left", at_x=-2.0),
+            dict(pose="victory", at_x=3.0, show_maths=False),
+            dict(pose="crouch", web=True, anchor_x=-1.0, anchor_y=4.0, at_x=-3.5),
+        ],
+        "proofmotion_orb": [
+            dict(),
+            dict(vertices=8, chords=10, radius=0.8, mood="agitated", seed=3),
+            dict(vertices=24, chords=40, radius=2.2, seed=11, at_x=1.5),
+            dict(mood="agitated", at_x=-2.0, seed=99),
+        ],
+        "math_duel": [
+            dict(),
+            dict(beat="chase", hero_x=-3.2, orb_x=3.2, seed=4),
+            dict(beat="swing_dodge"),
+            dict(beat="swing_dodge", hero_x=-4.0, orb_x=4.0, seed=2),
+            dict(beat="web_capture"),
+            dict(beat="web_capture", hero_x=-1.5, orb_x=1.8, show_maths=False),
+        ],
     }
 
     def test_every_component_is_registered_with_a_schema(self):
@@ -807,6 +829,69 @@ class ComponentTests(unittest.TestCase):
             build("riemann_area", dict(expr="x**2", a=0, b=1, rectangles=0))  # below ge=1
         with self.assertRaises(ToolError):
             build("nonexistent_component", {})
+
+
+class CharacterTests(unittest.TestCase):
+    """The rig, the orb and the duel keep their computed promises."""
+
+    def test_an_unknown_pose_is_refused_with_the_choices(self):
+        from proofmotion.runtime.registry import ToolError
+
+        with self.assertRaises(ToolError) as caught:
+            build("spyder_math", {"pose": "moonwalk"})
+        message = str(caught.exception)
+        for choice in ("stand", "crouch", "swing", "cast", "run_contact", "victory", "defeated"):
+            self.assertIn(choice, message, f"the refusal must list {choice!r}")
+
+    def test_orb_chords_are_deterministic_in_the_seed(self):
+        def endpoints(seed):
+            with tempconfig({"dry_run": True}):
+                built = build("proofmotion_orb", {"seed": seed})
+            return [
+                (tuple(round(float(v), 6) for v in line.get_start()),
+                 tuple(round(float(v), 6) for v in line.get_end()))
+                for line in built.parts["chords"]
+            ]
+
+        self.assertEqual(endpoints(7), endpoints(7), "one seed must rebuild the same chords")
+        self.assertNotEqual(endpoints(7), endpoints(8), "a different seed must grow a different orb")
+
+    def test_the_web_is_a_taut_pendulum_line_from_the_anchor(self):
+        import numpy as np
+        from manim import Line
+
+        with tempconfig({"dry_run": True}):
+            built = build("spyder_math", {"pose": "swing", "web": True})
+        web = next(m for m in built.parts["web"].family_members_with_points() if isinstance(m, Line))
+        anchor = built.parts["anchor"].get_center()
+        self.assertLess(float(np.linalg.norm(web.get_start() - anchor)), 1e-6)
+        # The pendulum constraint: the line's length is exactly the wrist's distance.
+        span = float(np.linalg.norm(web.get_end() - web.get_start()))
+        self.assertAlmostEqual(float(web.get_length()), span, places=6)
+        # And the far end holds the figure's wrist, so it must lie on the figure.
+        left, right, bottom, top = bounds(built.parts["figure"])
+        x, y = float(web.get_end()[0]), float(web.get_end()[1])
+        self.assertTrue(left - 1e-6 <= x <= right + 1e-6)
+        self.assertTrue(bottom - 1e-6 <= y <= top + 1e-6)
+
+    def test_the_duel_resolves_every_beat_with_both_characters(self):
+        for beat in ("standoff", "chase", "swing_dodge", "web_capture"):
+            with self.subTest(beat=beat), tempconfig({"dry_run": True}):
+                built = build("math_duel", {"beat": beat})
+                self.assertIn("hero", built.parts)
+                self.assertIn("orb", built.parts)
+                for reveal in built.beats:
+                    for part in reveal:
+                        self.assertIn(part, built.parts, f"{beat}: beat names missing part {part!r}")
+                self.assertTrue(built.motions, f"{beat} carries no motion")
+
+    def test_planted_poses_stand_on_the_ground_line(self):
+        for pose in ("stand", "crouch", "run_contact", "cast", "brace", "victory", "defeated"):
+            with self.subTest(pose=pose), tempconfig({"dry_run": True}):
+                built = build("spyder_math", {"pose": pose, "show_maths": False})
+                ground_y = float(built.parts["ground"].get_start()[1])
+                lowest = bounds(built.parts["figure"])[2]
+                self.assertLess(abs(lowest - ground_y), 0.05, f"{pose} floats off the ground")
 
 
 class ShapeValidatorTests(unittest.TestCase):

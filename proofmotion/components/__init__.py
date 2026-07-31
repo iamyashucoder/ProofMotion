@@ -2,6 +2,7 @@
 
 from proofmotion.components import (
     advanced_jee,
+    characters,
     core,
     fields,
     graphs,
@@ -15,7 +16,8 @@ from proofmotion.components import (
 
 #: Referenced so a linter cannot prune these imports; registration is a side effect.
 _REGISTERING_MODULES = (
-    advanced_jee, core, fields, graphs, jee_visuals, mechanics, motion, physics, shapes, story,
+    advanced_jee, characters, core, fields, graphs, jee_visuals, mechanics, motion, physics,
+    shapes, story,
 )
 from proofmotion.components.base import COMPONENTS, Built, Component, build, component
 
