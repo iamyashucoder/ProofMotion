@@ -180,10 +180,22 @@ def fit(project, directory: Path) -> list[str]:
     return fitted
 
 
-def mux_command(video: Path, placements: list[tuple[Path, int]], destination: Path) -> list[str]:
+def mux_command(
+    video: Path,
+    placements: list[tuple[Path, int]],
+    destination: Path,
+    seconds: float,
+) -> list[str]:
     """The one ffmpeg call: video stream copied, speech delayed and mixed.
 
     A pure function so the exact command is testable without running it.
+
+    `seconds` is the film's length, and passing it is not an optimisation. Bare
+    `apad` pads without end, and `-shortest` stops at the shortest *input* —
+    a filtergraph output is not an input, so nothing ever ended the encode and
+    ffmpeg ran until it was killed. `whole_dur` gives the pad a length, so the
+    audio track finishes where the picture does and `-shortest` is left as a
+    guard against speech that overruns rather than as the thing that stops it.
     """
     command = ["ffmpeg", "-y", "-loglevel", "error", "-i", str(video)]
     for wav, _ in placements:
@@ -193,8 +205,7 @@ def mux_command(video: Path, placements: list[tuple[Path, int]], destination: Pa
         filters.append(f"[{index}:a]adelay={ms}|{ms}[d{index}]")
         delayed.append(f"[d{index}]")
     filters.append(f"{''.join(delayed)}amix=inputs={len(placements)}:normalize=0[mix]")
-    # apad + -shortest pin the audio track to the video's length exactly.
-    filters.append("[mix]apad[aout]")
+    filters.append(f"[mix]apad=whole_dur={max(seconds, 0.1):.3f}[aout]")
     command += [
         "-filter_complex", ";".join(filters),
         "-map", "0:v", "-map", "[aout]",
@@ -204,13 +215,30 @@ def mux_command(video: Path, placements: list[tuple[Path, int]], destination: Pa
     return command
 
 
+def film_seconds(video: Path) -> float:
+    """How long the joined film runs.
+
+    Measured rather than cached: `video.mp4` is rewritten by every rebuild, so
+    a sidecar beside it would answer for the previous cut.
+    """
+    result = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+         "-of", "csv=p=0", str(video)],
+        capture_output=True, text=True, timeout=30, check=False,
+    )
+    try:
+        return round(float(result.stdout.strip()), 3)
+    except ValueError as error:
+        raise ToolError(f"could not measure {video.name}: {result.stderr[-200:]}") from error
+
+
 def mux_narration(video: Path, placements: list[tuple[Path, int]]) -> Path:
     """Lay the speech over the film, in place, atomically."""
     if not placements:
         return video
     scratch = video.with_name(f".{video.stem}-spoken.mp4")
     result = subprocess.run(
-        mux_command(video, placements, scratch),
+        mux_command(video, placements, scratch, film_seconds(video)),
         capture_output=True, text=True, timeout=300, check=False,
     )
     if result.returncode != 0 or not scratch.is_file():

@@ -246,14 +246,29 @@ class TestMuxCommand(unittest.TestCase):
             Path("/p/video.mp4"),
             [(Path("/p/audio/a.wav"), 0), (Path("/p/audio/b.wav"), 8000)],
             Path("/p/.video-spoken.mp4"),
+            41.5,
         )
         joined = " ".join(command)
         self.assertIn("-c:v copy", joined)
         self.assertIn("adelay=8000|8000", joined)
         self.assertIn("amix=inputs=2:normalize=0", joined)
-        self.assertIn("apad", joined)
         self.assertIn("-shortest", joined)
         self.assertEqual(command.count("-i"), 3)
+
+    def test_the_pad_is_bounded_by_the_films_length(self):
+        """Bare `apad` never ends, and `-shortest` does not stop a filtergraph.
+
+        Together they hung a thirteen-slide render until ffmpeg was killed.
+        """
+        from proofmotion.studio.narrate import mux_command
+
+        command = mux_command(
+            Path("/p/video.mp4"), [(Path("/p/audio/a.wav"), 0)],
+            Path("/p/out.mp4"), 41.5,
+        )
+        joined = " ".join(command)
+        self.assertIn("apad=whole_dur=41.500", joined)
+        self.assertNotIn("apad[aout]", joined)
 
     def test_fit_narration_lengthens_exactly_the_short_slides(self):
         from unittest.mock import patch

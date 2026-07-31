@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from proofmotion.runtime.registry import ToolError
@@ -22,6 +22,20 @@ from proofmotion.studio.store import ProjectCorrupt, ProjectNotFound, ProjectSto
 from proofmotion.web import api, media
 
 STATIC = Path(__file__).parent / "static"
+
+#: What a browser without the token sees: a door, not a diagnostic.
+GATE = """<!doctype html>
+<meta charset="utf-8"><title>ProofMotion Studio</title>
+<body style="font-family:system-ui;background:#0d1117;color:#e6edf3;display:grid;place-items:center;height:100vh;margin:0">
+<form style="text-align:center">
+  <h1 style="font-weight:600">ProofMotion Studio</h1>
+  <p style="color:#8b949e">This studio is token-protected off its own machine.<br>
+  Paste the token printed where it was started.</p>
+  <input name="token" autofocus placeholder="token"
+         style="padding:.5em .8em;border-radius:6px;border:1px solid #26303d;background:#161b22;color:#e6edf3">
+  <button style="padding:.5em 1em;border-radius:6px;border:0;background:#4aa3df;color:#0d1117;font-weight:600">Open</button>
+</form>
+</body>"""
 
 
 def create_app(
@@ -61,19 +75,26 @@ def create_app(
 
     if token:
         # The studio executes generated Manim; off loopback it must not be an
-        # open endpoint. The token rides the first URL (?token=...), then a
-        # cookie carries it so images, video and the event stream all pass.
+        # open endpoint. The token guards other machines only — you, on the
+        # machine it runs on, are who the studio belongs to, and answering
+        # localhost with "unauthorized" reads as the studio being down. The
+        # token rides the first URL (?token=...), then a cookie carries it so
+        # images, video and the event stream all pass; a browser without it
+        # gets a page that asks, not a line of JSON.
         @app.middleware("http")
         async def guard(request: Request, call_next):
+            peer = request.client.host if request.client else ""
             supplied = (
                 request.headers.get("authorization", "").removeprefix("Bearer").strip()
                 or request.query_params.get("token")
                 or request.cookies.get("pm_token")
             )
-            if supplied != token:
+            if supplied != token and peer not in ("127.0.0.1", "::1"):
+                if "text/html" in request.headers.get("accept", ""):
+                    return HTMLResponse(GATE, status_code=401)
                 return JSONResponse({"error": "unauthorized"}, status_code=401)
             response = await call_next(request)
-            if request.query_params.get("token"):
+            if request.query_params.get("token") == token:
                 response.set_cookie("pm_token", token, httponly=True, samesite="strict")
             return response
 
