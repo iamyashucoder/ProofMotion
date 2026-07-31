@@ -23,10 +23,19 @@ export function initChat() {
     if (!running) clearTicks();
   });
 
+  // The box starts one line tall and grows with what is typed, up to the
+  // CSS max-height — after which it scrolls inside itself.
+  const autosize = () => {
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.min(textarea.scrollHeight, 180) + 'px';
+  };
+  textarea.addEventListener('input', autosize);
+
   const submit = () => {
     const text = textarea.value.trim();
     if (!text || state.turnRunning) return;
     textarea.value = '';
+    autosize();
     if (state.projectId) sendMessage(text, state.attachments.slice());
     else createProject(text);
   };

@@ -84,12 +84,25 @@ body {
 }
 #composer.drop { outline: 2px dashed var(--accent); outline-offset: -6px; }
 #chips { display: flex; flex-wrap: wrap; gap: 6px; }
-/* The textarea owns a whole line of the column — the input is the composer,
-   not a field wedged between buttons. Attach, voice and Send sit on their own
-   row beneath it, Send pushed to the right, the way every chat box reads. */
-#composer-text { width: 100%; resize: none; min-height: 3.2em; }
-#composer-row { display: flex; gap: 8px; align-items: center; width: 100%; }
-#composer-send { margin-left: auto; padding-top: 6px; padding-bottom: 6px; }
+/* One line, the way the person sketched it: attach and voice live INSIDE the
+   input box, the textarea takes everything between them and the edge, and
+   Send stands beside the box. The box carries the field's border, so the
+   whole assembly reads as one input. */
+#composer-line { display: flex; gap: 8px; align-items: flex-end; width: 100%; }
+#composer-box {
+  flex: 1 1 auto; min-width: 0;
+  display: flex; gap: 4px; align-items: flex-end;
+  background: var(--field); border: 1px solid var(--line); border-radius: 12px;
+  padding: 5px 7px;
+}
+#composer-box:focus-within { border-color: var(--accent); }
+#composer-box .pill { flex: none; align-self: flex-end; }
+#composer-text {
+  flex: 1 1 auto; min-width: 0; resize: none;
+  border: 0; background: none; outline: none; padding: 7px 4px;
+  max-height: 180px;
+}
+#composer-send { flex: none; padding-top: 8px; padding-bottom: 8px; }
 
 /* main column, top to bottom: bar, stage, narration, filmstrip, status, log, deck */
 #bar {
