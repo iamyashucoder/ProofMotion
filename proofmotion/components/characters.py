@@ -169,14 +169,14 @@ def _pendulum_sweep(anchor: Any, wrist: Any) -> tuple[float, float, float]:
     return r, phi, sweep
 
 
-def _mirrored_arc(centre: Any, start: Any) -> tuple[Any, float, Any]:
-    """The pendulum arc a rigid swing follows, from `start` to its mirror below `centre`.
+def _mirror_delta(centre: Any, start: Any) -> float:
+    """Signed sweep taking `start` to its mirror across the vertical below `centre`.
 
-    Built from live coordinates at play time, so it is correct whatever the
-    layout engine did to the group. Returns (arc path, swept angle, end point).
+    A pendulum released at an angle returns to the same height on the other
+    side; this is that sweep, computed from live coordinates at play time and
+    shrunk until the swept point stays on stage.
     """
     import numpy as np
-    from manim import Arc
 
     v = start - centre
     r = float(np.linalg.norm(v[:2]))
@@ -184,13 +184,21 @@ def _mirrored_arc(centre: Any, start: Any) -> tuple[Any, float, Any]:
     delta = -math.pi - 2.0 * phi
     if abs(delta) < 0.25:
         delta = -0.9 if float(v[0]) >= 0 else 0.9
-    end = start
     for _ in range(40):
         end = centre + r * np.array([math.cos(phi + delta), math.sin(phi + delta), 0.0])
         if abs(float(end[0])) <= 6.3 and float(end[1]) >= -3.7:
             break
         delta *= 0.85
-    return Arc(radius=r, start_angle=phi, angle=delta, arc_center=centre), delta, end
+    return delta
+
+
+def _spun(point: Any, angle: float, about: Any) -> Any:
+    """`point` rotated by `angle` radians around `about`, as a plain array."""
+    import numpy as np
+
+    c, s = math.cos(angle), math.sin(angle)
+    v = point - about
+    return about + np.array([c * float(v[0]) - s * float(v[1]), s * float(v[0]) + c * float(v[1]), 0.0])
 
 
 def _catenary_points(p0: Any, p1: Any, *, min_y: float = 0.06, samples: int = 36) -> tuple[list[Any], float]:
@@ -398,7 +406,8 @@ def _spiral_form(*, seed: int, jitter: float, at_x: float, span: float, height: 
     spiral = _glowed(curve, colour=PALETTE.bad if jitter else None)
     joints = VGroup(*[Dot(points[i], radius=0.04, color=PALETTE.accent) for i in joints_at])
     pieces = {"spiral": spiral, "joints": joints}
-    geom = {"track": list(reversed(points))}
+    # Heart outward: a rider ends on the wide outer arc, clear of the tight coils.
+    geom = {"track": list(points)}
     facts = f"7 quarter-arcs, radii in the golden ratio {phi_ratio:.3f}"
     return pieces, ["spiral", "joints"], geom, facts
 
@@ -533,7 +542,7 @@ class SpyderMathParams(BaseModel):
         return pose
 
 
-@component(version=1, domain="story", params=SpyderMathParams)
+@component(version=2, domain="story", params=SpyderMathParams)
 def spyder_math(p: SpyderMathParams) -> Built:
     """A stick-figure hero character in action — Spyder Math runs, swings a web, leaps, pulls funny poses.
 
@@ -605,15 +614,12 @@ def spyder_math(p: SpyderMathParams) -> Built:
 
     if p.pose == "swing" and p.web:
         def act() -> Any:
-            """Swing the whole figure along the pendulum arc, web pivoting at the anchor."""
-            from manim import AnimationGroup, MoveAlongPath, Rotate
+            """Figure and web swing rigidly about the anchor, so the rope never detaches."""
+            from manim import Rotate, VGroup
 
-            path, delta, _ = _mirrored_arc(anchor_dot.get_center(), figure.get_center())
-            return AnimationGroup(
-                MoveAlongPath(figure, path),
-                Rotate(web, angle=delta, about_point=anchor_dot.get_center()),
-                run_time=2.4,
-            )
+            anchor_now = anchor_dot.get_center()
+            delta = _mirror_delta(anchor_now, strand.get_end())
+            return Rotate(VGroup(figure, web), angle=delta, about_point=anchor_now, run_time=2.4)
     elif p.pose.startswith("run_"):
         def act() -> Any:
             """A short dash of two projectile hops, so the run bobs instead of gliding."""
@@ -815,7 +821,10 @@ class MathSceneParams(BaseModel):
     seed: int = Field(default=7, description="Seed for the world's deterministic construction, e.g. 7.")
     hero_x: float = Field(
         default=0.0, ge=-4, le=4,
-        description="Hero start position, e.g. -3.0. 0 chooses the natural start of the world.",
+        description=(
+            "Hero start position, e.g. -3.0. 0 chooses the natural start of the world. "
+            "Ignored by swing_across, where the cable's grab point dictates where the hero hangs."
+        ),
     )
     show_maths: bool = Field(
         default=False,
@@ -824,7 +833,7 @@ class MathSceneParams(BaseModel):
     region: str = "stage"
 
 
-@component(version=1, domain="story", params=MathSceneParams)
+@component(version=2, domain="story", params=MathSceneParams)
 def math_scene(p: MathSceneParams) -> Built:
     """Spyder Math moves through a world ProofMotion built — the hero swings, runs the ramp, climbs steps in a staged action scene.
 
@@ -846,16 +855,17 @@ def math_scene(p: MathSceneParams) -> Built:
 
     if p.beat == "swing_across":
         pieces, order, geom, facts = _world_form(
-            "swing_line", seed=p.seed, mood="calm", at_x=0.0, span=5.6, height=3.4,
+            "swing_line", seed=p.seed, mood="calm", at_x=0.0, span=5.6, height=3.6,
         )
         cable = geom["cable_points"]
-        a1, a2 = cable[len(cable) // 3], cable[2 * len(cable) // 3]
+        # Grab points a quarter of the way in from each mast, where the cable is high.
+        a1, a2 = cable[9], cable[26]
         a1_dot = Dot(a1, radius=0.05, color=PALETTE.accent)
         a2_dot = Dot(a2, radius=0.05, color=PALETTE.accent)
         world = VGroup(ground, *[pieces[name] for name in order], a1_dot, a2_dot)
-        hx = p.hero_x or float(a1[0]) - 1.6
-        hx = min(max(hx, -4.2), float(a1[0]) - 0.8)
-        hero_pose, hero_at = "swing", (hx, 0.0)
+        # hero_x is ignored here: the hero HANGS from the cable, placed below the
+        # grab point after the rig is built. Ground placement means nothing mid-air.
+        hero_pose, hero_at = "swing", (0.0, 0.0)
     elif p.beat == "run_the_ramp":
         pieces, order, geom, facts = _world_form(
             "ramp", seed=p.seed, mood="calm", at_x=0.4, span=5.6, height=2.2,
@@ -896,7 +906,7 @@ def math_scene(p: MathSceneParams) -> Built:
         track_points = geom["track"]
         start = track_points[0]
         hero_pose, hero_at = "flail", (float(start[0]), float(start[1]))
-        notes.append("the hero rides the spiral from its outermost arc inward")
+        notes.append("the hero rides the spiral from its heart out to the widest arc")
     else:  # standoff
         pieces, order, geom, facts = _world_form(
             "orb", seed=p.seed, mood="calm", at_x=2.4, span=0.0, height=2.1,
@@ -911,17 +921,45 @@ def math_scene(p: MathSceneParams) -> Built:
     notes.append(facts)
 
     raw, joints = _stick_figure(hero_pose, at=hero_at, scale=1.05, facing="right")
+
+    hang_theta = math.radians(38.0)
+    rope_len = 0.55
+    if p.beat == "swing_across":
+        # The hero hangs mid-air: wrists at the rope's end, body along the rope,
+        # swung back ready to sweep forward. Feet never touch the ground here.
+        grab = a1 + rope_len * np.array([-math.sin(hang_theta), -math.cos(hang_theta), 0.0])
+        shift = grab - joints["wrist_f"]
+        raw.shift(shift)
+        for name in list(joints):
+            joints[name] = joints[name] + shift
+        # Tilt the whole body to hang along the rope. The wrist is the pivot,
+        # so joints["wrist_f"] stays exact; the other joints are not used after this.
+        raw.rotate(-hang_theta, about_point=grab)
+        notes.append(
+            f"hero hangs {float(raw.get_bottom()[1]):.2f} above the ground on a {rope_len:g} rope"
+        )
+
     hero = _glowed(raw)
     group = VGroup(world, hero)
     parts["world"], parts["hero"] = world, hero
     beats: list[list[str]] = [["world"], ["hero"]]
 
+    catch_line = None
     if p.beat == "swing_across":
         strand = Line(a1_dot.get_center(), joints["wrist_f"], color=PALETTE.accent, stroke_width=2.5)
         web = _glowed(strand)
         parts["web"] = web
         group.add(web)
-        beats.append(["web"])
+        # The web appears with the hero: a figure hanging in mid-air must never
+        # be on screen without the rope that holds it there.
+        beats[-1].append("web")
+        # The second rope, pre-built where the catch will happen and invisible
+        # until then — an animation that introduces a mobject mid-Succession
+        # would flash it early, because play() adds the whole group up front.
+        catch_theta = math.radians(35.0)
+        hands_catch = a2 + rope_len * np.array([-math.sin(catch_theta), -math.cos(catch_theta), 0.0])
+        catch_line = Line(a2, hands_catch, color=PALETTE.accent, stroke_width=2.5, stroke_opacity=0.0)
+        group.add(catch_line)
         r, phi, sweep = _pendulum_sweep(a1_dot.get_center(), joints["wrist_f"])
         track_points = [
             a1_dot.get_center()
@@ -948,15 +986,45 @@ def math_scene(p: MathSceneParams) -> Built:
 
     if p.beat == "swing_across":
         def act() -> Any:
-            """Chained pendulum arcs: swing from the first anchor, release, catch the second."""
-            from manim import AnimationGroup, FadeOut, MoveAlongPath, Rotate, Succession
+            """Swing rigidly about the first grab, release and fly, catch the second web, swing through.
 
-            a1, a2 = a1_dot.get_center(), a2_dot.get_center()
-            arc1, d1, e1 = _mirrored_arc(a1, hero.get_center())
-            arc2, _, _ = _mirrored_arc(a2, e1)
+            Rigid rotations keep the rope pinned at the cable and at the hands
+            in every frame; the flight between anchors is a projectile arc.
+            """
+            from manim import AnimationGroup, MoveAlongPath, Rotate, Succession, VGroup, VMobject
+
+            a1p, a2p = a1_dot.get_center(), a2_dot.get_center()
+            hands0 = strand.get_end()
+            d1 = _mirror_delta(a1p, hands0)
+            hands1 = _spun(hands0, d1, a1p)
+            c1 = _spun(hero.get_center(), d1, a1p)
+
+            hands2 = catch_line.get_end()
+            c2 = c1 + (hands2 - hands1)
+            lift = max(0.3, 0.5 * float(np.linalg.norm(hands0 - a1p)))
+            flight_points = [
+                c1 + (c2 - c1) * t + np.array([0.0, 4 * lift * t * (1 - t), 0.0])
+                for t in (i / 19 for i in range(20))
+            ]
+            flight = VMobject()
+            flight.set_points_smoothly(flight_points)
+
+            d3 = _mirror_delta(a2p, hands2)
+            # The body left the first swing tilted; pivot about the hands so the
+            # grip stays exactly at the new rope's end while the body rights itself.
+            catch_theta = math.atan2(float((a2p - hands2)[0]), float((a2p - hands2)[1]))
+            straighten = -catch_theta - (-hang_theta + d1)
             return Succession(
-                AnimationGroup(MoveAlongPath(hero, arc1), Rotate(web, angle=d1, about_point=a1), run_time=1.6),
-                AnimationGroup(MoveAlongPath(hero, arc2), FadeOut(web, run_time=0.5), run_time=1.6),
+                Rotate(VGroup(hero, web), angle=d1, about_point=a1p, run_time=1.3),
+                # The released web goes to stroke opacity 0 rather than FadeOut:
+                # a removed mobject reappears when a later fade re-adds its group.
+                AnimationGroup(MoveAlongPath(hero, flight), web.animate.set_stroke(opacity=0.0), run_time=0.8),
+                AnimationGroup(
+                    catch_line.animate.set_stroke(opacity=1.0),
+                    Rotate(hero, angle=straighten, about_point=hands2),
+                    run_time=0.25,
+                ),
+                Rotate(VGroup(hero, catch_line), angle=d3, about_point=a2p, run_time=1.2),
             )
     elif p.beat == "standoff":
         def act() -> Any:
