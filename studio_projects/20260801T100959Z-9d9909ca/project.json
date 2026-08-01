@@ -1,0 +1,35 @@
+{
+  "project_id": "20260801T100959Z-9d9909ca",
+  "question": "A man running on x^2 plane",
+  "revision": 4,
+  "created_at": "2026-08-01T10:09:59Z",
+  "style": "dark",
+  "quality": "l",
+  "voice": "",
+  "fit_narration": true,
+  "slides": [
+    {
+      "id": "s1",
+      "title": "Running on the x\u00b2 Plane",
+      "component": "spyder_math",
+      "parameters": {
+        "pose": "run_pass",
+        "facing": "right",
+        "at_x": 1,
+        "web": false,
+        "anchor_x": 3,
+        "anchor_y": 3.13,
+        "show_maths": true,
+        "region": "stage"
+      },
+      "caption": "A runner moves along a parabolic path, y = x\u00b2.",
+      "seconds": 5.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "The runner follows the parabola defined by y equals x squared.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    }
+  ]
+}

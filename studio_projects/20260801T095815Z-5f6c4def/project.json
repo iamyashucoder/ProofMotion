@@ -1,0 +1,233 @@
+{
+  "project_id": "20260801T095815Z-5f6c4def",
+  "question": "FInd ths question correct and exlain Two co-axial conducting cylinders of same length \n with radii \n and \n are kept, as shown in Fig. 1. The charge on the inner cylinder is \n and the outer cylinder is grounded. The annular region between the cylinders is filled with a material of dielectric constant \n. Consider an imaginary plane of the same length \n at a distance \n from the common axis of the cylinders. This plane is parallel to the axis of the cylinders. The cross-sectional view of this arrangement is shown in Fig. 2. Ignoring edge effects, the flux of the electric field through the plane is (\n is the permittivity of free space):",
+  "revision": 1,
+  "created_at": "2026-08-01T09:58:15Z",
+  "style": "dark",
+  "quality": "l",
+  "voice": "",
+  "fit_narration": true,
+  "slides": [
+    {
+      "id": "s1",
+      "title": "Coaxial geometry",
+      "component": null,
+      "parameters": {},
+      "caption": "\\rho=\\sqrt{x^2+y^2},\\qquad x=d,\\qquad \\rho=\\sqrt{d^2+y^2}",
+      "seconds": 14.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Take the common cylinder axis along z. In the perpendicular cross-section, the longitudinal plane becomes the line x equals d, and a point on it has radial distance rho equal to the square root of d squared plus y squared.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s2",
+      "title": "Gaussian cylinder",
+      "component": null,
+      "parameters": {},
+      "caption": "E(\\rho)(2\\pi\\rho L)=\\frac{Q}{K\\varepsilon_0}",
+      "seconds": 12.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Use a coaxial Gaussian cylinder of radius rho and length L, with rho between a and b. Only its curved surface contributes because the radial field has no flux through the end caps.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s3",
+      "title": "Radial field",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "E(\\rho)(2\\pi\\rho L)=\\frac{Q}{K\\varepsilon_0}",
+          "E(\\rho)=\\frac{Q}{2\\pi K\\varepsilon_0L\\rho}"
+        ]
+      },
+      "caption": "E(\\rho)=\\frac{Q}{2\\pi K\\varepsilon_0L\\rho}",
+      "seconds": 10.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Dividing by the curved Gaussian area gives the field magnitude. For positive Q it points radially outward; for negative Q the direction reverses.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s4",
+      "title": "Normal component",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "E(\\rho)\\frac{d}{\\rho}",
+          "\\mathbf E\\cdot\\hat{\\mathbf n}=E(\\rho)\\frac{d}{\\rho}=\\frac{Qd}{2\\pi K\\varepsilon_0L(d^2+y^2)}"
+        ]
+      },
+      "caption": "\\mathbf E\\cdot\\hat{\\mathbf n}=\\frac{Qd}{2\\pi K\\varepsilon_0L(d^2+y^2)}",
+      "seconds": 12.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "At the point d comma y, the radial unit vector has x-component d over rho. Projecting the radial field onto the positive x normal gives the displayed normal component.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s5",
+      "title": "Surface element",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "dA=dy\\,dz",
+          "dA=dy\\,dz,\\qquad \\Phi=\\int\\!\\!\\int \\mathbf E\\cdot\\hat{\\mathbf n}\\,dy\\,dz"
+        ]
+      },
+      "caption": "dA=dy\\,dz,\\qquad \\Phi=\\int\\!\\!\\int \\mathbf E\\cdot\\hat{\\mathbf n}\\,dy\\,dz",
+      "seconds": 11.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "The plane is spanned by y and z, so its area element is dy dz. Integrating through the full length supplies a factor L, which will cancel the L in the field expression.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s6",
+      "title": "Where flux exists",
+      "component": null,
+      "parameters": {},
+      "caption": "a\\le\\sqrt{d^2+y^2}\\le b",
+      "seconds": 11.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "The plane contributes only where its points lie in the dielectric annulus. This radial condition determines the allowed y-interval, which changes as d crosses a and b.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s7",
+      "title": "Case I: d below a",
+      "component": null,
+      "parameters": {},
+      "caption": "\\sqrt{a^2-d^2}\\le |y|\\le\\sqrt{b^2-d^2}",
+      "seconds": 9.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "When d is less than a, the line passes through the inner conducting region near y equals zero. The dielectric therefore appears in two symmetric strips.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s8",
+      "title": "Evaluate Case I",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "\\Phi=2L\\int_{\\sqrt{a^2-d^2}}^{\\sqrt{b^2-d^2}}\\frac{Qd}{2\\pi K\\varepsilon_0L(d^2+y^2)}\\,dy",
+          "\\Phi=\\frac{Q}{\\pi K\\varepsilon_0}\\left[\\cos^{-1}\\!\\left(\\frac{d}{b}\\right)-\\cos^{-1}\\!\\left(\\frac{d}{a}\\right)\\right]"
+        ]
+      },
+      "caption": "\\Phi=\\frac{Q}{\\pi K\\varepsilon_0}\\left[\\cos^{-1}\\!\\left(\\frac{d}{b}\\right)-\\cos^{-1}\\!\\left(\\frac{d}{a}\\right)\\right]",
+      "seconds": 12.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "The two strips give twice the positive-y integral. Substitution and cancellation of L produce the difference of two inverse-cosine terms; at d equals zero, the result is zero by continuity.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s9",
+      "title": "Case II: inside annulus",
+      "component": null,
+      "parameters": {},
+      "caption": "-\\sqrt{b^2-d^2}\\le y\\le\\sqrt{b^2-d^2}",
+      "seconds": 12.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "For d between a and b, every point on the line has rho at least d, so it is already outside the inner conductor. The complete chord inside the outer cylinder lies in the dielectric.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s10",
+      "title": "Evaluate Case II",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "\\Phi=L\\int_{-\\sqrt{b^2-d^2}}^{\\sqrt{b^2-d^2}}\\frac{Qd}{2\\pi K\\varepsilon_0L(d^2+y^2)}\\,dy",
+          "\\Phi=\\frac{Q}{\\pi K\\varepsilon_0}\\cos^{-1}\\!\\left(\\frac{d}{b}\\right)"
+        ]
+      },
+      "caption": "\\Phi=\\frac{Q}{\\pi K\\varepsilon_0}\\cos^{-1}\\!\\left(\\frac{d}{b}\\right)",
+      "seconds": 11.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Integrating across the entire symmetric chord again cancels L. Only the outer-cylinder endpoint angle remains, and this agrees continuously with Case I at d equals a.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s11",
+      "title": "Case III: outside",
+      "component": null,
+      "parameters": {},
+      "caption": "\\Phi=0",
+      "seconds": 9.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "If d is at least b, the line lies entirely outside the outer cylinder. It does not intersect the dielectric annulus, so the flux is zero.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s12",
+      "title": "Final answer",
+      "component": "comparison",
+      "parameters": {
+        "left_title": "Geometry",
+        "right_title": "Flux",
+        "rows": [
+          [
+            "0\\le d<a",
+            "\\frac{Q}{\\pi K\\varepsilon_0}\\left[\\cos^{-1}(d/b)-\\cos^{-1}(d/a)\\right]"
+          ],
+          [
+            "a\\le d<b",
+            "\\frac{Q}{\\pi K\\varepsilon_0}\\cos^{-1}(d/b)"
+          ],
+          [
+            "d\\ge b",
+            "0"
+          ]
+        ],
+        "row_labels": [
+          "Case I",
+          "Case II",
+          "Case III"
+        ],
+        "highlight": [
+          0,
+          1,
+          2
+        ],
+        "region": "stage"
+      },
+      "caption": "\\boxed{\\Phi(d)=\\begin{cases}\\displaystyle \\frac{Q}{\\pi K\\varepsilon_0}\\left[\\cos^{-1}\\!\\left(\\frac{d}{b}\\right)-\\cos^{-1}\\!\\left(\\frac{d}{a}\\right)\\right],&0\\le d<a,\\\\[6pt]\\displaystyle \\frac{Q}{\\pi K\\varepsilon_0}\\cos^{-1}\\!\\left(\\frac{d}{b}\\right),&a\\le d<b,\\\\[6pt]0,&d\\ge b.\\end{cases}}",
+      "seconds": 12.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "The flux is determined by which part of the annulus the longitudinal plane cuts. The cylinder length L cancels, and reversing the chosen normal reverses the sign of the complete result.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    }
+  ]
+}

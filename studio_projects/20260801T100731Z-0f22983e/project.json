@@ -1,0 +1,408 @@
+{
+  "project_id": "20260801T100731Z-0f22983e",
+  "question": "Solve the question and explain it using the digrams by redrawing them",
+  "revision": 7,
+  "created_at": "2026-08-01T10:07:31Z",
+  "style": "dark",
+  "quality": "l",
+  "voice": "",
+  "fit_narration": true,
+  "slides": [
+    {
+      "id": "s1",
+      "title": "Coaxial capacitor: longitudinal view",
+      "component": "geometry_construction",
+      "parameters": {
+        "points": {
+          "A": [
+            -2,
+            1.2
+          ],
+          "B": [
+            2,
+            1.2
+          ],
+          "C": [
+            -2,
+            -1.2
+          ],
+          "D": [
+            2,
+            -1.2
+          ],
+          "O": [
+            0,
+            0
+          ]
+        },
+        "segments": [
+          [
+            "A",
+            "B"
+          ],
+          [
+            "C",
+            "D"
+          ],
+          [
+            "O",
+            "A"
+          ],
+          [
+            "O",
+            "C"
+          ]
+        ],
+        "mark_angles": [],
+        "show_lengths": false,
+        "region": "stage"
+      },
+      "caption": "x=R,\\qquad a=\\sqrt{2}R,\\qquad b=2R",
+      "seconds": 13.0,
+      "overrides": {
+        "shift": {
+          "built.group": {
+            "dx": 0,
+            "dy": 1.3
+          },
+          "caption": {
+            "dx": 0,
+            "dy": -2.55
+          }
+        }
+      },
+      "bridge": "",
+      "narration": "The question asks for the electric-field flux through the plane x=R inside a coaxial capacitor. We first redraw the longitudinal geometry and mark the plane whose normal points in the positive x direction.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s2",
+      "title": "Cross-section and contributing segments",
+      "component": "geometry_construction",
+      "parameters": {
+        "points": {
+          "O": [
+            -1,
+            0
+          ],
+          "A": [
+            1,
+            0
+          ],
+          "B": [
+            2,
+            0
+          ],
+          "P": [
+            0.5,
+            0.866
+          ],
+          "Q": [
+            1,
+            1.732
+          ],
+          "M": [
+            0.5,
+            -0.866
+          ],
+          "N": [
+            1,
+            -1.732
+          ]
+        },
+        "segments": [
+          [
+            "O",
+            "A"
+          ],
+          [
+            "O",
+            "B"
+          ],
+          [
+            "A",
+            "P"
+          ],
+          [
+            "A",
+            "Q"
+          ],
+          [
+            "A",
+            "M"
+          ],
+          [
+            "A",
+            "N"
+          ]
+        ],
+        "mark_angles": [],
+        "show_lengths": false,
+        "region": "stage"
+      },
+      "caption": "x=R,\\qquad R\\leq |y|\\leq\\sqrt{3}R",
+      "seconds": 14.0,
+      "overrides": {},
+      "bridge": "Now view the same setup end-on.",
+      "narration": "In cross-section, the conductors are concentric circles and the plane becomes the line x=R. Only the two symmetric segments between the inner and outer radii lie in the dielectric and contribute to the flux.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s3",
+      "title": "Dielectric endpoints",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "x=R",
+          "R^2+y^2=2R^2\\Rightarrow y=\\pm R,\\quad R^2+y^2=4R^2\\Rightarrow y=\\pm\\sqrt{3}R"
+        ],
+        "region": "stage"
+      },
+      "caption": "R\\leq |y|\\leq\\sqrt{3}R",
+      "seconds": 16.0,
+      "overrides": {},
+      "bridge": "Intersecting the two circles gives the endpoints.",
+      "narration": "Substituting x=R into the circular boundaries gives y=\\pm R at the inner conductor and y=\\pm\\sqrt{3}R at the outer conductor. Thus two symmetric segments of the plane lie in the dielectric.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s4",
+      "title": "Gaussian cylinder in the dielectric",
+      "component": "geometry_construction",
+      "parameters": {
+        "points": {
+          "O": [
+            -1.8,
+            0
+          ],
+          "G": [
+            0,
+            0
+          ],
+          "R": [
+            1.8,
+            0
+          ],
+          "T": [
+            0,
+            1.1
+          ],
+          "U": [
+            0,
+            -1.1
+          ]
+        },
+        "segments": [
+          [
+            "O",
+            "G"
+          ],
+          [
+            "G",
+            "R"
+          ],
+          [
+            "G",
+            "T"
+          ],
+          [
+            "G",
+            "U"
+          ]
+        ],
+        "mark_angles": [],
+        "show_lengths": false,
+        "region": "stage"
+      },
+      "caption": "\\oint\\mathbf D\\cdot d\\mathbf A=Q,\\qquad D(2\\pi r\\ell)=Q",
+      "seconds": 14.0,
+      "overrides": {},
+      "bridge": "The contributing pieces now determine the field.",
+      "narration": "We redraw the Gaussian cylinder coaxially inside the dielectric. Cylindrical symmetry makes the displacement field radial and constant on the curved surface, so Gauss's law gives D times 2 pi r ell equal to Q.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s5",
+      "title": "Field in dielectric",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "D(2\\pi r\\ell)=Q",
+          "\\mathbf E(r)=\\frac{Q}{2\\pi\\varepsilon_0\\kappa\\ell r}\\,\\hat{\\mathbf r},\\quad \\kappa=5"
+        ],
+        "region": "stage"
+      },
+      "caption": "\\mathbf E(r)=\\frac{Q}{2\\pi\\varepsilon_0\\kappa\\ell r}\\,\\hat{\\mathbf r}",
+      "seconds": 17.0,
+      "overrides": {},
+      "bridge": "Gauss's law gives the radial field.",
+      "narration": "Gauss's law gives D=Q/(2\\pi r\\ell). Using \\mathbf D=\\varepsilon_0\\kappa\\mathbf E introduces the factor 1/(\\varepsilon_0\\kappa) in the electric field.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s6",
+      "title": "Normal component",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "r=\\sqrt{R^2+y^2}",
+          "E_x=\\frac{Q}{2\\pi\\varepsilon_0\\kappa\\ell}\\frac{R}{R^2+y^2}"
+        ],
+        "region": "stage"
+      },
+      "caption": "E_x=\\frac{QR}{2\\pi\\varepsilon_0\\kappa\\ell(R^2+y^2)}",
+      "seconds": 11.0,
+      "overrides": {},
+      "bridge": "The plane needs the normal component, not the full field.",
+      "narration": "Flux uses the component normal to the plane, not the full radial field. At (R,y), the radial unit vector has x-component R/r, producing the stated E_x.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s7",
+      "title": "Both segments",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "dA=\\ell\\,dy",
+          "\\Phi_E=2\\ell\\int_R^{\\sqrt{3}R}\\frac{Q}{2\\pi\\varepsilon_0\\kappa\\ell}\\frac{R}{R^2+y^2}\\,dy"
+        ],
+        "region": "stage"
+      },
+      "caption": "\\Phi_E=2\\ell\\int_R^{\\sqrt{3}R}\\frac{Q R}{2\\pi\\varepsilon_0\\kappa\\ell(R^2+y^2)}\\,dy",
+      "seconds": 13.0,
+      "overrides": {},
+      "bridge": "Add the equal upper and lower contributions.",
+      "narration": "A strip has area dA=\\ell\\,dy. The upper and lower dielectric segments contribute equally because E_x depends on y^2, so one integral is multiplied by two.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s8",
+      "title": "Angular integral",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "\\int_R^{\\sqrt{3}R}\\frac{R}{R^2+y^2}\\,dy",
+          "=\\frac{\\pi}{3}-\\frac{\\pi}{4}=\\frac{\\pi}{12}"
+        ],
+        "region": "stage"
+      },
+      "caption": "\\int_R^{\\sqrt{3}R}\\frac{R\\,dy}{R^2+y^2}=\\frac{\\pi}{12}",
+      "seconds": 12.0,
+      "overrides": {},
+      "bridge": "Evaluate the remaining geometric integral.",
+      "narration": "The integral is an angular change in disguise. Its endpoint angles are \\pi/3 and \\pi/4, so the angular difference is \\pi/12.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s9",
+      "title": "Simplify flux",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "\\Phi_E=2\\ell\\left(\\frac{Q}{2\\pi\\varepsilon_0\\kappa\\ell}\\right)\\left(\\frac{\\pi}{12}\\right)",
+          "\\Phi_E=\\frac{Q}{12\\varepsilon_0\\kappa}"
+        ],
+        "region": "stage"
+      },
+      "caption": "\\Phi_E=\\frac{Q}{12\\varepsilon_0\\kappa}",
+      "seconds": 11.0,
+      "overrides": {},
+      "bridge": "Substitute the angular difference.",
+      "narration": "Substituting the angular integral cancels the cylinder length and the factor of \\pi. The general electric-field flux is Q/(12\\varepsilon_0\\kappa).",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s10",
+      "title": "Insert kappa",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "\\Phi_E=\\frac{Q}{12\\varepsilon_0\\kappa}",
+          "\\kappa=5\\Rightarrow\\Phi_E=\\frac{Q}{60\\varepsilon_0}"
+        ],
+        "region": "stage"
+      },
+      "caption": "\\kappa=5\\quad\\Longrightarrow\\quad\\Phi_E=\\frac{Q}{60\\varepsilon_0}",
+      "seconds": 9.0,
+      "overrides": {},
+      "bridge": "Finally insert the dielectric constant.",
+      "narration": "For this dielectric, \\kappa=5. With Q positive and the normal directed toward increasing x, the flux is positive.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s11",
+      "title": "Flux and units",
+      "component": "comparison",
+      "parameters": {
+        "left_title": "Electric-field flux",
+        "right_title": "Displacement flux",
+        "rows": [
+          [
+            "\\Phi_E=\\dfrac{Q}{60\\varepsilon_0}",
+            "\\Phi_D=\\dfrac{Q}{12}"
+          ],
+          [
+            "\\text{requested}",
+            "\\text{not requested}"
+          ]
+        ],
+        "row_labels": [
+          "value",
+          "meaning"
+        ],
+        "highlight": [
+          0
+        ],
+        "region": "stage"
+      },
+      "caption": "\\Phi_E=\\frac{Q}{60\\varepsilon_0}",
+      "seconds": 12.0,
+      "overrides": {},
+      "bridge": "This is electric-field flux, not displacement flux.",
+      "narration": "Do not confuse electric-field flux with displacement flux. The requested quantity is \\Phi_E, with units of newton metre squared per coulomb; reversing the normal reverses its sign.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s12",
+      "title": "Final answer",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "\\Phi_E=\\frac{Q}{12\\varepsilon_0\\kappa}",
+          "\\kappa=5\\Rightarrow\\boxed{\\Phi_E=\\frac{Q}{60\\varepsilon_0}}"
+        ],
+        "region": "stage"
+      },
+      "caption": "\\boxed{\\Phi_E=\\frac{Q}{60\\varepsilon_0}}",
+      "seconds": 13.0,
+      "overrides": {},
+      "bridge": "Therefore the requested flux is",
+      "narration": "Therefore, for the plane at x=R and the +\\hat{\\mathbf x} normal, the electric-field flux is Q/(60\\varepsilon_0). Reversing the normal changes the sign.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    }
+  ]
+}

@@ -1,0 +1,202 @@
+{
+  "project_id": "20260801T100206Z-01644a23",
+  "question": "Solve this question",
+  "revision": 1,
+  "created_at": "2026-08-01T10:02:06Z",
+  "style": "dark",
+  "quality": "l",
+  "voice": "",
+  "fit_narration": true,
+  "slides": [
+    {
+      "id": "s1",
+      "title": "The stopping condition",
+      "component": null,
+      "parameters": {},
+      "caption": "",
+      "seconds": 7.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "The ball is dropped from a height of 8 metres. We count distance until it reaches the ground for the fifth time.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s2",
+      "title": "Four rebound heights",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "h_1=8\\left(\\frac34\\right)=6\\text{ m},\\quad h_2=8\\left(\\frac34\\right)^2=\\frac92\\text{ m}",
+          "h_3=8\\left(\\frac34\\right)^3=\\frac{27}{8}\\text{ m},\\quad h_4=8\\left(\\frac34\\right)^4=\\frac{81}{32}\\text{ m}"
+        ],
+        "region": "stage"
+      },
+      "caption": "h_k=8\\left(\\frac34\\right)^k",
+      "seconds": 11.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "After the first contact, the ball rises to six metres. Each later rebound is three-fourths of the previous one, and only four rebound heights occur before the fifth contact.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s3",
+      "title": "Count each journey",
+      "component": "comparison",
+      "parameters": {
+        "left_title": "Initial drop",
+        "right_title": "Rebound journeys",
+        "rows": [
+          [
+            "8 m once",
+            "h_1+h_2+h_3+h_4 upward"
+          ],
+          [
+            "ground contact 1",
+            "same heights downward"
+          ],
+          [
+            "not doubled",
+            "doubled"
+          ],
+          [
+            "8",
+            "2(h_1+h_2+h_3+h_4)"
+          ]
+        ],
+        "row_labels": [
+          "distance",
+          "direction",
+          "counting",
+          "contribution"
+        ],
+        "highlight": [
+          0,
+          2,
+          3
+        ],
+        "region": "stage"
+      },
+      "caption": "D=8+2(h_1+h_2+h_3+h_4)",
+      "seconds": 9.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "The initial eight-metre drop happens only once. Each rebound height is traveled twice: once going up and once coming back down.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s4",
+      "title": "The finite sum",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "h_1+h_2+h_3+h_4=6+\\frac92+\\frac{27}{8}+\\frac{81}{32}",
+          "h_1+h_2+h_3+h_4=6+6\\left(\\frac34\\right)+6\\left(\\frac34\\right)^2+6\\left(\\frac34\\right)^3"
+        ],
+        "region": "stage"
+      },
+      "caption": "h_1+h_2+h_3+h_4=6+\\frac92+\\frac{27}{8}+\\frac{81}{32}",
+      "seconds": 9.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "The rebound heights form a finite geometric series: six, then nine-halves, then twenty-seven-eighths, then eighty-one-thirty-seconds.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s5",
+      "title": "Use the geometric formula",
+      "component": "flow_diagram",
+      "parameters": {
+        "stages": [
+          "first term a=6 m",
+          "multiply by r=3/4",
+          "four terms",
+          "finite sum"
+        ],
+        "highlight": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "feedback": false,
+        "region": "stage"
+      },
+      "caption": "S_n=a\\frac{1-r^n}{1-r}",
+      "seconds": 11.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "For a finite geometric series, the sum is a times one minus r to the n, divided by one minus r. Here, a is six metres, r is three-fourths, and n is four.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s6",
+      "title": "Substitute the sum",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "D=8+2(h_1+h_2+h_3+h_4)",
+          "D=8+2\\left[6\\frac{1-\\left(\\frac34\\right)^4}{1-\\frac34}\\right]"
+        ],
+        "region": "stage"
+      },
+      "caption": "D=8+2\\left[6\\frac{1-\\left(\\frac34\\right)^4}{1-\\frac34}\\right]",
+      "seconds": 8.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Substitute the geometric-series sum into the distance formula. The initial drop remains eight metres, and the rebound sum is still doubled.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s7",
+      "title": "Evaluate the distance",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "D=8+2\\left[6\\frac{1-\\left(\\frac34\\right)^4}{1-\\frac34}\\right]",
+          "D=8+2\\left(6+\\frac92+\\frac{27}{8}+\\frac{81}{32}\\right)=\\frac{653}{16}\\text{ m}=40.8125\\text{ m}"
+        ],
+        "region": "stage"
+      },
+      "caption": "D=\\frac{653}{16}\\text{ m}=40.8125\\text{ m}",
+      "seconds": 12.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Adding the four rebound heights, counting each twice, and then adding the initial drop gives an exact total of six hundred fifty-three sixteenths metres, or 40.8125 metres.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s8",
+      "title": "FINAL ANSWER",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "D=\\frac{653}{16}\\text{ m}=40.8125\\text{ m}",
+          "D=40\\frac{13}{16}\\text{ m}"
+        ],
+        "region": "stage"
+      },
+      "caption": "D=40.8125\\text{ m}=40\\frac{13}{16}\\text{ m}",
+      "seconds": 11.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Therefore, before the ball reaches the ground for the fifth time, it travels 40.8125 metres in total, which is also 40 and 13 sixteenths metres.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    }
+  ]
+}
