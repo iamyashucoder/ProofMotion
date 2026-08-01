@@ -681,6 +681,15 @@ class ComponentTests(unittest.TestCase):
                  cells=[["3", "1", "4", "1"], ["5", "9", "2", "6"], ["5", "3", "5", "8"]],
                  highlight=[[0, 1], [2, 3]]),
         ],
+        "surface_descent": [
+            dict(),  # the default bowl
+            # A saddle: the descent climbs out along y and leaves the plotted
+            # region, which must end the path, not the build.
+            dict(expr="x**2 - y**2", steps=4),
+            # Steep in y with a hot learning rate: the y iterates overshoot
+            # and zigzag across the valley, the classic too-big-eta picture.
+            dict(expr="x**2 + 4*y**2", eta=0.2),
+        ],
         "iteration_trace": [
             dict(expr="(x-2)**2+1", update_rule="x - 0.2*2*(x-2)", start=-2, steps=10, x_min=-3, x_max=6),
             dict(expr="(x-2)**2+1", update_rule="x - 0.05*2*(x-2)", start=5.5, steps=40, x_min=-3, x_max=6),
@@ -937,6 +946,57 @@ class CharacterTests(unittest.TestCase):
                 ground_y = float(built.parts["ground"].get_start()[1])
                 lowest = bounds(built.parts["figure"])[2]
                 self.assertLess(abs(lowest - ground_y), 0.05, f"{pose} floats off the ground")
+
+
+class SurfaceDescentTests(unittest.TestCase):
+    """surface_descent computes its descent and refuses nonsense plainly."""
+
+    def test_a_garbage_expression_is_refused_plainly(self):
+        from proofmotion.runtime.registry import ToolError
+
+        with self.assertRaises(ToolError) as caught:
+            build("surface_descent", {"expr": "x*** + squiggle("})
+        message = str(caught.exception)
+        self.assertIn("could not parse", message)
+        self.assertNotIn("Traceback", message)
+
+    def test_an_unknown_symbol_is_refused_naming_it(self):
+        from proofmotion.runtime.registry import ToolError
+
+        with self.assertRaises(ToolError) as caught:
+            build("surface_descent", {"expr": "x**2 + w**2"})
+        self.assertIn("w", str(caught.exception))
+        self.assertIn("only x and y", str(caught.exception))
+
+    def test_a_start_outside_the_range_is_refused(self):
+        from proofmotion.runtime.registry import ToolError
+
+        with self.assertRaises(ToolError):
+            build("surface_descent", {"start": [9.0, 0.0]})
+
+    def test_the_default_bowl_iterates_are_the_hand_computed_contraction(self):
+        """For x^2 + 2y^2 with eta 0.1 the map is exactly (0.8x, 0.6y)."""
+        with tempconfig({"dry_run": True}):
+            built = build("surface_descent", {})
+        for k in range(1, 8):
+            pair = f"({3 * 0.8**k:.2f}, {2 * 0.6**k:.2f})"
+            self.assertIn(pair, built.notes, f"step {k} missing from notes: {built.notes}")
+        self.assertIn("f falls 17", built.notes)
+
+    def test_a_path_that_leaves_the_region_still_builds_and_says_so(self):
+        """On the saddle the descent climbs out along y; the path must stop
+        at the plotted edge and the notes must report the early exit."""
+        with tempconfig({"dry_run": True}):
+            built = build("surface_descent", {"expr": "x**2 - y**2", "steps": 8})
+        self.assertIn("leaves the plotted region", built.notes)
+        self.assertTrue(built.parts)
+
+    def test_same_parameters_build_identical_notes(self):
+        parameters = {"expr": "x**2 + 2*y**2", "start": [3.0, 2.0], "eta": 0.1, "steps": 7}
+        with tempconfig({"dry_run": True}):
+            first = build("surface_descent", parameters).notes
+            second = build("surface_descent", parameters).notes
+        self.assertEqual(first, second)
 
 
 class GeometryPrimitiveTests(unittest.TestCase):
