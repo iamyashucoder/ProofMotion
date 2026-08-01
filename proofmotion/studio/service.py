@@ -124,9 +124,12 @@ class StudioService:
                 attach.data_url(directory, attachment_id)
                 for attachment_id in (attachments or [])[: attach.MAX_IMAGES_PER_TURN]
             ]
+            kept = [a for a in (attachments or []) if a][: attach.MAX_IMAGES_PER_TURN]
             if remake_slide:
                 project.slide(remake_slide)  # raises with a clear message if it is gone
-                self.store.remember(project_id, "you", f"↻ {remake_slide}: {message}")
+                self.store.remember(
+                    project_id, "you", f"↻ {remake_slide}: {message}", attachments=kept
+                )
                 message = (
                     f"Change only slide {remake_slide}. Leave every other slide exactly as it is. "
                     f"What to change: {message}"
@@ -134,7 +137,7 @@ class StudioService:
             else:
                 if not project.question:
                     project.question = message
-                self.store.remember(project_id, "you", message)
+                self.store.remember(project_id, "you", message, attachments=kept)
             if images:
                 message += f"\n\n[{len(images)} image(s) attached; they are shown to you above.]"
 

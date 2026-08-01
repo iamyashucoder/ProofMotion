@@ -122,11 +122,21 @@ class ProjectStore:
             return []
 
     def remember(
-        self, project_id: str, who: str, text: str, operations: list | None = None
+        self,
+        project_id: str,
+        who: str,
+        text: str,
+        operations: list | None = None,
+        attachments: list[str] | None = None,
     ) -> None:
         path = self.directory(project_id) / "transcript.json"
         thread = self.transcript(project_id)
-        thread.append({"who": who, "text": text, "operations": operations or []})
+        entry: dict = {"who": who, "text": text, "operations": operations or []}
+        if attachments:
+            # The pictures belong to what was said — the thread shows them
+            # inline on every reload, not a note that they once existed.
+            entry["attachments"] = attachments
+        thread.append(entry)
         path.parent.mkdir(parents=True, exist_ok=True)
         scratch = path.with_name(path.name + ".tmp")
         scratch.write_text(json.dumps(thread[-80:], default=str), encoding="utf-8")

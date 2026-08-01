@@ -62,6 +62,13 @@ select.tool { padding: 3px 7px; }
 .tick { max-width: 100%; margin-bottom: 4px; }
 .tick .bubble { background: none; border: 0; color: var(--dim); font-size: 12.5px; padding: 3px 4px; }
 .ops { margin-top: 6px; font-size: 12px; color: var(--dim); display: flex; flex-direction: column; gap: 2px; }
+/* Pictures sent with a message live in the message. */
+.msg-imgs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.you .msg-imgs { justify-content: flex-end; }
+.msg-imgs img {
+  max-height: 130px; max-width: 100%; border-radius: 9px;
+  border: 1px solid var(--line); background: var(--panel);
+}
 .opchip code {
   background: var(--field); padding: 1px 5px; border-radius: 4px;
   color: var(--accent); margin-right: 4px;

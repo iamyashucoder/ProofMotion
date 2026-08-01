@@ -110,8 +110,10 @@ function absorb(snap, { commit = true } = {}) {
   return true;
 }
 
-function say(who, text, operations) {
-  patch({ transcript: [...state.transcript, { who, text, operations: operations || [] }] });
+function say(who, text, operations, attachments) {
+  patch({ transcript: [...state.transcript, {
+    who, text, operations: operations || [], attachments: attachments || [],
+  }] });
 }
 
 // ---- turns: one at a time --------------------------------------------
@@ -162,14 +164,19 @@ export function createProject(message) {
 export function sendMessage(message, attachments = []) {
   if (state.turnRunning || !state.projectId) return;
   const pid = state.projectId;
-  say('you', attachments.length ? `${message}\n[${attachments.length} image${attachments.length === 1 ? '' : 's'} attached]` : message);
+  // The pictures move into the message the moment it is sent — the bubble
+  // shows them, the composer lets go of them. A failed send hands them back.
+  say('you', message, null, attachments);
+  patch({ attachments: state.attachments.filter((ref) => !attachments.includes(ref)) });
   turn('Thinking…', async () => {
     const body = { message };
     if (attachments.length) body.attachments = attachments;
-    const snap = await post(`/api/projects/${pid}/message`, body);
-    // The server has the images now; only then do the chips leave the composer.
-    patch({ attachments: state.attachments.filter((ref) => !attachments.includes(ref)) });
-    return snap;
+    try {
+      return await post(`/api/projects/${pid}/message`, body);
+    } catch (error) {
+      patch({ attachments: [...new Set([...attachments, ...state.attachments])] });
+      throw error;
+    }
   });
 }
 

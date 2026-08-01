@@ -4,7 +4,7 @@
 // array, so an unchanged prefix is never rebuilt.
 
 import state, { subscribe } from './state.js';
-import { createProject, sendMessage } from './api.js';
+import { attachmentUrl, createProject, sendMessage } from './api.js';
 import { el, $ } from './util.js';
 
 let box = null;
@@ -52,8 +52,13 @@ export function initChat() {
 
 function bubble(entry) {
   const operations = entry.operations || [];
+  const refs = entry.attachments || [];
   return el('div', { class: `msg ${entry.who === 'you' ? 'you' : 'bot'}` },
     el('div', { class: 'bubble' }, entry.text || ''),
+    refs.length
+      ? el('div', { class: 'msg-imgs' }, refs.map((ref) =>
+          el('img', { src: attachmentUrl(ref), alt: 'attachment', loading: 'lazy' })))
+      : null,
     operations.length
       ? el('div', { class: 'ops' }, operations.map((op) =>
           el('span', { class: 'opchip' },
