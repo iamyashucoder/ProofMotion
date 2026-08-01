@@ -137,6 +137,7 @@ TOOLSETS: dict[str, list[str]] = {
         "typeset_scene",
         "inspect_scene",
         "component_search",
+        "component_parameters",
         "component_build",
         "component_source",
         "component_learn",

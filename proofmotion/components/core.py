@@ -84,81 +84,300 @@ def equation_chain(p: EquationChainParams) -> Built:
     )
 
 
+#: Palette roles a shaded region may ask for by name.
+SHADE_ROLES = ("accent", "secondary", "highlight", "bad")
+
+
 class GeometryConstructionParams(BaseModel):
-    points: dict = Field(description='Named vertices, e.g. {"A": [0, 0], "B": [3, 0], "C": [0, 4]}.')
-    segments: list = Field(default_factory=list, description='Edges by name, e.g. [["A","B"], ["B","C"]].')
+    points: dict = Field(
+        default_factory=dict,
+        description='Named vertices, e.g. {"A": [0, 0], "B": [3, 0], "C": [0, 4]}.',
+    )
+    segments: list = Field(
+        default_factory=list,
+        description='Edges as endpoint pairs, e.g. [["A","B"], ["B","C"]]. Each endpoint is a point name or a raw [x, y] pair.',
+    )
     mark_angles: list = Field(default_factory=list, description='Angles as [at, from, to], e.g. [["A","B","C"]].')
     show_lengths: bool = False
+    circles: list = Field(
+        default_factory=list,
+        description=(
+            'Full circles, e.g. [{"center": [0, 0], "radius": 2.0, "label": "b = 2R"}] — two entries sharing a '
+            'center make the concentric circles of a coaxial cross-section. "center" is a point name or a raw '
+            '[x, y]; optional "dashed": true draws it as a construction circle.'
+        ),
+    )
+    arcs: list = Field(
+        default_factory=list,
+        description=(
+            'Circular arcs, e.g. [{"center": "O", "radius": 1.5, "from_deg": 0, "to_deg": 90, "label": "s"}]. '
+            'Degrees run counter-clockwise from east; optional "dashed": true.'
+        ),
+    )
+    shaded: list = Field(
+        default_factory=list,
+        description=(
+            'Filled regions drawn under every stroke. Each is one of: '
+            '{"kind": "annulus", "center": "O", "inner": 1.4, "outer": 2.0} — the shaded dielectric ring between '
+            'two concentric circles; {"kind": "disk", "center": [0, 0], "radius": 1.0} — a filled disc; '
+            '{"kind": "polygon", "points": ["A", "B", "C"]} — a filled polygon of names or raw [x, y] pairs. '
+            'Optional "color_role" is one of accent, secondary, highlight, bad.'
+        ),
+    )
+    vectors: list = Field(
+        default_factory=list,
+        description=(
+            'Arrows, e.g. [{"from": "O", "to": [2, 0], "label": "E"}] — a field or force vector between two '
+            'points, each a point name or a raw [x, y] pair.'
+        ),
+    )
+    dashed_segments: list = Field(
+        default_factory=list,
+        description=(
+            'Construction lines: like segments but dashed, e.g. [[[1, -2.2], [1, 2.2]]] for a chord axis '
+            'crossing the whole figure.'
+        ),
+    )
     region: str = "stage"
 
+    @model_validator(mode="after")
+    def _primitives_are_sound(self) -> GeometryConstructionParams:
+        """Refuse impossible geometry with a sentence, before Manim meets it."""
+        for index, spec in enumerate(self.circles, start=1):
+            if not isinstance(spec, dict) or "center" not in spec or "radius" not in spec:
+                raise ValueError(f"circle {index} must be an object with a center and a radius.")
+            if _number(spec["radius"], f"circle {index}'s radius") <= 0:
+                raise ValueError(f"circle {index} has radius {spec['radius']}; a radius must be greater than zero.")
+        for index, spec in enumerate(self.arcs, start=1):
+            if not isinstance(spec, dict) or any(key not in spec for key in ("center", "radius", "from_deg", "to_deg")):
+                raise ValueError(f"arc {index} must be an object with a center, a radius, a from_deg and a to_deg.")
+            if _number(spec["radius"], f"arc {index}'s radius") <= 0:
+                raise ValueError(f"arc {index} has radius {spec['radius']}; a radius must be greater than zero.")
+            if _number(spec["from_deg"], f"arc {index}'s from_deg") == _number(spec["to_deg"], f"arc {index}'s to_deg"):
+                raise ValueError(f"arc {index} runs from {spec['from_deg']} to {spec['to_deg']} degrees, which spans no angle.")
+        for index, spec in enumerate(self.shaded, start=1):
+            if not isinstance(spec, dict) or spec.get("kind") not in {"annulus", "disk", "polygon"}:
+                raise ValueError(f"shaded region {index} must say its kind: annulus, disk or polygon.")
+            role = spec.get("color_role", "accent")
+            if role not in SHADE_ROLES:
+                raise ValueError(
+                    f"shaded region {index} asks for color role {role!r}; the choices are {', '.join(SHADE_ROLES)}."
+                )
+            if spec["kind"] == "annulus":
+                if "center" not in spec or "inner" not in spec or "outer" not in spec:
+                    raise ValueError(f"shaded region {index} is an annulus and needs a center, an inner and an outer radius.")
+                inner = _number(spec["inner"], f"shaded region {index}'s inner radius")
+                outer = _number(spec["outer"], f"shaded region {index}'s outer radius")
+                if inner <= 0:
+                    raise ValueError(f"shaded region {index} has inner radius {inner:g}; it must be greater than zero.")
+                if inner >= outer:
+                    raise ValueError(
+                        f"shaded region {index} has inner radius {inner:g} and outer radius {outer:g}; "
+                        "the inner radius must be smaller than the outer."
+                    )
+            elif spec["kind"] == "disk":
+                if "center" not in spec or "radius" not in spec:
+                    raise ValueError(f"shaded region {index} is a disk and needs a center and a radius.")
+                if _number(spec["radius"], f"shaded region {index}'s radius") <= 0:
+                    raise ValueError(f"shaded region {index} has radius {spec['radius']}; a radius must be greater than zero.")
+            else:
+                corners = spec.get("points") or []
+                if len(corners) < 3:
+                    raise ValueError(f"shaded region {index} is a polygon with {len(corners)} points; a polygon needs at least three.")
+        for index, spec in enumerate(self.vectors, start=1):
+            if not isinstance(spec, dict) or "from" not in spec or "to" not in spec:
+                raise ValueError(f'vector {index} must be an object with a "from" point and a "to" point.')
+        return self
 
-@component(version=1, domain="geometry", params=GeometryConstructionParams)
+
+def _number(value: Any, what: str) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError) as error:
+        raise ValueError(f"{what} must be a number, got {value!r}.") from error
+
+
+@component(version=2, domain="geometry", params=GeometryConstructionParams)
 def geometry_construction(p: GeometryConstructionParams) -> Built:
-    """Labelled points, segments and angle marks — the Euclidean workhorse."""
-    import numpy as np
-    from manim import Angle, Dot, Line, MathTex, VGroup
+    """Points, segments, circles, arcs, vectors and shaded regions — the figure workhorse.
 
-    if len(p.points) < 2:
-        raise ToolError("at least two points are needed")
+    Version 1 drew only labelled points and straight segments, so a coaxial
+    capacitor cross-section came out as a meaningless zig-zag of dots. Version 2
+    adds the primitives a physics or geometry figure is actually made of:
+    concentric circles, arcs, dashed construction lines, arrows, and
+    low-opacity shaded regions laid under the strokes. The version bump is
+    deliberate — label placement can shift, so old digests must invalidate.
+    """
+    import numpy as np
+    from manim import (
+        Angle, Annulus, Arc, Arrow, Circle, DashedLine, DashedVMobject, Dot, Line, MathTex, Polygon, VGroup,
+    )
+
     located = {name: np.array([float(v[0]), float(v[1]), 0.0]) for name, v in p.points.items()}
+
+    def _at(ref: Any, what: str) -> np.ndarray:
+        """A point reference: a named key from points, or a raw [x, y] pair."""
+        if isinstance(ref, str):
+            if ref not in located:
+                raise ToolError(f"{what} names the point {ref!r}, which is not one of the given points")
+            return located[ref]
+        try:
+            return np.array([float(ref[0]), float(ref[1]), 0.0])
+        except (TypeError, ValueError, IndexError, KeyError) as error:
+            raise ToolError(f"{what} must be a point name or an [x, y] pair, got {ref!r}") from error
+
+    drawn = p.segments or p.dashed_segments or p.circles or p.arcs or p.shaded or p.vectors
+    if len(located) < 2 and not drawn:
+        raise ToolError("at least two points are needed when there are no circles, arcs, shaded regions, segments or vectors")
 
     parts: dict[str, Any] = {}
     group = VGroup()
-    for name, position in located.items():
-        dot = Dot(position, radius=0.06, color=PALETTE.accent)
-        parts[f"point_{name}"] = dot
-        group.add(dot)
+    beats: list[list[str]] = []
+
+    # Shaded regions first: they are the ground of the figure, under every stroke.
+    shaded_objects = []
+    for index, spec in enumerate(p.shaded):
+        role = getattr(PALETTE, spec.get("color_role", "accent"))
+        where = f"shaded region {index + 1}"
+        if spec["kind"] == "annulus":
+            region = Annulus(inner_radius=float(spec["inner"]), outer_radius=float(spec["outer"]),
+                             color=role, fill_opacity=0.16, stroke_width=0).move_to(_at(spec["center"], where))
+        elif spec["kind"] == "disk":
+            region = Circle(radius=float(spec["radius"]), color=role, fill_color=role,
+                            fill_opacity=0.16, stroke_width=0).move_to(_at(spec["center"], where))
+        else:
+            region = Polygon(*[_at(corner, where) for corner in spec["points"]],
+                             color=role, fill_color=role, fill_opacity=0.16, stroke_width=0)
+        parts[f"shaded_{index}"] = region
+        shaded_objects.append(region)
+        group.add(region)
+    if shaded_objects:
+        beats.append([k for k in parts if k.startswith("shaded_")])
+
+    circle_objects, circle_anchors = [], []
+    for index, spec in enumerate(p.circles):
+        centre = _at(spec["center"], f"circle {index + 1}'s center")
+        radius = float(spec["radius"])
+        ring = Circle(radius=radius, color=PALETTE.axis, stroke_width=3).move_to(centre)
+        if spec.get("dashed"):
+            ring = DashedVMobject(ring, num_dashes=max(16, int(radius * 14)))
+        parts[f"circle_{index}"] = ring
+        circle_objects.append(ring)
+        circle_anchors.append(centre + np.array([radius, 0.0, 0.0]))
+        group.add(ring)
+
+    arc_objects, arc_anchors = [], []
+    for index, spec in enumerate(p.arcs):
+        centre = _at(spec["center"], f"arc {index + 1}'s center")
+        radius = float(spec["radius"])
+        start, stop = math.radians(float(spec["from_deg"])), math.radians(float(spec["to_deg"]))
+        bow = Arc(radius=radius, start_angle=start, angle=stop - start, arc_center=centre,
+                  color=PALETTE.axis, stroke_width=3)
+        if spec.get("dashed"):
+            bow = DashedVMobject(bow, num_dashes=max(10, int(radius * abs(stop - start) * 4)))
+        parts[f"arc_{index}"] = bow
+        arc_objects.append(bow)
+        middle = (start + stop) / 2
+        arc_anchors.append(centre + radius * np.array([math.cos(middle), math.sin(middle), 0.0]))
+        group.add(bow)
+    if circle_objects or arc_objects:
+        beats.append([k for k in parts if k.startswith("circle_") or k.startswith("arc_")])
 
     segment_objects = []
     for index, (start, end) in enumerate(p.segments):
-        if start not in located or end not in located:
-            raise ToolError(f"segment [{start}, {end}] names a point that was not given")
-        line = Line(located[start], located[end], color=PALETTE.axis, stroke_width=3)
+        line = Line(_at(start, f"segment {index + 1}"), _at(end, f"segment {index + 1}"),
+                    color=PALETTE.axis, stroke_width=3)
         parts[f"segment_{index}"] = line
         segment_objects.append(line)
         group.add(line)
 
-    beats = [[k for k in parts if k.startswith("segment_")], [k for k in parts if k.startswith("point_")]]
-    beats = [b for b in beats if b]
+    dashed_objects = []
+    for index, (start, end) in enumerate(p.dashed_segments):
+        line = DashedLine(_at(start, f"dashed segment {index + 1}"), _at(end, f"dashed segment {index + 1}"),
+                          color=PALETTE.axis, stroke_width=2.4)
+        parts[f"dashed_{index}"] = line
+        dashed_objects.append(line)
+        group.add(line)
 
-    arcs = []
+    vector_objects, vector_anchors = [], []
+    for index, spec in enumerate(p.vectors):
+        tail = _at(spec["from"], f"vector {index + 1}")
+        head = _at(spec["to"], f"vector {index + 1}")
+        arrow = Arrow(tail, head, buff=0, stroke_width=4,
+                      max_tip_length_to_length_ratio=0.2, color=PALETTE.highlight)
+        parts[f"vector_{index}"] = arrow
+        vector_objects.append(arrow)
+        vector_anchors.append((tail + head) / 2)
+        group.add(arrow)
+    stroke_row = [k for k in parts
+                  if k.startswith("segment_") or k.startswith("dashed_") or k.startswith("vector_")]
+    if stroke_row:
+        beats.append(stroke_row)
+
+    for name, position in located.items():
+        dot = Dot(position, radius=0.06, color=PALETTE.accent)
+        parts[f"point_{name}"] = dot
+        group.add(dot)
+    if located:
+        beats.append([k for k in parts if k.startswith("point_")])
+
+    angle_marks = []
     for index, spec in enumerate(p.mark_angles):
         at, first, second = spec
-        for name in (at, first, second):
-            if name not in located:
-                raise ToolError(f"angle names unknown point {name!r}")
-        arc = Angle(Line(located[at], located[first]), Line(located[at], located[second]), radius=0.42, color=PALETTE.highlight)
+        vertex = _at(at, f"angle {index + 1}")
+        arc = Angle(Line(vertex, _at(first, f"angle {index + 1}")), Line(vertex, _at(second, f"angle {index + 1}")),
+                    radius=0.42, color=PALETTE.highlight)
         parts[f"angle_{index}"] = arc
-        arcs.append(arc)
+        angle_marks.append(arc)
         group.add(arc)
-    if arcs:
+    if angle_marks:
         beats.append([k for k in parts if k.startswith("angle_")])
 
-    obstacles = [*segment_objects, *arcs]
+    # Every stroke and every fill is an obstacle: a label on the dielectric
+    # band or across a circle's rim is exactly the defect the placer exists for.
+    obstacles = [*shaded_objects, *circle_objects, *arc_objects, *segment_objects,
+                 *dashed_objects, *vector_objects, *angle_marks]
     placed = []
     labels_row: list[str] = []
-    for name, position in located.items():
-        text = MathTex(name, font_size=28)
-        place_label(text, position, avoid=obstacles, placed=placed)
-        parts[f"label_{name}"] = text
+
+    def _label(key: str, tex: str, anchor: Any, *, font_size: int = 26, color: str | None = None) -> None:
+        text = MathTex(tex, font_size=font_size, **({"color": color} if color else {}))
+        place_label(text, anchor, avoid=obstacles, placed=placed)
+        parts[key] = text
         placed.append(text)
         group.add(text)
-        labels_row.append(f"label_{name}")
+        labels_row.append(key)
+
+    for name, position in located.items():
+        _label(f"label_{name}", name, position, font_size=28)
+
+    for index, spec in enumerate(p.circles):
+        if spec.get("label"):
+            _label(f"circle_label_{index}", str(spec["label"]), circle_anchors[index])
+    for index, spec in enumerate(p.arcs):
+        if spec.get("label"):
+            _label(f"arc_label_{index}", str(spec["label"]), arc_anchors[index])
+    for index, spec in enumerate(p.vectors):
+        if spec.get("label"):
+            _label(f"vector_label_{index}", str(spec["label"]), vector_anchors[index], color=PALETTE.highlight)
 
     if p.show_lengths:
         for index, (start, end) in enumerate(p.segments):
-            length = float(np.linalg.norm(located[end] - located[start]))
-            text = MathTex(f"{length:.2f}", font_size=22, color=PALETTE.axis)
-            place_label(text, (located[start] + located[end]) / 2, avoid=obstacles, placed=placed)
-            parts[f"length_{index}"] = text
-            placed.append(text)
-            group.add(text)
-            labels_row.append(f"length_{index}")
+            length = float(np.linalg.norm(_at(end, f"segment {index + 1}") - _at(start, f"segment {index + 1}")))
+            _label(f"length_{index}", f"{length:.2f}",
+                   (_at(start, f"segment {index + 1}") + _at(end, f"segment {index + 1}")) / 2,
+                   font_size=22, color=PALETTE.axis)
 
-    beats.append(labels_row)
+    if labels_row:
+        beats.append(labels_row)
     place(group, layout("title_stage_caption")[p.region])
-    return Built(group=group, parts=parts, beats=[b for b in beats if b],
-                 notes=f"{len(located)} points, {len(p.segments)} segments")
+    counts = [f"{len(located)} points", f"{len(p.segments)} segments"]
+    for count, what in ((len(p.circles), "circles"), (len(p.arcs), "arcs"),
+                        (len(p.shaded), "shaded regions"), (len(p.vectors), "vectors"),
+                        (len(p.dashed_segments), "dashed segments")):
+        if count:
+            counts.append(f"{count} {what}")
+    return Built(group=group, parts=parts, beats=[b for b in beats if b], notes=", ".join(counts))
 
 
 def _streamline(fx, fy, x: float, y: float, extent: float, steps: int = 90) -> list[tuple[float, float]]:

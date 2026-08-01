@@ -553,6 +553,24 @@ class ComponentTests(unittest.TestCase):
                  segments=[["A", "B"], ["B", "C"], ["C", "A"]],
                  mark_angles=[["A", "B", "C"]], show_lengths=True),
             dict(points={"P": [-2, -1], "Q": [2, 1]}, segments=[["P", "Q"]]),
+            # The coaxial capacitor cross-section version 1 could not draw:
+            # concentric circles, a shaded dielectric annulus, a dashed chord
+            # axis, and the chord emphasised between the circles.
+            dict(points={"O": [0, 0], "P": [1, 1], "Q": [1, 1.732], "M": [1, -1], "N": [1, -1.732]},
+                 circles=[{"center": "O", "radius": 1.414, "label": "a"},
+                          {"center": "O", "radius": 2.0, "label": "b"}],
+                 shaded=[{"kind": "annulus", "center": "O", "inner": 1.414, "outer": 2.0}],
+                 dashed_segments=[[[1, -2.2], [1, 2.2]]],
+                 segments=[["P", "Q"], ["M", "N"]]),
+            dict(points={"O": [0, 0], "A": [2.5, 0]},
+                 circles=[{"center": "O", "radius": 2.5, "dashed": True}],
+                 arcs=[{"center": "O", "radius": 1.2, "from_deg": 0, "to_deg": 120, "label": r"\theta"}],
+                 vectors=[{"from": "O", "to": "A", "label": "E"}],
+                 shaded=[{"kind": "disk", "center": "O", "radius": 0.5, "color_role": "secondary"}]),
+            dict(points={"A": [0, 0], "B": [3, 0], "C": [3, 2], "D": [0, 2]},
+                 segments=[["A", "B"], ["B", "C"], ["C", "D"], ["D", "A"]],
+                 shaded=[{"kind": "polygon", "points": ["A", "B", "C", "D"]}],
+                 vectors=[{"from": [1.5, 1], "to": [1.5, 2.8], "label": "F"}]),
         ],
         "vector_field": [
             dict(x_component="-y", y_component="x"),
@@ -919,6 +937,49 @@ class CharacterTests(unittest.TestCase):
                 ground_y = float(built.parts["ground"].get_start()[1])
                 lowest = bounds(built.parts["figure"])[2]
                 self.assertLess(abs(lowest - ground_y), 0.05, f"{pose} floats off the ground")
+
+
+class GeometryPrimitiveTests(unittest.TestCase):
+    """geometry_construction's circles, arcs and shaded regions refuse nonsense plainly."""
+
+    def refuse(self, parameters, keyword):
+        from proofmotion.runtime.registry import ToolError
+
+        with self.assertRaises(ToolError) as caught:
+            build("geometry_construction", parameters)
+        self.assertIn(keyword, str(caught.exception))
+
+    def test_an_unknown_circle_center_is_refused_naming_the_point(self):
+        self.refuse(
+            dict(points={"A": [0, 0], "B": [1, 0]}, circles=[{"center": "Z", "radius": 1.0}]),
+            "'Z'",
+        )
+
+    def test_an_annulus_whose_inner_radius_is_not_below_its_outer_is_refused(self):
+        self.refuse(
+            dict(points={"O": [0, 0]},
+                 shaded=[{"kind": "annulus", "center": "O", "inner": 2.0, "outer": 1.4}]),
+            "inner radius must be smaller",
+        )
+
+    def test_a_two_point_polygon_is_refused(self):
+        self.refuse(
+            dict(shaded=[{"kind": "polygon", "points": [[0, 0], [1, 1]]}]),
+            "at least three",
+        )
+
+    def test_old_style_points_and_segments_still_build(self):
+        with tempconfig({"dry_run": True}):
+            built = build(
+                "geometry_construction",
+                dict(points={"A": [0, 0], "B": [3, 0], "C": [0, 4]},
+                     segments=[["A", "B"], ["B", "C"], ["C", "A"]]),
+            )
+        for part in ("point_A", "segment_0", "label_A"):
+            self.assertIn(part, built.parts)
+        for beat in built.beats:
+            for name in beat:
+                self.assertIn(name, built.parts)
 
 
 class ShapeValidatorTests(unittest.TestCase):

@@ -118,6 +118,33 @@ def component_search(query: str = "", domain: str = "") -> dict[str, Any]:
 
 
 @tool
+def component_parameters(names: list[str]) -> dict[str, Any]:
+    """The exact parameter schemas of the components you name — nothing else.
+
+    Use this when you already know which components you want (the catalogue
+    with one-line summaries is in your briefing). It answers with just their
+    schemas, where component_search re-sends the entire catalogue every call —
+    an edit agent once spent its whole iteration budget re-reading it.
+
+    Args:
+        names: Component names, e.g. ["math_scene", "geometry_construction"].
+    """
+    wanted = [str(n) for n in names][:8]
+    found, unknown = {}, []
+    for name in wanted:
+        spec = COMPONENTS.get(name)
+        if spec is None:
+            unknown.append(name)
+        else:
+            found[name] = spec.describe()
+    out: dict[str, Any] = {"components": found}
+    if unknown:
+        out["unknown"] = unknown
+        out["note"] = "unknown names; check the catalogue in your briefing for the exact spelling"
+    return out
+
+
+@tool
 def component_build(name: str, parameters: dict) -> dict[str, Any]:
     """Build a component and verify the geometry it produces.
 

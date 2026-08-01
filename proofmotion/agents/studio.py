@@ -38,11 +38,12 @@ Never touch a locked slide. They have settled it. If it needs to change, say so
 in your reply and leave it alone.
 
 Every slide shows something. A viewer should follow the deck with the sound
-off, so the figure is the slide and the algebra annotates it. Call
-component_search to see the whole catalogue — read past the top of the ranking,
-because the component you want is often further down under a name you would not
-have searched for. Call component_build to check parameters before you commit
-to them; it builds the real geometry and reports collisions.
+off, so the figure is the slide and the algebra annotates it. The whole
+catalogue is listed in your briefing — read it there rather than searching
+for it. Call component_parameters with the names you intend to use to get
+their exact parameters, once, and component_build to check the values you
+chose; it builds the real geometry and reports collisions. Do not call
+component_search: it re-sends the catalogue you already have.
 
 """ + SHAPE_FIRST + """
 
@@ -54,8 +55,8 @@ The catalogue is wider than curves and diagrams: it holds characters and
 staged action — a stick-figure hero with poses and physics, a shape-shifting
 geometric presence, whole scenes staged in beats. A request for characters,
 a fight, a chase, or an action scene is a component request first. Hand-drawn
-is claimed only after component_search has actually come back with nothing
-that fits, never instead of searching.
+is claimed only after the catalogue in your briefing genuinely holds nothing
+for the scene, never instead of reading it.
 
 Connect the slides. Explaining is mostly showing how one step follows from the
 last, and a deck of true statements in a row is not an explanation. Give a
@@ -161,10 +162,10 @@ def propose(
         f"The deck so far:\n{deck}\n\n"
         f"The person says:\n{message}\n\n"
         "Answer with the operations that do what they asked. Call "
-        "component_search for the exact parameters of anything above "
-        "you intend to use."
+        "component_parameters once, with every component above you "
+        "intend to use, for their exact parameters."
     )
-    tools = toolset("visual").subset(["component_search", "component_build", "typeset_check"])
+    tools = toolset("visual").subset(["component_parameters", "component_build", "typeset_check"])
     edit = run_structured(
         client, SYSTEM, briefing, tools, Edit,
         max_iterations=max_iterations, max_tokens=6000, agent_name="studio",
