@@ -1,0 +1,32 @@
+{
+  "project_id": "20260731T142303Z-71b1ce02",
+  "question": "create a scene where spyder math swings across proofmotions world",
+  "revision": 2,
+  "created_at": "2026-07-31T14:23:03Z",
+  "style": "dark",
+  "quality": "l",
+  "voice": "",
+  "fit_narration": true,
+  "slides": [
+    {
+      "id": "s1",
+      "title": "Spyder Math Swings Across ProofMotion\u2019s World",
+      "component": "math_scene",
+      "parameters": {
+        "beat": "swing_across",
+        "seed": 7,
+        "hero_x": 0.0,
+        "show_maths": true,
+        "region": "stage"
+      },
+      "caption": "Spyder Math swings across the world ProofMotion built.",
+      "seconds": 6.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Spyder Math swings across ProofMotion\u2019s world.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    }
+  ]
+}

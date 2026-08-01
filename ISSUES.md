@@ -81,6 +81,8 @@ and the cause is not.
 | 40 | Can Canva go in here? | — | won't do — it is someone else's product and knows nothing about these components. Direct manipulation exists: drag the figure, title or caption on the slide |
 | 41 | Chat and video collide | Five stacked regions each choosing its own height, a poster measured against the viewport | fixed — explicit grid rows, foldable settings |
 | 42 | Nothing like a chat studio | Every recent question fell to the weakest path, and I was making that path fail less rather than not reaching it | **partly** — 14 fixed the routing, 16 is the real answer |
+| 43 | Narration written for every scene, spoken nowhere | — | fixed — piper per slide, cached by content, mixed into the join; the `speak` pill plays one slide |
+| 44 | A narrated render hangs until ffmpeg is killed | Bare `apad` pads without end and `-shortest` stops at the shortest *input* — a filtergraph output is not an input, so nothing ended the encode. Thirteen slides died at the 300s timeout | fixed — the pad is bounded by the film's measured length; the same mix now takes 0.6s |
 
 ---
 
@@ -92,9 +94,7 @@ and the cause is not.
    needs a change to shared runtime.
 3. **The deck is not a document yet** (39). Reorder by dragging, duplicate, edit
    a title in place — the operations exist and have no handle.
-4. **Narration is written and never spoken.** Every scene carries it; nothing
-   renders it.
-5. **Export.** No PDF, no way to take a deck elsewhere.
+4. **Export.** No PDF, no way to take a deck elsewhere.
 
 ## Things I got wrong, kept deliberately
 

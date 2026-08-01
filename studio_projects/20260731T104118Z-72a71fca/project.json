@@ -1,0 +1,454 @@
+{
+  "project_id": "20260731T104118Z-72a71fca",
+  "question": "Given your task update\n\nT_i=Q_iQ_i^\\top(W+R_i),\n\nthe top-r SVD components can be obtained efficiently from the smaller projected matrix\n\nB_i=Q_i^\\top(W+R_i).\n\nCompute\n\nB_i=\\widehat U_i\\Sigma_iV_i^\\top.\n\nThen\n\nT_i=(Q_i\\widehat U_i)\\Sigma_iV_i^\\top.\n\nDefine\n\nU_i=Q_i\\widehat U_i.\n\nThe rank-r truncated SVD is therefore\n\nT_i^{(r)}\n=\nU_i^{(r)}S_i^{(r)}V_i^{(r)\\top},\n\nwhere U_i^{(r)}, S_i^{(r)}, and V_i^{(r)} correspond to the r largest singular values.\n\nConcatenating components from all tasks\n\nFor N tasks, we concatenates the retained components:\n\nU=\n\\left[\nU_1^{(r)}\n\\mid\nU_2^{(r)}\n\\mid\n\\cdots\n\\mid\nU_N^{(r)}\n\\right]\n\\in\\mathbb{R}^{m\\times Nr},\n\nV=\n\\left[\nV_1^{(r)}\n\\mid\nV_2^{(r)}\n\\mid\n\\cdots\n\\mid\nV_N^{(r)}\n\\right]\n\\in\\mathbb{R}^{n\\times Nr},\n\nand constructs the block-diagonal singular-value matrix\n\nS=\n\\operatorname{diag}\n\\left(\nS_1^{(r)},S_2^{(r)},\\ldots,S_N^{(r)}\n\\right)\n\\in\\mathbb{R}^{Nr\\times Nr}.\n\nBefore whitening, the direct concatenated reconstruction would be\n\nT_{\\text{concat}}=USV^\\top.\n\nHowever, although each U_i^{(r)} and V_i^{(r)} is orthonormal within its own task, the concatenated matrices generally do not satisfy\n\nU^\\top U=I,\n\\qquad\nV^\\top V=I.\n\nFor example, components from tasks i and j may overlap:\n\nU_i^{(r)\\top}U_j^{(r)}\\neq 0,\n\\qquad\nV_i^{(r)\\top}V_j^{(r)}\\neq 0.\n\nThis cross-task non-orthogonality is the conflict that whitening attempts to reduce.\n\nWhitening the concatenated subspaces\n\nS\u00b2MoE performs an SVD of each concatenated basis:\n\nU=P_UD_UQ_U^\\top,\n\nV=P_VD_VQ_V^\\top.\n\nIt then removes the singular-value scaling and constructs orthonormalized matrices:\n\nU^\\perp=P_UQ_U^\\top,\n\\qquad\nV^\\perp=P_VQ_V^\\top.\n\nThese are the polar factors of U and V. Assuming full column rank, they can equivalently be written as\n\nU^\\perp=U(U^\\top U)^{-1/2},\n\nV^\\perp=V(V^\\top V)^{-1/2}.\n\nThey satisfy\n\nU^{\\perp\\top}U^\\perp=I,\n\\qquad\nV^{\\perp\\top}V^\\perp=I.\n\nThe final merged task update is\n\n\\boxed{\nT_{\\text{merged}}\n=\nU^\\perp S V^{\\perp\\top}\n}\n\nand the shared model weight becomes\n\n\\boxed{\n\\Theta_s\n=\n\\Theta_{\\mathrm{pre}}\n+\nT_{\\text{merged}}.\n}\n\nThis is the shared-module construction described in S\u00b2MoE.  \n\nSubstituting your projected task updates\n\nSince\n\nU_i^{(r)}\n=\nQ_i\\widehat U_i^{(r)},\n\nthe concatenated left matrix is\n\nU=\n\\left[\nQ_1\\widehat U_1^{(r)}\n\\mid\nQ_2\\widehat U_2^{(r)}\n\\mid\n\\cdots\n\\mid\nQ_N\\widehat U_N^{(r)}\n\\right].\n\nThus, in your setting,\n\nT_{\\text{merged}}\n=\n\\operatorname{Polar}\n\\left(\n[Q_1\\widehat U_1^{(r)}|\\cdots|Q_N\\widehat U_N^{(r)}]\n\\right)\nS\n\\operatorname{Polar}\n\\left(\n[V_1^{(r)}|\\cdots|V_N^{(r)}]\n\\right)^\\top.\n\nA key detail is that whitening is applied after concatenating all task subspaces, not independently to each task. Each task\u2019s SVD vectors are already orthonormal internally; whitening is needed primarily to resolve overlap across different tasks.\n\nAlso, after whitening,\n\nU^\\perp S V^{\\perp\\top}\n\nis generally not equal to the simple sum\n\n\\sum_{i=1}^{N}T_i^{(r)}.\n\nWhitening changes the singular directions to produce jointly orthogonal left and right bases while retaining the collected singular-value matrix S.\n\nTo construct the sparse experts in S\u00b2MoE, start from each fine-tuned model and subtract the shared model.\n\nLet\n\n\\Theta_i\n\nbe the parameters of the model fine-tuned on task i, and let\n\n\\Theta_s\n=\n\\Theta_{\\text{pre}}+T_{\\text{merged}}\n\nbe the shared model constructed from the merged low-rank components.\n\nThen the residual expert for task i is\n\nE_i=\\Theta_i-\\Theta_s.\n\nThis residual contains the task-specific information that is not already represented by the shared model.\n\n1. Express the residual expert\n\nSince\n\n\\Theta_i=\\Theta_{\\text{pre}}+T_i,\n\nwe have\n\nE_i\n=\n\\Theta_i-\\Theta_s\n=\nT_i-T_{\\text{merged}}.\n\nFor your projected task update,\n\nT_i=Q_iQ_i^\\top(W+R_i),\n\nthe expert residual becomes\n\n\\boxed{\nE_i\n=\nQ_iQ_i^\\top(W+R_i)-T_{\\text{merged}}\n}\n\nfor each layer or weight matrix.\n\nThis is the dense expert before pruning.\n\n2. Apply magnitude pruning\n\nSuppose a layer residual is\n\nE_i\\in\\mathbb{R}^{m\\times n}.\n\nFlatten it into a vector:\n\ne_i=\\operatorname{vec}(E_i).\n\nChoose a retention ratio \\rho\\in[0,1]. If the layer has mn entries, retain\n\nk=\\lfloor \\rho mn\\rfloor\n\nentries with the largest absolute values.\n\nDefine the index set\n\n\\mathcal I_i\n=\n\\operatorname{TopKIndices}\n\\left(\n|e_i|,k\n\\right).\n\nThe sparse expert is\n\n\\tilde e_{i,j}\n=\n\\begin{cases}\ne_{i,j}, & j\\in\\mathcal I_i,\\\\\n0, & j\\notin\\mathcal I_i.\n\\end{cases}\n\nAfter reshaping,\n\n\\boxed{\n\\tilde E_i\n=\n\\operatorname{reshape}(\\tilde e_i,m,n)\n}\n\nis the sparse expert for that layer.\n\nEquivalently, using a binary mask M_i,\n\nM_{i,j}\n=\n\\begin{cases}\n1, & |E_{i,j}|\\text{ is among the top }k,\\\\\n0, & \\text{otherwise},\n\\end{cases}\n\nso that\n\n\\boxed{\n\\tilde E_i=M_i\\odot E_i.\n}\n\nHere, \\odot denotes elementwise multiplication.\n\n3. Why top-magnitude pruning is used\n\nThe sparse approximation solves\n\n\\min_{\\|\\tilde E_i\\|_0\\leq k}\n\\|E_i-\\tilde E_i\\|_F^2.\n\nUnder a strict k-nonzero constraint, the optimal solution is to keep the k entries with the largest magnitudes.\n\nIndeed, pruning an entry E_{i,j} contributes\n\nE_{i,j}^2\n\nto the reconstruction error. Therefore, the error is minimized by pruning the smallest-magnitude entries and retaining the largest ones.\n\nThis is exactly the sparse-expert construction used in the paper.  \n\n4. Layer-wise construction\n\nFor a Transformer model, repeat the procedure for every prunable matrix:\n\nE_i^{(\\ell)}\n=\n\\Theta_i^{(\\ell)}\n-\n\\Theta_s^{(\\ell)}.\n\nThen prune each matrix independently:\n\n\\tilde E_i^{(\\ell)}\n=\n\\operatorname{TopMagnitudePrune}\n\\left(\nE_i^{(\\ell)},\\rho\n\\right).\n\nThe complete sparse expert is\n\n\\tilde\\theta_i\n=\n\\left\\{\n\\tilde E_i^{(1)},\n\\tilde E_i^{(2)},\n\\ldots,\n\\tilde E_i^{(L)}\n\\right\\}.\n\nTypically, these can include attention projection matrices and feed-forward matrices. Biases, normalization parameters, or embeddings may be left unpruned depending on the implementation.\n\n5. Final S\u00b2MoE layer computation\n\nAt inference, the shared output is\n\ny_s^{(\\ell)}\n=\n\\Theta_s^{(\\ell)}x^{(\\ell)}.\n\nThe router selects sparse experts and computes\n\ny_{\\text{expert}}^{(\\ell)}\n=\n\\sum_{i=1}^{N}\n\\tilde\\alpha_i^{(\\ell)}\n\\tilde E_i^{(\\ell)}x^{(\\ell)}.\n\nThe final layer output is\n\n\\boxed{\ny^{(\\ell)}\n=\n\\Theta_s^{(\\ell)}x^{(\\ell)}\n+\n\\sum_{i=1}^{N}\n\\tilde\\alpha_i^{(\\ell)}\n\\tilde E_i^{(\\ell)}x^{(\\ell)}.\n}\n\nThus, the effective weight for an input is\n\n\\Theta_{\\text{effective}}^{(\\ell)}(x)\n=\n\\Theta_s^{(\\ell)}\n+\n\\sum_{i=1}^{N}\n\\tilde\\alpha_i^{(\\ell)}\n\\tilde E_i^{(\\ell)}.\n\nCompact construction\n\nFor each task i,\n\n\\boxed{\n\\begin{aligned}\nE_i\n&=\n\\Theta_i-\\Theta_s,\\\\\nM_i\n&=\n\\operatorname{TopKMask}(|E_i|,k),\\\\\n\\tilde E_i\n&=\nM_i\\odot E_i.\n\\end{aligned}\n}\n\nOne notation warning: in the paper, the sparsity parameter is sometimes described ambiguously. A \u201cretention ratio of 0.2\u201d means keeping 20% of the parameters and pruning 80%. Always state clearly whether \\rho denotes the retained fraction or the pruned fraction.",
+  "revision": 2,
+  "created_at": "2026-07-31T10:41:18Z",
+  "style": "dark",
+  "quality": "l",
+  "voice": "",
+  "fit_narration": true,
+  "slides": [
+    {
+      "id": "s1",
+      "title": "From Base Weights to Updates",
+      "component": "flow_diagram",
+      "parameters": {
+        "stages": [
+          "W\u2080",
+          "W\u2080 + \u0394\u2081",
+          "W\u2080 + \u0394\u2082"
+        ],
+        "highlight": [
+          1,
+          2
+        ],
+        "feedback": false
+      },
+      "caption": "W\u209c = W\u2080 + \u0394\u209c, for t = 1, 2",
+      "seconds": 9.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Each task starts from the same pretrained layer and adds its own update. We store those updates rather than duplicating the full weight matrix.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s2",
+      "title": "Two Illustrative Tasks",
+      "component": "comparison",
+      "parameters": {
+        "left_title": "Task 1",
+        "right_title": "Task 2",
+        "rows": [
+          [
+            "\\Delta_1=\\begin{bmatrix}2&0\\\\0&0\\end{bmatrix}",
+            "\\Delta_2=\\begin{bmatrix}0&0\\\\0&3\\end{bmatrix}"
+          ]
+        ],
+        "row_labels": [
+          "update"
+        ],
+        "highlight": [
+          0
+        ],
+        "region": "stage"
+      },
+      "caption": "\\Delta_1=\\begin{bmatrix}2&0\\\\0&0\\end{bmatrix},\\qquad \\Delta_2=\\begin{bmatrix}0&0\\\\0&3\\end{bmatrix}",
+      "seconds": 10.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Task 1 changes the first coordinate direction, while Task 2 changes the second. The tiny matrices make the later subspace operations easy to see.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s3",
+      "title": "Keep the Dominant Mode",
+      "component": "flow_diagram",
+      "parameters": {
+        "stages": [
+          "\u0394\u209c",
+          "U\u209c(r) \u00d7 S\u209c(r) \u00d7 V\u209c(r)\u1d40",
+          "\u0394\u209c(r)"
+        ],
+        "highlight": [
+          1,
+          2
+        ],
+        "feedback": false
+      },
+      "caption": "\u0394\u209c is approximately \u0394\u209c(r) = U\u209c(r) \u00d7 S\u209c(r) \u00d7 V\u209c(r)\u1d40, with r = 1",
+      "seconds": 8.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "We retain only the largest singular mode of each task update. This rank-one approximation is the first compression step.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s4",
+      "title": "The Two Rank-One Components",
+      "component": "comparison",
+      "parameters": {
+        "left_title": "Task 1",
+        "right_title": "Task 2",
+        "rows": [
+          [
+            "2 \u00d7 [1; 0] \u00d7 [1 0]",
+            "3 \u00d7 [0; 1] \u00d7 [0 1]"
+          ]
+        ],
+        "row_labels": [
+          "rank-one SVD"
+        ],
+        "highlight": [
+          0
+        ],
+        "region": "stage"
+      },
+      "caption": "\u0394\u2081 = 2 \u00d7 [1; 0] \u00d7 [1 0], and \u0394\u2082 = 3 \u00d7 [0; 1] \u00d7 [0 1]",
+      "seconds": 10.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "In this illustrative example, both updates are already rank one. Their left and right singular directions align with separate coordinate axes.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s5",
+      "title": "Vectorize the Components",
+      "component": "flow_diagram",
+      "parameters": {
+        "stages": [
+          "U\u209c(r) \u00d7 S\u209c(r) \u00d7 V\u209c(r)\u1d40",
+          "vectorize",
+          "q\u209c,\u2081, a 4-dimensional vector"
+        ],
+        "highlight": [
+          1,
+          2
+        ],
+        "feedback": false
+      },
+      "caption": "q\u209c,\u2081 = vectorize(U\u209c(r) \u00d7 S\u209c(r) \u00d7 V\u209c(r)\u1d40), and q\u209c,\u2081 has 4 entries",
+      "seconds": 9.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Vectorization places every retained component in the same four-dimensional parameter space, so task components can be compared directly.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s6",
+      "title": "Concatenate Across Tasks",
+      "component": "flow_diagram",
+      "parameters": {
+        "stages": [
+          "q\u2081,\u2081",
+          "q\u2082,\u2081",
+          "Q = [q\u2081,\u2081 | q\u2082,\u2081], a 4 by 2 matrix"
+        ],
+        "highlight": [
+          2
+        ]
+      },
+      "caption": "Q = [q\u2081,\u2081 | q\u2082,\u2081], a 4 by 2 matrix",
+      "seconds": 9.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "The two task columns enter one combined matrix before whitening. This preserves the cross-task geometry for the joint operation.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s7",
+      "title": "Measure Cross-Task Geometry",
+      "component": "flow_diagram",
+      "parameters": {
+        "stages": [
+          "Q",
+          "transpose Q",
+          "G = transpose(Q) \u00d7 Q"
+        ],
+        "highlight": [
+          2
+        ]
+      },
+      "caption": "G = transpose(Q) \u00d7 Q",
+      "seconds": 7.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "The Gram matrix records each component's scale on the diagonal and their inner products off the diagonal.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s8",
+      "title": "Polar-Factor Whitening",
+      "component": "flow_diagram",
+      "parameters": {
+        "stages": [
+          "Q",
+          "inverse square root of G",
+          "Z = Q \u00d7 inverse square root of G"
+        ],
+        "highlight": [
+          1,
+          2
+        ]
+      },
+      "caption": "Z = Q \u00d7 inverse square root of (transpose(Q) \u00d7 Q)",
+      "seconds": 10.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "We multiply the concatenated components by the inverse square root of their Gram matrix. This jointly rescales and decorrelates the task directions.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s9",
+      "title": "Verify Orthonormality",
+      "component": "comparison",
+      "parameters": {
+        "left_title": "Whitened basis",
+        "right_title": "Identity check",
+        "rows": [
+          [
+            "Z = [z\u2081 | z\u2082]",
+            "transpose(Z) \u00d7 Z = I"
+          ],
+          [
+            "z\u2081 and z\u2082 each have length 1",
+            "z\u2081 and z\u2082 are perpendicular"
+          ]
+        ],
+        "row_labels": [
+          "basis",
+          "condition"
+        ],
+        "highlight": [
+          0,
+          1
+        ],
+        "region": "stage"
+      },
+      "caption": "The transpose of Z multiplied by Z equals the identity matrix",
+      "seconds": 8.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Whitening succeeds when the columns have unit norm and zero mutual inner product. They now form a stable shared coordinate system.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s10",
+      "title": "Project into Shared Coordinates",
+      "component": "flow_diagram",
+      "parameters": {
+        "stages": [
+          "vectorize(\u0394\u209c)",
+          "c\u209c = transpose(Z) \u00d7 vectorize(\u0394\u209c)",
+          "reconstructed update = Z \u00d7 c\u209c"
+        ],
+        "highlight": [
+          1,
+          2
+        ]
+      },
+      "caption": "c\u209c = transpose(Z) \u00d7 vectorize(\u0394\u209c), and the reconstructed update is Z \u00d7 c\u209c",
+      "seconds": 9.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Each task update is projected into the shared whitened basis. Its coefficients are c_t, and Zc_t reconstructs the retained projection.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s11",
+      "title": "Build the Shared Module",
+      "component": "flow_diagram",
+      "parameters": {
+        "stages": [
+          "c\u2081, c\u2082",
+          "average coordinate = \u03c0\u2081c\u2081 + \u03c0\u2082c\u2082",
+          "shared update = reshape(Z \u00d7 average coordinate)"
+        ],
+        "highlight": [
+          1,
+          2
+        ]
+      },
+      "caption": "The shared coordinate is a weighted average, and the shared update is reshape(Z \u00d7 average coordinate)",
+      "seconds": 8.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "We average the task coordinates with nonnegative weights summing to one. Reshaping the result produces one shared update.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s12",
+      "title": "Subtract the Shared Part",
+      "component": "comparison",
+      "parameters": {
+        "left_title": "Original update",
+        "right_title": "Task residual",
+        "rows": [
+          [
+            "\u0394\u2081",
+            "R\u2081 = \u0394\u2081 \u2212 shared update"
+          ],
+          [
+            "\u0394\u2082",
+            "R\u2082 = \u0394\u2082 \u2212 shared update"
+          ]
+        ],
+        "row_labels": [
+          "task 1",
+          "task 2"
+        ],
+        "highlight": [
+          0,
+          1
+        ],
+        "region": "stage"
+      },
+      "caption": "R\u209c = \u0394\u209c \u2212 shared update",
+      "seconds": 9.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Subtracting the same shared module from each update leaves the task-specific residuals. These residuals are the inputs to expert sparsification.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s13",
+      "title": "Prune by Magnitude",
+      "component": "comparison",
+      "parameters": {
+        "left_title": "Residual R\u209c",
+        "right_title": "Sparse expert E\u209c",
+        "rows": [
+          [
+            "4 entries",
+            "2 retained entries"
+          ],
+          [
+            "rank all magnitudes",
+            "keep the two largest magnitudes"
+          ]
+        ],
+        "row_labels": [
+          "support",
+          "rule"
+        ],
+        "highlight": [
+          0,
+          1
+        ],
+        "region": "stage"
+      },
+      "caption": "Keep the largest-magnitude entries. With a 50 percent retention ratio, 2 of 4 entries survive.",
+      "seconds": 11.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "The pruning operator keeps the largest residual magnitudes and zeros the rest. With rho equal to one half, two of four entries survive; rho is the retained fraction.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s14",
+      "title": "Assemble a Compressed Expert",
+      "component": "flow_diagram",
+      "parameters": {
+        "stages": [
+          "W\u2080",
+          "shared update",
+          "sparse expert E\u209c",
+          "compressed task model"
+        ],
+        "highlight": [
+          1,
+          2,
+          3
+        ]
+      },
+      "caption": "compressed task model = W\u2080 + shared update + E\u209c",
+      "seconds": 8.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "A compressed task model combines the pretrained layer, the persistent shared module, and one sparse task expert.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s15",
+      "title": "Route at Inference",
+      "component": "flow_diagram",
+      "parameters": {
+        "stages": [
+          "input x",
+          "router weights g\u2081(x), g\u2082(x)",
+          "weighted experts g\u2081(x)E\u2081 + g\u2082(x)E\u2082",
+          "input-dependent weight W(x)"
+        ],
+        "highlight": [
+          1,
+          2,
+          3
+        ]
+      },
+      "caption": "W(x) = W\u2080 + shared update + g\u2081(x)E\u2081 + g\u2082(x)E\u2082",
+      "seconds": 11.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "At inference, the router assigns input-dependent weights to the sparse experts. The shared module is always active, while the experts are mixed according to the router.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s16",
+      "title": "FINAL ANSWER",
+      "component": "flow_diagram",
+      "parameters": {
+        "stages": [
+          "\u0394\u209c \u2192 SVD \u2192 Q",
+          "Q \u2192 inverse square root of transpose(Q) \u00d7 Q \u2192 Z",
+          "Z \u2192 weighted average \u2192 shared update",
+          "\u0394\u209c \u2212 shared update \u2192 magnitude pruning \u2192 E\u209c",
+          "W(x) = W\u2080 + shared update + sum of g\u209c(x)E\u209c"
+        ],
+        "highlight": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      },
+      "caption": "W(x) = W\u2080 + shared update + sum of g\u209c(x)E\u209c; shared update = reshape(Z \u00d7 average coordinate); E\u209c = prune(\u0394\u209c \u2212 shared update); Z = Q \u00d7 inverse square root of (transpose(Q) \u00d7 Q)",
+      "seconds": 14.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Rank-one task components are concatenated and jointly whitened to form Z. Their aggregated coordinates create the shared module, pruned residuals create sparse experts, and routing combines everything with the pretrained layer.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    }
+  ]
+}

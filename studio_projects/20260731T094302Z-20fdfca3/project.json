@@ -1,0 +1,225 @@
+{
+  "project_id": "20260731T094302Z-20fdfca3",
+  "question": "Show how the area under y = x^2 from 0 to 2 is approached by Riemann rectangles.",
+  "revision": 1,
+  "created_at": "2026-07-31T09:43:02Z",
+  "style": "dark",
+  "quality": "l",
+  "voice": "",
+  "fit_narration": false,
+  "slides": [
+    {
+      "id": "s1",
+      "title": "The Region",
+      "component": null,
+      "parameters": {},
+      "caption": "y=x^2,\\qquad 0\\le x\\le 2",
+      "seconds": 5.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "We want the area under the curve y equals x squared from x equals zero to x equals two.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s2",
+      "title": "Equal Widths",
+      "component": null,
+      "parameters": {},
+      "caption": "\\Delta x=\\frac{2-0}{n}=\\frac{2}{n}",
+      "seconds": 5.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Divide the total interval length, which is two, into n equal pieces. Every rectangle has width two over n.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s3",
+      "title": "Choose the Midpoints",
+      "component": null,
+      "parameters": {},
+      "caption": "x_k^*=0+\\left(k-\\frac12\\right)\\frac{2}{n}=\\frac{2k-1}{n},\\qquad k=1,2,\\ldots,n",
+      "seconds": 6.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "For each subinterval, use its midpoint to choose the rectangle height. The kth midpoint is its left endpoint plus half a rectangle width.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s4",
+      "title": "Build the Sum",
+      "component": null,
+      "parameters": {},
+      "caption": "A_n=\\Delta x\\sum_{k=1}^{n}f(x_k^*)=\\frac{2}{n}\\sum_{k=1}^{n}\\left(\\frac{2k-1}{n}\\right)^2",
+      "seconds": 7.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Each rectangle contributes its width times its midpoint height. Adding all n contributions gives the midpoint Riemann sum.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s5",
+      "title": "Two Rectangles",
+      "component": null,
+      "parameters": {},
+      "caption": "A_2=\\frac{2}{2}\\left[\\left(\\frac12\\right)^2+\\left(\\frac32\\right)^2\\right]=2.5",
+      "seconds": 6.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "With two rectangles, the midpoints are one half and three halves. Their combined area is 2.5 square units.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s6",
+      "title": "Four Rectangles",
+      "component": null,
+      "parameters": {},
+      "caption": "A_4=\\frac{2}{4}\\left[\\left(\\frac14\\right)^2+\\left(\\frac34\\right)^2+\\left(\\frac54\\right)^2+\\left(\\frac74\\right)^2\\right]=2.625",
+      "seconds": 7.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Now use four rectangles. They are narrower, so the curved boundary is followed more closely, and the approximation rises to 2.625 square units.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s7",
+      "title": "Eight Rectangles",
+      "component": null,
+      "parameters": {},
+      "caption": "A_8=\\frac{2}{8}\\sum_{k=1}^{8}\\left(\\frac{2k-1}{8}\\right)^2=2.65625",
+      "seconds": 6.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "With eight rectangles, the approximation is 2.65625 square units, even closer to the true area.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s8",
+      "title": "Sixteen Rectangles",
+      "component": null,
+      "parameters": {},
+      "caption": "A_{16}=\\frac{2}{16}\\sum_{k=1}^{16}\\left(\\frac{2k-1}{16}\\right)^2=2.6640625",
+      "seconds": 6.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "With sixteen rectangles, the tops nearly trace the curve, and the approximation is 2.6640625 square units.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s9",
+      "title": "The Error Term",
+      "component": null,
+      "parameters": {},
+      "caption": "A_n=\\frac{8}{3}-\\frac{2}{3n^2}",
+      "seconds": 7.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "The general midpoint sum simplifies to eight thirds minus two over three n squared. The missing area is exactly two over three n squared.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s10",
+      "title": "Exact Area",
+      "component": null,
+      "parameters": {},
+      "caption": "\\int_0^2x^2\\,dx=\\left[\\frac{x^3}{3}\\right]_0^2=\\frac{2^3}{3}-\\frac{0^3}{3}=\\frac{8}{3}",
+      "seconds": 7.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Because x squared is continuous, its exact area is the definite integral from zero to two. Evaluating the antiderivative gives eight thirds square units.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s11",
+      "title": "Convergence",
+      "component": null,
+      "parameters": {},
+      "caption": "\\lim_{n\\to\\infty}A_n=\\lim_{n\\to\\infty}\\left(\\frac{8}{3}-\\frac{2}{3n^2}\\right)=\\frac{8}{3}",
+      "seconds": 7.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "As n grows, n squared grows without bound, so the error term tends to zero. The midpoint sums therefore converge to eight thirds.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s12",
+      "title": "Numerical Comparison",
+      "component": "comparison",
+      "parameters": {
+        "left_title": "Midpoint rectangles",
+        "right_title": "Exact area",
+        "rows": [
+          [
+            "n=2: 2.5",
+            "8/3 \u2248 2.6667"
+          ],
+          [
+            "n=4: 2.625",
+            "8/3 \u2248 2.6667"
+          ],
+          [
+            "n=8: 2.65625",
+            "8/3 \u2248 2.6667"
+          ],
+          [
+            "n=16: 2.6640625",
+            "8/3 \u2248 2.6667"
+          ]
+        ],
+        "row_labels": [
+          "approximation",
+          "approximation",
+          "approximation",
+          "approximation"
+        ],
+        "highlight": [
+          3
+        ],
+        "region": "stage"
+      },
+      "caption": "A_2=2.5,\\quad A_4=2.625,\\quad A_8=2.65625,\\quad A_{16}=2.6640625,\\quad \\frac{8}{3}\\approx2.6666667",
+      "seconds": 8.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "The values rise from 2.5 to 2.6640625, while the exact area stays at about 2.6666667. The gap narrows as the number of rectangles increases.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s13",
+      "title": "FINAL ANSWER",
+      "component": null,
+      "parameters": {},
+      "caption": "\\boxed{\\lim_{n\\to\\infty}A_n=\\lim_{n\\to\\infty}\\left(\\frac{8}{3}-\\frac{2}{3n^2}\\right)=\\frac{8}{3}=\\int_0^2x^2\\,dx}",
+      "seconds": 8.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Using equal-width midpoint rectangles on the interval from zero to two, the approximation is eight thirds minus two over three n squared. As n increases, this converges to eight thirds, the exact area under y equals x squared, measured in square units.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    }
+  ]
+}

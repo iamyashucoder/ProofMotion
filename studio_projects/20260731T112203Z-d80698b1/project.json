@@ -1,0 +1,173 @@
+{
+  "project_id": "20260731T112203Z-d80698b1",
+  "question": "Give me some mathemticsl function vis",
+  "revision": 14,
+  "created_at": "2026-07-31T11:22:03Z",
+  "style": "dark",
+  "quality": "l",
+  "voice": "",
+  "fit_narration": false,
+  "slides": [
+    {
+      "id": "s1",
+      "title": "What event?",
+      "component": "flow_diagram",
+      "parameters": {
+        "stages": [
+          "Event supplied",
+          "Context and observations",
+          "Cause-and-effect explanation"
+        ],
+        "highlight": [
+          0
+        ],
+        "feedback": false
+      },
+      "caption": "",
+      "seconds": 4.0,
+      "overrides": {
+        "shift": {
+          "built.group": {
+            "dx": 2.01,
+            "dy": 1.45
+          },
+          "caption": {
+            "dx": 6.07,
+            "dy": 0.08
+          },
+          "title": {
+            "dx": 2.36,
+            "dy": 0.77
+          }
+        }
+      },
+      "bridge": "",
+      "narration": "Before explaining what happened, we first need to know what event or phenomenon we are examining. No specific event has been supplied.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s2",
+      "title": "Inputs we need",
+      "component": "comparison",
+      "parameters": {
+        "left_title": "Available",
+        "right_title": "Missing",
+        "rows": [
+          [
+            "Event or phenomenon",
+            "Not supplied"
+          ],
+          [
+            "Context or observations",
+            "Not supplied"
+          ],
+          [
+            "Evidence for causes",
+            "Not supplied"
+          ]
+        ],
+        "row_labels": [
+          "Input 1",
+          "Input 2",
+          "Input 3"
+        ],
+        "highlight": [
+          0,
+          1,
+          2
+        ],
+        "region": "stage"
+      },
+      "caption": "",
+      "seconds": 6.0,
+      "overrides": {
+        "shift": {
+          "built.group": {
+            "dx": -0.32,
+            "dy": 0
+          }
+        }
+      },
+      "bridge": "",
+      "narration": "A reliable explanation needs the event itself, relevant context or observations, and evidence that can support possible causes. At present, none of these inputs is available.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s3",
+      "title": "The explanation depends on evidence",
+      "component": "flow_diagram",
+      "parameters": {
+        "stages": [
+          "Event supplied",
+          "Context and observations",
+          "Cause-and-effect explanation"
+        ],
+        "highlight": [
+          2
+        ],
+        "feedback": false
+      },
+      "caption": "\\text{Explanation}=f(\\text{event},\\ \\text{context},\\ \\text{observations})",
+      "seconds": 6.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "We can represent the explanation as a function of the event, its context, and the observations. Because those inputs are missing, the explanation cannot yet be evaluated.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s4",
+      "title": "What to provide next",
+      "component": "flow_diagram",
+      "parameters": {
+        "stages": [
+          "Provide event",
+          "Add context or evidence",
+          "Explain sequence"
+        ],
+        "highlight": [
+          0,
+          1
+        ],
+        "feedback": false
+      },
+      "caption": "",
+      "seconds": 7.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Please provide the event or phenomenon, along with any useful image, date, location, participants, observed sequence, or suspected cause. Then the explanation can be organized from initial conditions to the final outcome.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s5",
+      "title": "FINAL ANSWER",
+      "component": "flow_diagram",
+      "parameters": {
+        "stages": [
+          "Event unknown",
+          "Causes unknown",
+          "Sequence undetermined"
+        ],
+        "highlight": [
+          2
+        ],
+        "feedback": false
+      },
+      "caption": "\\boxed{\\text{Event unspecified; explanation cannot be determined without additional context}}",
+      "seconds": 6.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "The event is unspecified, so its cause-and-effect sequence cannot be determined. Provide the event, image, or relevant context to continue.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "project_id": "20260731T211831Z-2e1d9fbb",
+  "question": "Cretae a schene with cirecle",
+  "revision": 1,
+  "created_at": "2026-07-31T21:18:31Z",
+  "style": "dark",
+  "quality": "l",
+  "voice": "",
+  "fit_narration": true,
+  "slides": [
+    {
+      "id": "s1",
+      "title": "The Unit Circle",
+      "component": "unit_circle",
+      "parameters": {},
+      "caption": "A point on the circle gives cos \u03b8 horizontally and sin \u03b8 vertically.",
+      "seconds": 6.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "This circle connects an angle to its cosine and sine coordinates.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    }
+  ]
+}

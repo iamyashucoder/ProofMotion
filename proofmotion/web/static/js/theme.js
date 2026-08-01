@@ -23,6 +23,8 @@ function effective() {
 function applyTheme(theme) {
   if (theme) document.documentElement.dataset.theme = theme;
   else delete document.documentElement.dataset.theme;
-  // The button names the theme a click would take you to.
-  $('#themebtn').textContent = effective() === 'dark' ? 'light' : 'dark';
+  // The row names the theme a click would take you to. It reads as a sentence
+  // because it sits in a menu now, where a bare "light" says nothing.
+  $('#themebtn').textContent =
+    effective() === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
 }

@@ -1,0 +1,32 @@
+{
+  "project_id": "20260731T160005Z-f1cd3d83",
+  "question": "create a scene where spyder math swings across proofmotions world",
+  "revision": 3,
+  "created_at": "2026-07-31T16:00:05Z",
+  "style": "dark",
+  "quality": "l",
+  "voice": "",
+  "fit_narration": true,
+  "slides": [
+    {
+      "id": "s1",
+      "title": "Spyder Math Traces a Circle",
+      "component": "math_scene",
+      "parameters": {
+        "beat": "ride_the_spiral",
+        "seed": 7,
+        "hero_x": -2.5,
+        "show_maths": false,
+        "region": "stage"
+      },
+      "caption": "Spyder Math uses his abilities to trace a circle through ProofMotion\u2019s world.",
+      "seconds": 6.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Spyder Math uses his abilities to trace a circle through ProofMotion\u2019s world.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    }
+  ]
+}

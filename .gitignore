@@ -14,3 +14,9 @@ dist/
 # pinned to is tracked in vendor/MANIM_PINNED_COMMIT.txt; our patches will be
 # tracked as diffs against that pin (see PLAN.md Phase 4/5).
 vendor/manim/
+
+# Piper voice models: downloaded, not authored, and en_US-ryan-high.onnx is
+# 115 MB — past GitHub's hard 100 MB per-file limit, so tracking it would make
+# the push fail. Fetch them with:
+#   uv run python -m piper.download_voices en_US-ryan-high --data-dir voices/
+voices/

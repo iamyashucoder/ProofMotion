@@ -50,8 +50,12 @@ select.tool { padding: 3px 7px; }
 .proj small { display: block; font-size: 11px; opacity: .65; }
 
 /* ---- chat ----------------------------------------------------------- */
-.msg { margin-bottom: 15px; max-width: 93%; }
-.msg.you { margin-left: auto; }
+/* The reply spans the column, so its left edge lines up with the composer
+   below it. Only your own messages are capped and pushed right — that is what
+   makes them read as yours, and a full-width cap on both left the answer
+   narrower than the box you typed it in. */
+.msg { margin-bottom: 15px; }
+.msg.you { margin-left: auto; max-width: 88%; }
 .bubble { padding: 10px 13px; border-radius: 12px; white-space: pre-wrap; word-break: break-word; }
 .you .bubble { background: var(--you); color: var(--you-ink); }
 .bot .bubble { background: var(--panel); border: 1px solid var(--line); }

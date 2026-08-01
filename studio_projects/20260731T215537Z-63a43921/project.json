@@ -1,0 +1,122 @@
+{
+  "project_id": "20260731T215537Z-63a43921",
+  "question": "The Duel of Forms \u2014 a fight scene script",
+  "revision": 1,
+  "created_at": "2026-07-31T21:55:37Z",
+  "style": "dark",
+  "quality": "l",
+  "voice": "",
+  "fit_narration": true,
+  "slides": [
+    {
+      "id": "s1",
+      "title": "The Challenger Takes Form",
+      "component": "math_scene",
+      "parameters": {
+        "beat": "standoff",
+        "seed": 11,
+        "show_maths": false
+      },
+      "caption": "",
+      "seconds": 9.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Spyder Math stands his ground as ProofMotion gathers itself out of raw geometry \u2014 vertices, chords, and intent. Neither moves first.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s2",
+      "title": "Round One: The Chasm",
+      "component": "math_scene",
+      "parameters": {
+        "beat": "swing_across",
+        "seed": 11,
+        "show_maths": false
+      },
+      "caption": "",
+      "seconds": 11.0,
+      "overrides": {},
+      "bridge": "so it opens with a gap he cannot walk",
+      "narration": "ProofMotion strings a chasm on a hanging cable. Spyder Math answers with a pendulum: grab, swing, release, catch. The rope does the mathematics; he just holds on.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s3",
+      "title": "Round Two: The Tilted Ground",
+      "component": "math_scene",
+      "parameters": {
+        "beat": "run_the_ramp",
+        "seed": 11,
+        "show_maths": false
+      },
+      "caption": "",
+      "seconds": 10.0,
+      "overrides": {},
+      "bridge": "denied the gap, it tilts the ground instead",
+      "narration": "The floor itself betrays him, curling into a smooth cubic ramp. He leans into the slope and runs it, feet tracing the curve exactly \u2014 a derivative kept underfoot.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s4",
+      "title": "Round Three: The Quantized Stair",
+      "component": "math_scene",
+      "parameters": {
+        "beat": "climb_the_steps",
+        "seed": 11,
+        "show_maths": false
+      },
+      "caption": "",
+      "seconds": 11.0,
+      "overrides": {},
+      "bridge": "if he can run a curve, it will take the curve away",
+      "narration": "ProofMotion shatters the slope into discrete steps. Continuous is forbidden now \u2014 so Spyder Math goes discrete too, hopping parabola after parabola, landing every tread.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s5",
+      "title": "Final Round: The Golden Coil",
+      "component": "math_scene",
+      "parameters": {
+        "beat": "ride_the_spiral",
+        "seed": 11,
+        "show_maths": false
+      },
+      "caption": "",
+      "seconds": 9.0,
+      "overrides": {},
+      "bridge": "its last form is the oldest one",
+      "narration": "Its final form: the golden spiral, coiled to swallow him toward the center. He does not resist the mathematics. He rides it, arc by shrinking arc.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s6",
+      "title": "Geometry Yields",
+      "component": "spyder_math",
+      "parameters": {
+        "pose": "dab",
+        "facing": "right",
+        "at_x": 0.0,
+        "web": false,
+        "show_maths": false
+      },
+      "caption": "",
+      "seconds": 8.0,
+      "overrides": {},
+      "bridge": "out of forms, out of moves",
+      "narration": "And ProofMotion, out of forms, dissolves back into theorems. Spyder Math celebrates the only way a mathematician should.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    }
+  ]
+}

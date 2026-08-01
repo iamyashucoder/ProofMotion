@@ -1,0 +1,376 @@
+{
+  "project_id": "20260731T102024Z-4f9ebb82",
+  "question": "Can you explain efficent finetuning with lora?",
+  "revision": 1,
+  "created_at": "2026-07-31T10:20:24Z",
+  "style": "dark",
+  "quality": "l",
+  "voice": "",
+  "fit_narration": false,
+  "slides": [
+    {
+      "id": "s1",
+      "title": "The Frozen Linear Layer",
+      "component": "flow_diagram",
+      "parameters": {
+        "stages": [
+          "input x",
+          "frozen W",
+          "output y = Wx"
+        ],
+        "highlight": [
+          0,
+          1,
+          2
+        ],
+        "feedback": false,
+        "region": "stage"
+      },
+      "caption": "y = Wx",
+      "seconds": 7.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Start with a simple layer. The input vector x passes through the original weight matrix W and produces y. In LoRA, this original matrix stays frozen.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s2",
+      "title": "Full Fine-Tuning",
+      "component": "flow_diagram",
+      "parameters": {
+        "stages": [
+          "input x",
+          "W + full \u0394W",
+          "adapted output W'x"
+        ],
+        "highlight": [
+          1,
+          2
+        ],
+        "feedback": false,
+        "region": "stage"
+      },
+      "caption": "W' = W + \\Delta W",
+      "seconds": 7.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Ordinary fine-tuning learns a change called delta W. The new matrix is the old matrix W plus that full update, so the update has the same dimensions as W.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s3",
+      "title": "A Smaller Update",
+      "component": "flow_diagram",
+      "parameters": {
+        "stages": [
+          "input x",
+          "A: d_in \u2192 r",
+          "B: r \u2192 d_out",
+          "update BA"
+        ],
+        "highlight": [
+          1,
+          2,
+          3
+        ],
+        "feedback": false,
+        "region": "stage"
+      },
+      "caption": "W' = W + BA",
+      "seconds": 8.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "LoRA replaces the large update with two smaller matrices. A compresses the input into only r directions, and B expands those directions back to the output space.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s4",
+      "title": "How LoRA Computes",
+      "component": "flow_diagram",
+      "parameters": {
+        "stages": [
+          "x",
+          "frozen path: Wx",
+          "adapter path: Ax \u2192 B(Ax)",
+          "sum: Wx + B(Ax)"
+        ],
+        "highlight": [
+          1,
+          2,
+          3
+        ],
+        "feedback": false,
+        "region": "stage"
+      },
+      "caption": "W'x = (W + BA)x = Wx + B(Ax)",
+      "seconds": 9.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "The adapted layer has two contributions. The frozen path computes Wx. The adapter path first computes Ax, then B of Ax. Adding them gives exactly the adapted output.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s5",
+      "title": "Counting the Full Matrix",
+      "component": "flow_diagram",
+      "parameters": {
+        "stages": [
+          "d_in input columns",
+          "W: d_out \u00d7 d_in",
+          "d_out output rows",
+          "d_out d_in entries"
+        ],
+        "highlight": [
+          1,
+          3
+        ],
+        "feedback": false,
+        "region": "stage"
+      },
+      "caption": "N_W = d_{\\mathrm{out}}d_{\\mathrm{in}}",
+      "seconds": 7.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "A matrix with d_out rows and d_in columns contains d_out times d_in entries. Full fine-tuning must learn an update with all of those entries.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s6",
+      "title": "Counting the Adapter",
+      "component": "flow_diagram",
+      "parameters": {
+        "stages": [
+          "A: r \u00d7 d_in",
+          "B: d_out \u00d7 r",
+          "add the entries",
+          "LoRA total"
+        ],
+        "highlight": [
+          0,
+          1,
+          3
+        ],
+        "feedback": false,
+        "region": "stage"
+      },
+      "caption": "N_{\\mathrm{LoRA}} = rd_{\\mathrm{in}} + d_{\\mathrm{out}}r = r(d_{\\mathrm{in}}+d_{\\mathrm{out}})",
+      "seconds": 8.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "A has r times d_in entries. B has d_out times r entries. Add those two small matrices, and the trainable LoRA count is r times the sum of the layer dimensions.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s7",
+      "title": "A Concrete Example",
+      "component": "comparison",
+      "parameters": {
+        "left_title": "Full matrix",
+        "right_title": "LoRA adapter",
+        "rows": [
+          [
+            "4 \u00d7 3 grid",
+            "A: 1 \u00d7 3; B: 4 \u00d7 1"
+          ],
+          [
+            "12 entries",
+            "3 + 4 = 7 entries"
+          ]
+        ],
+        "row_labels": [
+          "shape",
+          "count"
+        ],
+        "highlight": [
+          0,
+          1
+        ],
+        "region": "stage"
+      },
+      "caption": "N_W = 4\\cdot 3 = 12, \\qquad N_{\\mathrm{LoRA}} = 1(3+4)=7",
+      "seconds": 8.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Take a four-by-three layer and rank one. The full matrix has twelve entries. A has three, B has four, so the adapter has seven trainable entries.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s8",
+      "title": "The Parameter Fraction",
+      "component": "comparison",
+      "parameters": {
+        "left_title": "Full update",
+        "right_title": "LoRA update",
+        "rows": [
+          [
+            "12 entries",
+            "7 entries"
+          ],
+          [
+            "100%",
+            "7/12 \u2248 58.33%"
+          ],
+          [
+            "baseline",
+            "reduction \u2248 41.67%"
+          ]
+        ],
+        "row_labels": [
+          "parameters",
+          "fraction",
+          "saving"
+        ],
+        "highlight": [
+          1,
+          2
+        ],
+        "region": "stage"
+      },
+      "caption": "\\frac{N_{\\mathrm{LoRA}}}{N_W} = \\frac{r(d_{\\mathrm{in}}+d_{\\mathrm{out}})}{d_{\\mathrm{out}}d_{\\mathrm{in}}}",
+      "seconds": 9.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Seven out of twelve entries are trained in this small example, or about fifty-eight percent. Equivalently, the parameter count is reduced by about forty-two percent. Larger layers and smaller ranks make the advantage much bigger.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s9",
+      "title": "Less Update Computation",
+      "component": "comparison",
+      "parameters": {
+        "left_title": "Full update",
+        "right_title": "LoRA update",
+        "rows": [
+          [
+            "one dense multiply",
+            "Ax, then B(Ax)"
+          ],
+          [
+            "d_out d_in work",
+            "r(d_in + d_out) work"
+          ],
+          [
+            "large update path",
+            "narrow rank-r path"
+          ]
+        ],
+        "row_labels": [
+          "operation",
+          "cost",
+          "picture"
+        ],
+        "highlight": [
+          1,
+          2
+        ],
+        "region": "stage"
+      },
+      "caption": "C_{\\mathrm{full}}=d_{\\mathrm{out}}d_{\\mathrm{in}}, \\qquad C_{\\mathrm{LoRA}}=r(d_{\\mathrm{in}}+d_{\\mathrm{out}})",
+      "seconds": 8.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "A full update uses work proportional to d_out times d_in. LoRA uses two smaller products, with work proportional to r times d_in plus d_out times r. When r is small, the update is cheaper to apply.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s10",
+      "title": "Memory and Storage Savings",
+      "component": "comparison",
+      "parameters": {
+        "left_title": "Full fine-tuning",
+        "right_title": "LoRA",
+        "rows": [
+          [
+            "update all of W",
+            "freeze W; train A and B"
+          ],
+          [
+            "gradients for full update",
+            "gradients only for A and B"
+          ],
+          [
+            "large optimizer states",
+            "small optimizer states"
+          ],
+          [
+            "store full task update",
+            "store small task adapter"
+          ],
+          [
+            "separate model per task",
+            "reuse W with many adapters"
+          ]
+        ],
+        "row_labels": [
+          "training",
+          "gradients",
+          "optimizer",
+          "storage",
+          "tasks"
+        ],
+        "highlight": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "region": "stage"
+      },
+      "caption": "W' = W + BA, \\qquad \\text{trainable parameters}=r(d_{\\mathrm{in}}+d_{\\mathrm{out}})",
+      "seconds": 10.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "During training, gradients and optimizer states are needed for A and B, but not for the frozen W. The task-specific file is also much smaller: share the base model once, then attach a different small adapter for each task.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s11",
+      "title": "FINAL ANSWER",
+      "component": "flow_diagram",
+      "parameters": {
+        "stages": [
+          "input x",
+          "frozen W: Wx",
+          "A then B: B(Ax)",
+          "adapted output W'x"
+        ],
+        "highlight": [
+          1,
+          2,
+          3
+        ],
+        "feedback": false,
+        "region": "stage"
+      },
+      "caption": "\\boxed{W' = W + BA,\\qquad N_{\\mathrm{trainable}} = r(d_{\\mathrm{in}}+d_{\\mathrm{out}}),\\qquad \\frac{N_{\\mathrm{trainable}}}{N_{\\mathrm{full}}}=\\frac{r(d_{\\mathrm{in}}+d_{\\mathrm{out}})}{d_{\\mathrm{out}}d_{\\mathrm{in}}}}",
+      "seconds": 12.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "LoRA keeps W frozen and trains only A and B. Their product BA is the learned low-rank update, so W'x equals Wx plus B(Ax). The adapter has r(d_in+d_out) trainable parameters instead of d_out d_in. When r is much smaller than both dimensions, this means less gradient and optimizer memory, cheaper update computation, and a much smaller task-specific adapter.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "project_id": "20260801T090154Z-cb811189",
+  "question": "I want to create a mathematical graph",
+  "revision": 4,
+  "created_at": "2026-08-01T09:01:54Z",
+  "style": "dark",
+  "quality": "l",
+  "voice": "",
+  "fit_narration": true,
+  "slides": [
+    {
+      "id": "s1",
+      "title": "A Mathematical Graph",
+      "component": "function_plot",
+      "parameters": {
+        "expr": "x^2",
+        "x_min": -3,
+        "x_max": 3
+      },
+      "caption": "The graph of f(x)=x\u00b2",
+      "seconds": 6.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s2",
+      "title": "Recreate the reference as a 2D contour-style plot: light",
+      "component": null,
+      "parameters": {},
+      "caption": "",
+      "seconds": 12.0,
+      "overrides": {
+        "shift": {
+          "built.group": {
+            "dx": -1.07,
+            "dy": 0.1
+          }
+        }
+      },
+      "bridge": "",
+      "narration": "",
+      "code": "from manim import *\nimport numpy as np\n\nclass GeneratedScene(Scene):\n    def construct(self):\n        self.camera.background_color = \"#F7F7F2\"\n\n        axes = Axes(\n            x_range=[-2 * PI, 2 * PI, PI],\n            y_range=[-2 * PI, 2 * PI, PI],\n            x_length=10.4,\n            y_length=6.2,\n            axis_config={\n                \"color\": \"#35443A\",\n                \"stroke_width\": 1.5,\n                \"include_ticks\": True,\n            },\n            tips=False,\n        )\n\n        axis_labels = axes.get_axis_labels(\n            x_label=MathTex(\"x\", font_size=30, color=\"#35443A\"),\n            y_label=MathTex(\"y\", font_size=30, color=\"#35443A\"),\n        )\n\n        tick_labels = VGroup()\n        tick_values = [-2 * PI, -PI, 0, PI, 2 * PI]\n        tick_text = [r\"-2\\pi\", r\"-\\pi\", \"0\", r\"\\pi\", r\"2\\pi\"]\n\n        for value, text in zip(tick_values, tick_text):\n            tick_labels.add(\n                MathTex(\n                    text,\n                    font_size=32,\n                    color=\"#526158\",\n                ).move_to(axes.c2p(value, 0) + DOWN * 0.45)\n            )\n            tick_labels.add(\n                MathTex(\n                    text,\n                    font_size=32,\n                    color=\"#526158\",\n                ).move_to(axes.c2p(0, value) + LEFT * 0.48)\n            )\n\n        curves = VGroup()\n\n        for radius in np.linspace(0.55, 4.25, 16):\n            curve = ParametricFunction(\n                lambda theta, radius=radius: axes.c2p(\n                    radius\n                    * (1 + 0.24 * np.cos(6 * theta))\n                    * np.cos(theta),\n                    radius\n                    * (1 + 0.24 * np.cos(6 * theta))\n                    * np.sin(theta),\n                ),\n                t_range=[0, TAU],\n                use_smoothing=True,\n                color=GREEN_C,\n                stroke_width=1.35,\n                stroke_opacity=0.34 + 0.025 * (radius / 4.25),\n            )\n            curves.add(curve)\n\n        center = Dot(\n            axes.c2p(0, 0),\n            radius=0.055,\n            color=\"#2F6B45\",\n        )\n\n        self.play(\n            Create(axes),\n            FadeIn(axis_labels),\n            FadeIn(tick_labels),\n            run_time=2.5,\n        )\n\n        self.play(\n            LaggedStart(\n                *[Create(curve) for curve in curves],\n                lag_ratio=0.08,\n            ),\n            run_time=7,\n        )\n\n        self.play(FadeIn(center), run_time=0.5)\n        self.wait(2)",
+      "origin": "agent",
+      "locked": false
+    }
+  ]
+}

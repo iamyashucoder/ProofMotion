@@ -45,8 +45,41 @@ export function initLayout() {
   $('#sidebtn').addEventListener('click', () =>
     setPref('chatSide', prefs.chatSide === 'left' ? 'right' : 'left'));
   $('#deckhead').addEventListener('click', () => setPref('deckFolded', !prefs.deckFolded));
+  overflowMenu();
+  measureScrollbar();
 
   apply();
+}
+
+// How wide this browser's scrollbars are. The transcript scrolls and the
+// composer does not, so the scrollbar comes out of the message column alone —
+// the composer has to pad by the same amount or the two can never line up.
+// It cannot be hard-coded: it is ~15px on Windows, ~12px here, and 0 wherever
+// scrollbars overlay the content.
+function measureScrollbar() {
+  const probe = document.createElement('div');
+  probe.style.cssText =
+    'position:absolute;top:-9999px;width:100px;height:100px;overflow:scroll';
+  document.body.appendChild(probe);
+  const width = probe.offsetWidth - probe.clientWidth;
+  probe.remove();
+  document.documentElement.style.setProperty('--sbw', `${width}px`);
+}
+
+// The "…" menu holding the settings you choose once. Every row in it is a
+// one-shot preference, so a click closes the menu as well as acting — leaving
+// it open would only be something else to dismiss.
+function overflowMenu() {
+  const button = $('#morebtn');
+  const pop = $('#morepop');
+  button.addEventListener('click', (e) => {
+    e.stopPropagation();
+    pop.hidden = !pop.hidden;
+  });
+  pop.addEventListener('click', () => { pop.hidden = true; });
+  document.addEventListener('click', (e) => {
+    if (!pop.hidden && !pop.contains(e.target) && e.target !== button) pop.hidden = true;
+  });
 }
 
 function apply() {

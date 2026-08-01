@@ -62,6 +62,9 @@ function update() {
   mode.textContent = watching ? 'back to slides' : 'watch video';
   mode.disabled = !state.video && !watching;
   mode.title = state.video ? '' : 'no full render yet';
+  // Dragging targets the poster, so the picker means nothing over the video
+  // or over an empty stage. Showing it there was two controls of pure noise.
+  $('#grabgroup').hidden = watching || !slide;
 
   if (watching && state.video) {
     poster.hidden = true;

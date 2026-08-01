@@ -1,0 +1,67 @@
+{
+  "project_id": "20260731T213555Z-3781d5b4",
+  "question": "a man drwas a circle",
+  "revision": 4,
+  "created_at": "2026-07-31T21:35:55Z",
+  "style": "dark",
+  "quality": "l",
+  "voice": "",
+  "fit_narration": true,
+  "slides": [
+    {
+      "id": "s1",
+      "title": "Spyder Math curls dense",
+      "component": "spyder_math",
+      "parameters": {
+        "pose": "crouch",
+        "facing": "right",
+        "at_x": 0,
+        "web": false
+      },
+      "caption": "He packs himself tight \u2014 dense as a sphere.",
+      "seconds": 12.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "",
+      "code": "from manim import *\n\nclass GeneratedScene(Scene):\n    def construct(self):\n        # ---- Ground ----\n        ground = Line([-6.5, -3.3, 0], [6.5, -3.3, 0], color=GREY_BROWN, stroke_width=5)\n\n        # ---- Stick-figure man (Spyder Math style), drawing/casting pose ----\n        head = Circle(radius=0.38, color=WHITE, stroke_width=4).move_to([-3.2, -0.2, 0])\n        body = Line([-3.2, -0.58, 0], [-3.2, -2.1, 0], color=WHITE, stroke_width=4)\n        arm_back = Line([-3.2, -0.58, 0], [-3.9, -1.3, 0], color=WHITE, stroke_width=4)\n        arm_extended = Line([-3.2, -0.58, 0], [-0.6, 0.1, 0], color=WHITE, stroke_width=4)\n        leg1 = Line([-3.2, -2.1, 0], [-3.2, -3.3, 0], color=WHITE, stroke_width=4)\n        leg2 = Line([-3.2, -2.1, 0], [-2.8, -3.3, 0], color=WHITE, stroke_width=4)\n        man = VGroup(head, body, arm_back, arm_extended, leg1, leg2)\n\n        # ---- Circle geometry ----\n        center = np.array([1.6, 0.1, 0])\n        radius = 2.2\n\n        center_dot = Dot(center, color=YELLOW, radius=0.09)\n        center_label = MathTex(\"O\", color=YELLOW, font_size=36).next_to(center, DOWN, buff=0.18)\n\n        # ---- Arc traced from the hand ----\n        alpha = ValueTracker(0)\n\n        arc = always_redraw(\n            lambda: Arc(\n                radius=radius,\n                start_angle=PI,\n                angle=alpha.get_value(),\n                arc_center=center,\n                color=WHITE,\n                stroke_width=5,\n            )\n        )\n\n        def arc_end():\n            a = PI + alpha.get_value()\n            return center + radius * np.array([np.cos(a), np.sin(a), 0])\n\n        tip = always_redraw(lambda: Dot(arc_end(), color=WHITE, radius=0.06))\n        chalk = always_redraw(\n            lambda: Line([-0.6, 0.1, 0], arc_end(), color=GREY_A, stroke_width=3)\n        )\n\n        self.add(arc, tip, chalk)\n\n        # ---- Animation ----\n        self.play(FadeIn(ground), FadeIn(man), run_time=1.8)\n        self.wait(0.5)\n        self.play(FadeIn(center_dot), FadeIn(center_label), run_time=1.0)\n        self.wait(0.5)\n        self.play(alpha.animate.set_value(2 * PI), run_time=6.0, rate_func=linear)\n        self.wait(1.5)",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s2",
+      "title": "Fighting as a sphere",
+      "component": "spyder_math",
+      "parameters": {
+        "pose": "cast",
+        "facing": "right",
+        "at_x": 0,
+        "web": false
+      },
+      "caption": "Dense and compact, he hurls himself as a weapon.",
+      "seconds": 12.0,
+      "overrides": {},
+      "bridge": "Now dense, he fights as a sphere.",
+      "narration": "",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s3",
+      "title": "The dense sphere fills all space",
+      "component": "proofmotion",
+      "parameters": {
+        "form": "orb",
+        "mood": "agitated"
+      },
+      "caption": "His dense curl expands \u2014 the sphere becomes the whole space.",
+      "seconds": 12.0,
+      "overrides": {},
+      "bridge": "So the dense sphere does not sit in space \u2014 it becomes space.",
+      "narration": "",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    }
+  ]
+}
