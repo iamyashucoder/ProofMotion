@@ -105,6 +105,24 @@ def audio(project_id: str, digest: str, request: Request) -> FileResponse:
                         headers={"Cache-Control": "max-age=31536000, immutable"})
 
 
+@router.get("/api/projects/{project_id}/slides/deck.html")
+async def slides_html(project_id: str, request: Request) -> FileResponse:
+    """The deck as slides you step through — built lazily, cached by content."""
+    path = await asyncio.to_thread(_service(request).slides_html, project_id)
+    return FileResponse(path, media_type="text/html", headers={"Cache-Control": "no-store"})
+
+
+@router.get("/api/projects/{project_id}/export/deck.pptx")
+async def export_pptx(project_id: str, request: Request) -> FileResponse:
+    path = await asyncio.to_thread(_service(request).slides_pptx, project_id)
+    return FileResponse(
+        path,
+        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        filename=f"{project_id}.pptx",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 @router.get("/api/projects/{project_id}/export/deck.pdf")
 async def export_pdf(project_id: str, request: Request) -> FileResponse:
     # Request-scoped like a turn: the poster sweep can take a while on a long

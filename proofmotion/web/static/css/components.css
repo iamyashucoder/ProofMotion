@@ -116,6 +116,18 @@ select.tool { padding: 3px 7px; }
   font-variant-numeric: tabular-nums;
 }
 #narration { color: var(--dim); font-size: 12.5px; }
+#slideshint { color: var(--dim); font-size: 12px; }
+.seg { display: flex; gap: 2px; flex: none; }
+#stage-spinner {
+  position: absolute; inset: 0; z-index: 6;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, .35);
+}
+#stage-spinner::after {
+  content: ''; width: 28px; height: 28px; border-radius: 50%;
+  border: 3px solid var(--line); border-top-color: var(--accent);
+  animation: spin 1s linear infinite;
+}
 
 /* ---- filmstrip ------------------------------------------------------ */
 .thumb { flex: none; cursor: pointer; }

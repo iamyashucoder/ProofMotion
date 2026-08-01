@@ -55,7 +55,11 @@
           <option value="caption">caption</option>
         </select>
       </span>
-      <button class="pill" id="modebtn">watch video</button>
+      <span class="seg" id="modeseg" title="what the stage shows">
+        <button class="pill on" data-mode="deck">deck</button>
+        <button class="pill" data-mode="film">film</button>
+        <button class="pill" data-mode="slides">slides</button>
+      </span>
       <span class="popover-host">
         <button class="pill" id="stylebtn" title="deck style and render quality" hidden>style</button>
         <div id="stylepop" class="popover" hidden></div>
@@ -78,8 +82,11 @@
     <div id="stage">
       <img id="poster" alt="" draggable="false" hidden>
       <video id="video" controls hidden></video>
+      <iframe id="slidesframe" title="slides presentation" hidden></iframe>
+      <div id="stage-spinner" hidden></div>
       <div id="stage-empty" class="stage-note" hidden></div>
     </div>
+    <div id="slideshint" class="hint" hidden>&larr; &rarr; to step &middot; F fullscreen &middot; S speaker notes</div>
     <div id="narration" hidden></div>
     <div id="film"><div id="film-empty" class="hint" hidden>no slides yet</div></div>
     <div id="statusbar">

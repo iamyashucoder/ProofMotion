@@ -64,6 +64,8 @@ class Operation(BaseModel):
     value: Any = None
     #: For `lock`.
     locked: bool = True
+    #: Loop the slide's motion while a presenter holds on it (add/edit).
+    loop: bool | None = None
     #: Why, in a few words. Shown to the person in the transcript.
     reason: str = ""
 
@@ -234,6 +236,7 @@ def apply(project: Project, operation: Operation) -> Project:
             bridge=operation.bridge or "",
             narration=operation.narration or "",
             overrides=dict(operation.overrides or {}),
+            loop=bool(operation.loop),
         )
         if not slide.component and not slide.caption and not slide.title and not slide.code:
             raise ToolError("a slide needs a component, a caption, or a title")
@@ -304,6 +307,8 @@ def apply(project: Project, operation: Operation) -> Project:
             slide.bridge = operation.bridge
         if operation.narration is not None:
             slide.narration = operation.narration
+        if operation.loop is not None:
+            slide.loop = operation.loop
         if operation.code is not None:
             slide.code = usable_code(operation.code) if operation.code else ""
         return project

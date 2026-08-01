@@ -76,7 +76,9 @@ Operations:
                    to the deck. Adding several? Leave `after` empty on all of
                    them and they land in the order you wrote them.
   edit           — change a slide's title, component, parameters, caption,
-                   seconds, or narration (the words spoken over it, never shown)
+                   seconds, narration (the words spoken over it, never shown),
+                   or loop (true = its motion plays round while a presenter
+                   holds on the slide)
   set_parameter  — change one parameter, leaving the rest alone
   reorder        — move a slide after another, or to the end
   delete         — remove a slide
@@ -106,23 +108,9 @@ sentences to the person. Say what you changed, not what you were asked."""
 
 
 def _catalogue() -> str:
-    """Every component's name and one-line summary, straight into the prompt.
+    from proofmotion.tools.components_tool import catalogue_text
 
-    The agent was told to search before concluding nothing fits, and it kept
-    concluding anyway — asked for a hero swinging through a built world, with
-    both components sitting in the library, it answered "the catalogue has no
-    component for that" without one search. A model will trust its prior over
-    a tool it has not called; it cannot claim something listed in front of it
-    does not exist. Names and summaries only — parameters still come from
-    component_search, which stays worth calling.
-    """
-    from proofmotion.components import COMPONENTS
-
-    lines = [
-        f"  {spec.name} — {spec.summary}"
-        for spec in sorted(COMPONENTS.values(), key=lambda s: (s.domain, s.name))
-    ]
-    return "The catalogue, in full:\n" + "\n".join(lines)
+    return catalogue_text()
 
 
 def _describe(project: Project) -> str:

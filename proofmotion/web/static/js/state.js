@@ -116,7 +116,7 @@ export function applyLocalOp(op) {
     slides[i] = found;
   } else if (op.kind === 'edit') {
     if (!found) return;
-    for (const field of ['title', 'caption', 'seconds', 'bridge', 'narration']) {
+    for (const field of ['title', 'caption', 'seconds', 'bridge', 'narration', 'loop']) {
       if (op[field] != null) found[field] = op[field];
     }
     slides[i] = found;

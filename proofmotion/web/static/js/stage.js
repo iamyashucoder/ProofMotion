@@ -1,14 +1,19 @@
-// The stage: the selected slide's poster, or the whole video. Dragging on
-// the poster moves the chosen element (figure, title, caption) and sends a
-// cumulative nudge in scene units on release — the drag itself only moves a
-// translucent ghost, because the real answer is the server's re-render.
+// The stage shows one of three things: the selected slide's poster (deck),
+// the rendered film (film), or the step-through reveal.js presentation the
+// server builds from the whole deck (slides). Dragging on the poster moves
+// the chosen element and sends a cumulative nudge in scene units on release
+// — the drag itself only moves a translucent ghost, because the real answer
+// is the server's re-render.
 
 import state, { subscribe, patch, slideById, slideIndex } from './state.js';
 import { queueOps, posterUrl, videoUrl } from './api.js';
 import { el, $, isTyping, clamp } from './util.js';
 
-let watching = false;
+let mode = 'deck';          // deck | film | slides
 let lastVideoKey = '';
+let lastSlidesKey = '';
+let slidesLoading = '';
+let hintSeen = false;
 
 export function initStage() {
   const stage = $('#stage');
@@ -21,13 +26,15 @@ export function initStage() {
 
   $('#prevbtn').addEventListener('click', () => step(-1));
   $('#nextbtn').addEventListener('click', () => step(1));
-  $('#modebtn').addEventListener('click', toggleMode);
+  for (const button of document.querySelectorAll('#modeseg .pill')) {
+    button.addEventListener('click', () => setMode(button.dataset.mode));
+  }
 
   document.addEventListener('keydown', (e) => {
     if (isTyping() || e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.key === 'ArrowLeft') step(-1);
     else if (e.key === 'ArrowRight') step(1);
-    else if (e.key === 'v' || e.key === 'V') toggleMode();
+    else if (e.key === 'v' || e.key === 'V') setMode(mode === 'film' ? 'deck' : 'film');
   });
 
   initDrag(stage, poster, grab);
@@ -41,35 +48,62 @@ function step(delta) {
   if (state.slides[next]) patch({ selected: state.slides[next].id });
 }
 
-function toggleMode() {
-  if (!watching && !state.video) return;   // nothing to watch yet
-  watching = !watching;
+function setMode(next) {
+  if (next === mode) return;
+  if (next === 'film' && !state.video) return;
+  if (next === 'slides' && !state.projectId) return;
+  mode = next;
   update();
 }
 
 function update() {
   const poster = $('#poster');
   const video = $('#video');
+  const frame = $('#slidesframe');
   const empty = $('#stage-empty');
   const where = $('#where');
-  const mode = $('#modebtn');
+  const hint = $('#slideshint');
+
+  // Fall back when the current mode's content went away underneath us.
+  if (mode === 'film' && !state.video) mode = 'deck';
+  if (mode === 'slides' && !state.projectId) mode = 'deck';
+
+  for (const button of document.querySelectorAll('#modeseg .pill')) {
+    const wants = button.dataset.mode;
+    button.classList.toggle('on', wants === mode);
+    if (wants === 'film') {
+      button.disabled = !state.video;
+      button.title = state.video ? 'the rendered film' : 'no full render yet';
+    } else if (wants === 'slides') {
+      button.disabled = !state.projectId;
+      button.title = 'step-through presentation';
+    }
+  }
 
   const slide = state.selected ? slideById(state.selected) : null;
   const index = slide ? slideIndex(slide.id) : -1;
   where.textContent = slide
     ? `${index + 1} / ${state.slides.length} · ${slide.title || slide.id}`
     : 'no slides';
-  mode.textContent = watching ? 'back to slides' : 'watch video';
-  mode.disabled = !state.video && !watching;
-  mode.title = state.video ? '' : 'no full render yet';
-  // Dragging targets the poster, so the picker means nothing over the video
-  // or over an empty stage. Showing it there was two controls of pure noise.
-  $('#grabgroup').hidden = watching || !slide;
+  // Dragging targets the poster, so the picker means nothing over the film
+  // or the presentation. Showing it there was two controls of pure noise.
+  $('#grabgroup').hidden = mode !== 'deck' || !slide;
 
-  if (watching && state.video) {
+  if (mode !== 'film' && !video.paused) video.pause();
+  video.hidden = mode !== 'film';
+  if (mode !== 'slides') {
+    // A hidden reveal deck would keep speaking its narration; unload it.
+    if (frame.src) frame.removeAttribute('src');
+    lastSlidesKey = '';
+    frame.hidden = true;
+    $('#stage-spinner').hidden = true;
+    hint.hidden = true;
+  }
+
+  if (mode === 'film') {
     poster.hidden = true;
     empty.hidden = true;
-    video.hidden = false;
+    $('#narration').hidden = true;
     const key = `${state.projectId}:${state.revision}`;
     if (key !== lastVideoKey) {
       const at = video.currentTime;   // survive a re-render mid-watch
@@ -82,10 +116,15 @@ function update() {
     }
     return;
   }
-  if (watching) watching = false;   // the video went away underneath us
-  video.hidden = true;
-  if (!video.paused) video.pause();
 
+  if (mode === 'slides') {
+    poster.hidden = true;
+    $('#narration').hidden = true;
+    loadSlides();
+    return;
+  }
+
+  // deck mode: the selected slide's poster, or an honest placeholder.
   const digest = slide ? state.posters[slide.id] : '';
   if (slide && digest) {
     empty.hidden = true;
@@ -110,6 +149,57 @@ function update() {
   const spoken = slide && typeof slide.narration === 'string' ? slide.narration : '';
   strip.hidden = !spoken;
   strip.textContent = spoken;
+}
+
+// The reveal deck is built lazily server-side and cached by content, so the
+// first look after an edit can take seconds. Probe with fetch before
+// pointing the iframe at the URL — an iframe would swallow the 400's JSON
+// ("render the deck first") and show garbage instead of the reason.
+async function loadSlides() {
+  const frame = $('#slidesframe');
+  const spinner = $('#stage-spinner');
+  const empty = $('#stage-empty');
+  const hint = $('#slideshint');
+  const key = `${state.projectId}:${state.revision}`;
+  if (key === lastSlidesKey && frame.src) {
+    frame.hidden = false;
+    return;
+  }
+  if (slidesLoading === key) return;
+  slidesLoading = key;
+  spinner.hidden = false;
+  empty.hidden = true;
+  const url = `/api/projects/${state.projectId}/slides/deck.html?r=${state.revision}`;
+  try {
+    const probe = await fetch(url);
+    if (!probe.ok) {
+      let message = `${probe.status} ${probe.statusText}`;
+      try { message = (await probe.json()).error || message; } catch { /* not JSON */ }
+      throw new Error(message);
+    }
+    // The deck may have moved on while the build ran; a stale answer is
+    // dropped and the newer subscription pass reloads.
+    if (mode !== 'slides' || key !== `${state.projectId}:${state.revision}`) return;
+    lastSlidesKey = key;
+    frame.src = url;   // hits the server's content cache, not a rebuild
+    frame.hidden = false;
+    if (!hintSeen) {
+      hintSeen = true;
+      hint.hidden = false;
+    }
+  } catch (error) {
+    if (mode !== 'slides') return;
+    frame.hidden = true;
+    frame.removeAttribute('src');
+    lastSlidesKey = '';
+    empty.hidden = false;
+    empty.textContent = String(error.message || error);
+  } finally {
+    if (slidesLoading === key) {
+      slidesLoading = '';
+      spinner.hidden = true;
+    }
+  }
 }
 
 function targetLabel(name) {

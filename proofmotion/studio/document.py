@@ -54,6 +54,10 @@ class Slide(BaseModel):
     #: morphing into a circle produced an honest refusal and no slides at all —
     #: while the pipeline it replaced would have drawn it.
     code: str = ""
+    #: Loop this slide's motion while a presenter holds on it. Presentation
+    #: metadata, deliberately absent from the render digest — a loop changes
+    #: how the clip plays back, not one of its pixels.
+    loop: bool = False
     #: "agent" or "human" — who last set this slide.
     origin: str = "agent"
     #: A slide the person has settled. An agent may propose, never overwrite.

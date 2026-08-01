@@ -262,6 +262,23 @@ class StudioService:
             raise ToolError(f"no audio {digest}")
         return path
 
+    # ---- the deck as slides ---------------------------------------------
+
+    def slides_html(self, project_id: str):
+        """The deck as a self-contained step-through HTML presentation."""
+        from proofmotion.studio import slides
+
+        with self.lock_for(project_id), scoped(project_id):
+            project = self.store.load(project_id)
+            return slides.deck_html(project, self.store.directory(project_id))
+
+    def slides_pptx(self, project_id: str):
+        from proofmotion.studio import slides
+
+        with self.lock_for(project_id), scoped(project_id):
+            project = self.store.load(project_id)
+            return slides.deck_pptx(project, self.store.directory(project_id))
+
     # ---- leaving the studio ---------------------------------------------
 
     def export_pdf(self, project_id: str):

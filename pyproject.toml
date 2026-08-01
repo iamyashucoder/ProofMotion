@@ -28,6 +28,7 @@ dependencies = [
   "typst>=0.14",
   "fastapi>=0.115,<1",
   "uvicorn>=0.30,<1",
+  "manim-slides>=5.6.0",
 ]
 
 [project.optional-dependencies]

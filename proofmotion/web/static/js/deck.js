@@ -112,6 +112,10 @@ function makeCard(id) {
     },
   });
   refs.lock = pillButton('lock', () => send({ kind: 'lock', locked: !current().locked }));
+  // Loop changes no pixels — the presentation replays this slide's motion
+  // until the next step — so it rides the light edit path like lock does.
+  refs.loop = pillButton('loop', () => send({ kind: 'edit', loop: !current().loop }));
+  refs.loop.title = 'replay this slide’s motion until the next step in the presentation';
   refs.speak = pillButton('speak', async () => {
     refs.speak.disabled = true;
     try {
@@ -148,6 +152,7 @@ function makeCard(id) {
     el('div', { class: 'row' }, refs.remake),
     el('div', { class: 'row pills' },
       refs.lock,
+      refs.loop,
       refs.speak,
       pillButton('duplicate', () => duplicate(current())),
       pillButton('delete', () => { if (confirm(`Delete ${id}?`)) send({ kind: 'delete' }); }),
@@ -170,6 +175,7 @@ function makeCard(id) {
     if (document.activeElement !== refs.seconds) refs.seconds.value = slide.seconds;
     if (document.activeElement !== refs.bridge) refs.bridge.value = slide.bridge || '';
     refs.lock.textContent = slide.locked ? 'unlock' : 'lock';
+    refs.loop.classList.toggle('on', !!slide.loop);
     refs.remake.disabled = state.turnRunning;
 
     const nextParams = JSON.stringify([slide.component, slide.parameters]);

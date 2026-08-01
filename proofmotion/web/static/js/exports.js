@@ -24,6 +24,7 @@ export function initExports() {
 
   subscribe('projectId', () => { button.disabled = !state.projectId; });
   subscribe('video', () => { if (!pop.hidden) render(pop); });
+  subscribe('slides', () => { if (!pop.hidden) render(pop); });
   button.disabled = !state.projectId;
 }
 
@@ -49,12 +50,27 @@ function render(pop) {
       why: 'no full render yet — the bundle includes the mp4',
     },
     {
+      // Built lazily server-side; the first call after edits re-encodes
+      // fragments, so it can take a few seconds.
+      label: 'Slides (HTML)',
+      href: `/api/projects/${pid}/slides/deck.html`,
+      download: 'deck.html',
+      enabled: state.slides.length > 0,
+      why: 'no slides yet',
+    },
+    {
+      label: 'PowerPoint',
+      href: `/api/projects/${pid}/export/deck.pptx`,
+      enabled: state.slides.length > 0,
+      why: 'no slides yet',
+    },
+    {
       label: 'Project document (json)',
       href: `/api/projects/${pid}/export/project.json`,
       enabled: true,
     },
   ];
   pop.replaceChildren(...rows.map((row) => row.enabled
-    ? el('a', { class: 'export-row', href: row.href, download: '' }, row.label)
+    ? el('a', { class: 'export-row', href: row.href, download: row.download ?? '' }, row.label)
     : el('span', { class: 'export-row off', title: row.why || '' }, row.label)));
 }
