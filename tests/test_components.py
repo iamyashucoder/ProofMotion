@@ -690,6 +690,23 @@ class ComponentTests(unittest.TestCase):
             # and zigzag across the valley, the classic too-big-eta picture.
             dict(expr="x**2 + 4*y**2", eta=0.2),
         ],
+        "surface_plot": [
+            # The sine landscape, with a marked point and its drop-line.
+            dict(expr="sin(x)*cos(y)", highlight_point=[1.0, 0.5]),
+            # A saddle: no marked point, so the motion is the wireframe sweep.
+            dict(expr="x**2 - y**2"),
+            # A flat plane: zero height span, the projection must not divide
+            # by it, and the coincident drop-line must not be drawn.
+            dict(expr="2", highlight_point=[0.0, 0.0]),
+        ],
+        "curve_motion": [
+            dict(expr="sin(x) + x/2"),
+            # Steep exponential: the tangent's fixed on-screen length is what
+            # keeps it inside the frame, which the bounds test then verifies.
+            dict(expr="exp(x/2)", at=3.0),
+            # The ride starting at the right edge has nowhere to go.
+            dict(expr="sin(x) + x/2", at=4.0),
+        ],
         "iteration_trace": [
             dict(expr="(x-2)**2+1", update_rule="x - 0.2*2*(x-2)", start=-2, steps=10, x_min=-3, x_max=6),
             dict(expr="(x-2)**2+1", update_rule="x - 0.05*2*(x-2)", start=5.5, steps=40, x_min=-3, x_max=6),
@@ -997,6 +1014,72 @@ class SurfaceDescentTests(unittest.TestCase):
             first = build("surface_descent", parameters).notes
             second = build("surface_descent", parameters).notes
         self.assertEqual(first, second)
+
+
+class SurfacePlotAndCurveMotionTests(unittest.TestCase):
+    """The general surface and the curve ride refuse nonsense and keep the drawn slope honest."""
+
+    def test_garbage_expressions_are_refused_plainly(self):
+        from proofmotion.runtime.registry import ToolError
+
+        for name in ("surface_plot", "curve_motion"):
+            with self.subTest(component=name):
+                with self.assertRaises(ToolError) as caught:
+                    build(name, {"expr": "x*** + squiggle("})
+                message = str(caught.exception)
+                self.assertIn("could not parse", message)
+                self.assertNotIn("Traceback", message)
+
+    def test_unknown_symbols_are_refused_naming_them(self):
+        from proofmotion.runtime.registry import ToolError
+
+        with self.assertRaises(ToolError) as caught:
+            build("surface_plot", {"expr": "x**2 + q*y"})
+        self.assertIn("q", str(caught.exception))
+        self.assertIn("only x and y", str(caught.exception))
+        with self.assertRaises(ToolError) as caught:
+            build("curve_motion", {"expr": "sin(x) + t"})
+        self.assertIn("t", str(caught.exception))
+        self.assertIn("only x", str(caught.exception))
+
+    def test_a_start_outside_the_range_is_refused(self):
+        from proofmotion.runtime.registry import ToolError
+
+        with self.assertRaises(ToolError) as caught:
+            build("curve_motion", {"expr": "x**2", "at": 9.0})
+        self.assertIn("outside", str(caught.exception))
+        with self.assertRaises(ToolError):
+            build("surface_plot", {"highlight_point": [9.0, 0.0]})
+
+    def test_the_tangent_slope_is_the_sympy_derivative_at_the_start(self):
+        """The drawn tangent's endpoints, mapped back through the axes, must
+        give exactly f'(at) — for sin(x) + x/2 at 1.25 that is cos(1.25) + 1/2."""
+        import math
+
+        with tempconfig({"dry_run": True}):
+            built = build("curve_motion", {"expr": "sin(x) + x/2", "at": 1.25})
+        axes, tangent = built.parts["axes"], built.parts["tangent"]
+        ax, ay = axes.point_to_coords(tangent.get_start())[:2]
+        bx, by = axes.point_to_coords(tangent.get_end())[:2]
+        slope = (by - ay) / (bx - ax)
+        self.assertAlmostEqual(slope, math.cos(1.25) + 0.5, delta=1e-6)
+
+    def test_a_ride_from_the_right_edge_has_no_motion_and_says_so(self):
+        with tempconfig({"dry_run": True}):
+            built = build("curve_motion", {"expr": "sin(x) + x/2", "at": 4.0})
+        self.assertEqual(built.motions, [])
+        self.assertIn("right edge", built.notes)
+
+    def test_a_marked_surface_point_pulses_and_a_bare_surface_sweeps(self):
+        with tempconfig({"dry_run": True}):
+            marked = build("surface_plot", {"expr": "sin(x)*cos(y)", "highlight_point": [1.0, 0.5]})
+            bare = build("surface_plot", {"expr": "sin(x)*cos(y)"})
+        self.assertIn("point", marked.parts)
+        self.assertIn("drop", marked.parts)
+        self.assertIn("pulses", marked.notes)
+        self.assertNotIn("point", bare.parts)
+        self.assertIn("sweeps", bare.notes)
+        self.assertTrue(marked.motions and bare.motions)
 
 
 class GeometryPrimitiveTests(unittest.TestCase):

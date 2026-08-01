@@ -8,6 +8,7 @@ a second project should wait for it.
 
 from __future__ import annotations
 
+import logging
 import threading
 from pathlib import Path
 from typing import Any
@@ -19,6 +20,8 @@ from proofmotion.studio.document import Project
 from proofmotion.studio.jobs import RenderPool
 from proofmotion.studio.operations import Operation, apply_all, touched
 from proofmotion.studio.store import ProjectStore
+
+log = logging.getLogger(__name__)
 
 #: What the rendered pixels are, so the page can convert a drag in pixels to a
 #: nudge in scene units instead of hard-coding the ratio in its own source.
@@ -149,14 +152,38 @@ class StudioService:
 
             edit = result.edit
             outcome = apply_all(project, edit.operations)
+
+            # The picture doctor. A turn that leaves the deck mostly words
+            # gets one pass from the visualizer, whose whole job is finding
+            # the function in each slide and drawing it — decks kept shipping
+            # as prose because nobody's whole job was the pictures.
+            applied = list(edit.operations)
+            if edit.operations and len(project.slides) >= 3:
+                from proofmotion.agents.visualizer import illustrate, undrawn_share
+
+                if undrawn_share(project) >= 0.5:
+                    headline("Most slides draw nothing; looking for the pictures in them")
+                    try:
+                        drawn = illustrate(self.client, project)
+                    except Exception as error:  # noqa: BLE001 - the deck ships either way
+                        log.info("the visualizer pass failed: %s", error)
+                        drawn = None
+                    if drawn and drawn.operations:
+                        second = apply_all(project, drawn.operations)
+                        applied.extend(drawn.operations)
+                        outcome["refused"].extend(second["refused"])
+                        if second["applied"]:
+                            extra = f" Illustrated {second['applied']} slide(s)."
+                            edit.reply = (edit.reply + extra) if edit.reply else extra.strip()
+
             self.store.save(project)
-            self.rebuild(project, only=touched(edit.operations))
+            self.rebuild(project, only=touched(applied))
             reply = edit.reply or f"Applied {outcome['applied']} change(s)."
-            self.store.remember(project_id, "bot", reply, [o.model_dump() for o in edit.operations])
+            self.store.remember(project_id, "bot", reply, [o.model_dump() for o in applied])
             return self.snapshot(
                 project,
                 reply=reply,
-                operations=[o.model_dump() for o in edit.operations],
+                operations=[o.model_dump() for o in applied],
                 refused=outcome["refused"],
             )
 

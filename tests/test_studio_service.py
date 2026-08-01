@@ -135,6 +135,68 @@ class TestOperations(unittest.TestCase):
             self.assertIn("manim fell over", out["status"])
 
 
+class TestVisualizerPass(unittest.TestCase):
+    """A turn that leaves the deck mostly words gets one illustration pass."""
+
+    PLOT = {"expr": "x**2", "x_min": 0.0, "x_max": 3.0}
+
+    def wordy_turn(self):
+        return TurnResult(Edit(operations=[
+            Operation(kind="add", title=f"Step {i}", caption="f(x) = x^2") for i in range(4)
+        ], reply="derived"))
+
+    def test_a_wordy_deck_is_sent_to_the_visualizer(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            s = service(Path(tmp))
+            project = Project.create(s.store.new_id(), "q")
+            s.store.save(project)
+            drawn = Edit(operations=[Operation(
+                kind="edit", slide_id="s2", component="function_plot",
+                parameters=dict(self.PLOT),
+            )])
+            with (
+                patch("proofmotion.studio.turns.run_turn", return_value=self.wordy_turn()),
+                patch("proofmotion.agents.visualizer.illustrate", return_value=drawn) as doctor,
+                patch("proofmotion.studio.render.build", return_value=dict(CLEAN_REPORT)),
+            ):
+                out = s.run_turn(project.project_id, "explain it")
+            doctor.assert_called_once()
+            back = s.store.load(project.project_id)
+            self.assertEqual(back.slide("s2").component, "function_plot")
+            self.assertIn("Illustrated 1 slide(s).", out["reply"])
+
+    def test_a_deck_that_already_draws_is_left_alone(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            s = service(Path(tmp))
+            project = Project.create(s.store.new_id(), "q")
+            s.store.save(project)
+            drawing = TurnResult(Edit(operations=[
+                Operation(kind="add", title=f"Fig {i}", component="function_plot",
+                          parameters=dict(self.PLOT))
+                for i in range(4)
+            ], reply="drawn already"))
+            with (
+                patch("proofmotion.studio.turns.run_turn", return_value=drawing),
+                patch("proofmotion.agents.visualizer.illustrate") as doctor,
+                patch("proofmotion.studio.render.build", return_value=dict(CLEAN_REPORT)),
+            ):
+                s.run_turn(project.project_id, "explain it")
+            doctor.assert_not_called()
+
+    def test_a_failed_pass_never_takes_the_deck_down(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            s = service(Path(tmp))
+            project = Project.create(s.store.new_id(), "q")
+            s.store.save(project)
+            with (
+                patch("proofmotion.studio.turns.run_turn", return_value=self.wordy_turn()),
+                patch("proofmotion.agents.visualizer.illustrate", side_effect=RuntimeError("api down")),
+                patch("proofmotion.studio.render.build", return_value=dict(CLEAN_REPORT)),
+            ):
+                out = s.run_turn(project.project_id, "explain it")
+            self.assertEqual(len(out["slides"]), 4, "the deck ships either way")
+
+
 class TestConcurrency(unittest.TestCase):
     def test_two_projects_run_turns_side_by_side(self):
         """Per-project locks: one studio-wide mutex was the scalability ceiling."""
