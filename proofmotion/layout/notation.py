@@ -45,6 +45,9 @@ SYMBOLS = {
     "∠": r"\angle", "°": r"^{\circ}", "′": r"'", "″": r"''",
     "ℝ": r"\mathbb{R}", "ℕ": r"\mathbb{N}", "ℤ": r"\mathbb{Z}",
     "ℚ": r"\mathbb{Q}", "ℂ": r"\mathbb{C}",
+    # The physics alphabet a chat reply keeps meeting: without these,
+    # `readable` printed "varepsilon" and "ell" into the derivation text.
+    "ℓ": r"\ell", "ℏ": r"\hbar", "ϵ": r"\varepsilon",
     # Punctuation a model reaches for that LaTeX does not know.
     "—": "--", "–": "-", "−": "-", "…": r"\ldots",
     "“": "``", "”": "''", "‘": "`", "’": "'",
@@ -206,6 +209,12 @@ def readable(latex: str) -> str:
         return ""
     text = _SPACING.sub(" ", latex)
     text = _WRAPPER.sub(r"\1", text)
+    # The same decorators written without braces — `\mathbf E`, `\hat r` —
+    # decorate the next token; in a chat line the decoration is just noise.
+    text = re.sub(
+        r"\\(?:text|mathrm|mathbf|mathit|mathsf|boldsymbol|vec|hat|bar|dot|ddot|tilde)(?![A-Za-z])\s*",
+        "", text,
+    )
     text = _FRACTION.sub(r"(\1)/(\2)", text)
     text = _SQRT.sub(r"√(\1)", text)
     for command, char in _FROM_LATEX.items():

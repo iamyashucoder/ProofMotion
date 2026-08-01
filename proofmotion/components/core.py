@@ -44,37 +44,43 @@ class EquationChainParams(BaseModel):
     region: str = "stage"
 
 
-@component(version=1, domain="general", params=EquationChainParams, pictorial=False)
+@component(version=2, domain="general", params=EquationChainParams, pictorial=False)
 def equation_chain(p: EquationChainParams) -> Built:
-    """A sequence of expressions, each morphing into the next.
+    """A derivation written down the board, one line under the last.
 
-    Serves every subject: an algebraic simplification, a derivation, a chain of
-    physical substitutions. `beats` gives one transform per step, so the scene
-    animates the rewrite rather than cutting between finished lines.
+    Serves every subject: an algebraic simplification, a derivation, a chain
+    of physical substitutions. Version 1 promised a morph its scenes never
+    performed — beats only reveal, so every step landed on top of the
+    previous one, and an algebra-heavy deck ended each slide as a pile of
+    superimposed equations. Lines under lines is what a person writes on a
+    board: the chain stays legible while it grows, and the final frame is the
+    worked derivation rather than the wreckage of one.
     """
-    from manim import MathTex, Text, VGroup
+    from manim import DOWN, MathTex, Text, VGroup
 
     stages = [MathTex(s, font_size=40) for s in p.steps]
-    for stage in stages:
-        place(stage, layout("title_stage_caption")[p.region], fit=True)
+    VGroup(*stages).arrange(DOWN, buff=0.32)
 
     parts: dict[str, Any] = {f"step_{i}": s for i, s in enumerate(stages)}
     beats = [["step_0"]]
     for index in range(1, len(stages)):
         beats.append([f"step_{index}"])
 
+    notes = []
     for index, note in enumerate(p.labels[: len(stages) - 1], start=1):
         if not note:
             continue
         text = Text(note, font_size=22, color=PALETTE.highlight)
-        place_label(text, stages[index], avoid=[stages[index]])
+        place_label(text, stages[index], avoid=[*stages, *notes])
         parts[f"note_{index}"] = text
+        notes.append(text)
         beats[index].append(f"note_{index}")
 
-    group = VGroup(*stages, *[v for k, v in parts.items() if k.startswith("note_")])
+    group = VGroup(*stages, *notes)
+    place(group, layout("title_stage_caption")[p.region], fit=True)
     return Built(
         group=group, parts=parts, beats=beats,
-        notes="animate step_i -> step_{i+1} with TransformMatchingTex; only one is on screen at a time",
+        notes=f"{len(stages)} lines, written top to bottom",
     )
 
 
