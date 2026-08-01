@@ -86,6 +86,13 @@ async def create(body: FirstMessage, request: Request) -> dict[str, Any]:
     return await asyncio.to_thread(_service(request).create_project, body.message.strip())
 
 
+@router.post("/projects/new")
+async def new_project(request: Request) -> dict[str, Any]:
+    """An empty project, so an attachment has somewhere to land before the
+    first message is sent."""
+    return await asyncio.to_thread(_service(request).new_project)
+
+
 @router.get("/projects/{project_id}")
 async def state(project_id: str, request: Request) -> dict[str, Any]:
     return await asyncio.to_thread(_service(request).state, project_id)

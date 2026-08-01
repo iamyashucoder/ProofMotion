@@ -94,6 +94,17 @@ class StudioService:
         self.store.save(project)
         return self.run_turn(project.project_id, message)
 
+    def new_project(self) -> dict[str, Any]:
+        """An empty project, created the moment the person starts attaching.
+
+        The rule stays "nothing exists before the first act" — but dropping a
+        picture into the composer is a first act, and it needs somewhere to
+        land so it can ride the first message.
+        """
+        project = Project.create(self.store.new_id(), "")
+        self.store.save(project)
+        return self.snapshot(project, transcript=[])
+
     # ---- turns ----------------------------------------------------------
 
     def run_turn(

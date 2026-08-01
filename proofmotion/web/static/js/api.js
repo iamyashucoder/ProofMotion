@@ -132,6 +132,19 @@ async function turn(label, work) {
   }
 }
 
+export async function ensureProject() {
+  // Attaching a picture is a first act too: it needs a project to land in
+  // before the first message is ever sent.
+  if (state.projectId) return state.projectId;
+  const snap = await post('/api/projects/new', {});
+  commitSnapshot(snap);
+  patch({ projectId: snap.project_id, transcript: [] });
+  localStorage.setItem('pm.lastProject', snap.project_id);
+  history.pushState({}, '', `/p/${snap.project_id}`);
+  refreshProjects().catch(() => {});
+  return snap.project_id;
+}
+
 export function createProject(message) {
   if (state.turnRunning) return;
   say('you', message);

@@ -5,7 +5,7 @@
 // into the textarea, a video comes back as sampled frames.
 
 import state, { subscribe, patch } from './state.js';
-import { uploadAttachment, attachmentUrl } from './api.js';
+import { uploadAttachment, attachmentUrl, ensureProject } from './api.js';
 import { toast } from './log.js';
 import { el, $ } from './util.js';
 
@@ -73,28 +73,20 @@ export function initAttach() {
 function updateButtons() {
   const attachBtn = $('#attachbtn');
   const micBtn = $('#micbtn');
-  const gate = state.turnRunning || !state.projectId;
+  // A picture belongs with the FIRST message most of all — attaching on a
+  // fresh draft quietly creates the project it lands in.
+  const gate = state.turnRunning;
   attachBtn.disabled = gate;
-  attachBtn.title = state.projectId
-    ? 'attach images, audio, or video'
-    : 'attachments need a project — send the first message first';
+  attachBtn.title = 'attach images, audio, or video';
   if (!micSupported) return;
   micBtn.disabled = gate && !recorder;   // a running recording may always be stopped
-  if (!recorder) {
-    micBtn.title = state.projectId
-      ? 'record a voice note'
-      : 'voice needs a project — send the first message first';
-  }
+  if (!recorder) micBtn.title = 'record a voice note';
 }
 
 // ---- uploads -----------------------------------------------------------
 
 function uploadAll(files) {
   if (!files.length) return;
-  if (!state.projectId) {
-    toast('Attachments need a project — send the first message first.', 'info');
-    return;
-  }
   if (state.turnRunning) {
     toast('Wait for the current turn to finish before attaching.', 'info');
     return;
@@ -102,6 +94,12 @@ function uploadAll(files) {
   // Sequential on purpose: transcription and frame sampling are slow, and a
   // calm queue beats six spinners racing.
   (async () => {
+    try {
+      await ensureProject();
+    } catch (error) {
+      toast(String(error.message || error), 'error');
+      return;
+    }
     for (const file of files) await uploadOne(file, file.name || 'attachment');
   })();
 }
@@ -195,7 +193,7 @@ async function toggleRecording() {
     recorder.stop();
     return;
   }
-  if (state.turnRunning || !state.projectId) return;
+  if (state.turnRunning) return;
   let stream;
   try {
     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -217,7 +215,15 @@ async function toggleRecording() {
     micBtn.classList.remove('rec');
     micBtn.textContent = '🎤';
     updateButtons();
-    if (blob.size) await uploadOne(blob, 'voice-note.webm');
+    if (blob.size) {
+      try {
+        await ensureProject();
+      } catch (error) {
+        toast(String(error.message || error), 'error');
+        return;
+      }
+      await uploadOne(blob, 'voice-note.webm');
+    }
   };
   recStart = Date.now();
   micBtn.classList.add('rec');
