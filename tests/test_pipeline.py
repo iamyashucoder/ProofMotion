@@ -58,6 +58,23 @@ class RegistryTests(unittest.TestCase):
 class ManimApiTests(unittest.TestCase):
     """The API is queried, not remembered — these pin that behaviour."""
 
+    def test_opacity_is_refused_with_the_spelling_manim_accepts(self):
+        """'opacity' sat on the validator's own allowlist while Mobject
+        rejects it at runtime — the checker was blessing the crash it exists
+        to catch, and the coder's retry loop never fired."""
+        from proofmotion.tools.manim_api import manim_validate_code
+
+        out = manim_validate_code(
+            "from manim import *\n"
+            "class GeneratedScene(Scene):\n"
+            "    def construct(self):\n"
+            "        self.add(Circle(radius=1.0, opacity=0.3))\n"
+        )
+        self.assertFalse(out["valid"])
+        problem = out["problems"][0]
+        self.assertIn("'opacity'", problem["problem"])
+        self.assertIn("fill_opacity", problem.get("did_you_mean", []))
+
     def test_catches_the_hallucinated_keyword_that_broke_a_render(self):
         code = (
             "from manim import *\n"

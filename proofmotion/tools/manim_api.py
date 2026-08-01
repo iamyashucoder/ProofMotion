@@ -457,8 +457,12 @@ def manim_validate_code(code: str) -> dict[str, Any]:
             cls = index["classes"][node.func.id]
             accepted, permissive = _accepted_by_class(cls)
             if permissive:
-                # Manim chains **kwargs to Mobject; the MRO union is still a real allowlist.
-                accepted |= {"color", "stroke_width", "fill_opacity", "font_size", "opacity"}
+                # Manim chains **kwargs to Mobject; the MRO union is still a real
+                # allowlist. "opacity" was once on this list and it is exactly the
+                # kwarg Mobject rejects at runtime — the validator was blessing
+                # the crash it exists to catch, so the coder's retry loop never
+                # fired and the failure surfaced as a render traceback.
+                accepted |= {"color", "stroke_width", "fill_opacity", "font_size"}
             for kw in supplied:
                 if kw not in accepted:
                     problems.append(
