@@ -90,24 +90,40 @@ def _shape_of(state: dict[str, Any]) -> list[Operation]:
 
 
 def _usable_assignment(assignment):
-    """Fix the one mapping a component will refuse outright.
+    """Fix the mappings the operation gate would refuse outright.
 
     equation_chain morphs one expression into the next and needs at least two
     to do it. A scene carrying a single equation was still being mapped onto it,
     and the component rejected every one — the slides simply went missing, with
     a pydantic error where the mathematics should have been. A lone equation is
     a caption, so it becomes one.
+
+    And any assignment whose parameters the gate would refuse — an invented
+    field, a bad value that slipped every earlier check — becomes a captioned
+    slide instead of a refusal. Twelve slides were once derived, verified, and
+    then refused one by one at apply, leaving an empty deck under a full
+    written answer. Words are a poorer slide than a figure, but the visualizer
+    pass redraws wordy slides with parameters it checks; an empty deck helps
+    nobody.
     """
-    if assignment.component != "equation_chain":
-        return assignment
-    steps = [s for s in (assignment.parameters.get("steps") or []) if str(s).strip()]
-    if len(steps) >= 2:
-        return assignment
-    return assignment.model_copy(update={
-        "component": None,
-        "parameters": {},
-        "caption": assignment.caption or (steps[0] if steps else ""),
-    })
+    if assignment.component == "equation_chain":
+        steps = [s for s in (assignment.parameters.get("steps") or []) if str(s).strip()]
+        if len(steps) < 2:
+            return assignment.model_copy(update={
+                "component": None,
+                "parameters": {},
+                "caption": assignment.caption or (steps[0] if steps else ""),
+            })
+    if assignment.component:
+        from proofmotion.studio.operations import _check_component
+
+        try:
+            _check_component(assignment.component, assignment.parameters or {})
+        except ToolError as error:
+            headline(f"{assignment.component} refused its parameters; the slide ships as words "
+                     f"for the visualizer ({str(error)[:80]})", "warned")
+            return assignment.model_copy(update={"component": None, "parameters": {}})
+    return assignment
 
 
 def answer_fully(

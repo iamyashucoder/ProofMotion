@@ -48,6 +48,14 @@ def _component_from(objects: list[Any]) -> tuple[str | None, dict[str, Any]] | N
             spec.params.model_validate(parameters)
         except Exception:  # noqa: BLE001 - an invalid object is not a match
             return None
+        # Pydantic ignores keys it does not know, and the director invents
+        # them: "angle" for angle_deg, "show_sine" for show_sin. Extras
+        # slipping through here validated a guessed schema as if it were
+        # real, and twelve slides later every operation was refused at the
+        # gate that does check. A scene with invented parameters belongs to
+        # the selector, which reads the real schema before answering.
+        if set(parameters) - set(spec.params.model_fields):
+            return None
         if matched is not None:
             # Two components in one scene is a composition question — which
             # sits where — and this cannot answer it.

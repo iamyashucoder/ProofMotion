@@ -153,15 +153,16 @@ class StudioService:
             edit = result.edit
             outcome = apply_all(project, edit.operations)
 
-            # The picture doctor. A turn that leaves the deck mostly words
-            # gets one pass from the visualizer, whose whole job is finding
-            # the function in each slide and drawing it — decks kept shipping
-            # as prose because nobody's whole job was the pictures.
+            # The picture doctor. A turn that leaves ANY slide wordless gets
+            # one pass from the visualizer, whose whole job is finding the
+            # function in each slide and drawing it — decks kept shipping as
+            # prose because nobody's whole job was the pictures, and the one
+            # graph a limit proof needs is worth one more model call.
             applied = list(edit.operations)
             if edit.operations and len(project.slides) >= 3:
                 from proofmotion.agents.visualizer import illustrate, undrawn_share
 
-                if undrawn_share(project) >= 0.5:
+                if undrawn_share(project) > 0:
                     headline("Most slides draw nothing; looking for the pictures in them")
                     try:
                         drawn = illustrate(self.client, project)
