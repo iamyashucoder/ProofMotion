@@ -19,10 +19,10 @@ class IncompletePlan(Exception):
     """A plan or storyboard failed its completeness gate after one retry."""
 
 
-def understood(client: Any, question: str):
+def understood(client: Any, question: str, *, images: list[str] | None = None):
     from proofmotion.agents.intent import understand_request
 
-    return understand_request(client, question)
+    return understand_request(client, question, images=images)
 
 
 def planned(
@@ -31,12 +31,13 @@ def planned(
     *,
     exam_requirements: dict[str, Any] | None = None,
     require_complete: bool = True,
+    images: list[str] | None = None,
 ):
     """Derive the mathematics, and hold it to actually answering the question."""
     from proofmotion.agents.completeness import check_solution_completeness
     from proofmotion.agents.planner import plan_mathematics
 
-    plan = plan_mathematics(client, intent, exam_requirements=exam_requirements)
+    plan = plan_mathematics(client, intent, exam_requirements=exam_requirements, images=images)
     if not require_complete:
         return plan
     completeness = check_solution_completeness(plan, intent)
@@ -47,6 +48,7 @@ def planned(
             intent,
             exam_requirements=exam_requirements,
             completion_feedback="; ".join(completeness["problems"]),
+            images=images,
         )
         completeness = check_solution_completeness(plan, intent)
     if not completeness["complete"]:

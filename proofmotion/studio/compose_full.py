@@ -28,7 +28,10 @@ from proofmotion.studio.operations import Operation
 log = logging.getLogger(__name__)
 
 
-def _plan_for(client: Any, question: str, state: dict[str, Any]) -> ScenePlan | None:
+def _plan_for(
+    client: Any, question: str, state: dict[str, Any],
+    images: list[str] | None = None,
+) -> ScenePlan | None:
     """Run the shared derivation, and map its storyboard onto components.
 
     The steps live in compose.derivation and are the same ones the pipeline
@@ -38,7 +41,7 @@ def _plan_for(client: Any, question: str, state: dict[str, Any]) -> ScenePlan | 
     from proofmotion.compose import derivation
 
     headline("Reading the request")
-    intent = derivation.understood(client, question)
+    intent = derivation.understood(client, question, images=images)
     state["intent"] = intent.model_dump()
     headline(f"Read it as: {intent.topic} ({intent.domain})")
 
@@ -52,7 +55,7 @@ def _plan_for(client: Any, question: str, state: dict[str, Any]) -> ScenePlan | 
         return None
 
     headline("Deriving the mathematics")
-    plan = derivation.planned(client, intent)
+    plan = derivation.planned(client, intent, images=images)
     state["math_plan"] = plan.model_dump()
     headline(f"Derived {len(plan.concept_sequence)} steps using symbolic tools", "improved")
 
@@ -107,7 +110,10 @@ def _usable_assignment(assignment):
     })
 
 
-def answer_fully(client: Any, project: Project, question: str) -> tuple[list[Operation], str]:
+def answer_fully(
+    client: Any, project: Project, question: str,
+    images: list[str] | None = None,
+) -> tuple[list[Operation], str]:
     """Turn an opening question into a deck, as operations.
 
     Returns the operations and a sentence for the person. Operations rather
@@ -116,7 +122,7 @@ def answer_fully(client: Any, project: Project, question: str) -> tuple[list[Ope
     """
     state: dict[str, Any] = {}
     try:
-        plan = _plan_for(client, question, state)
+        plan = _plan_for(client, question, state, images=images)
     except Exception as error:
         log.exception("full answer failed")
         return [], f"I could not plan that: {error}"
@@ -286,7 +292,10 @@ def draw_by_hand(
     )
 
 
-def derive_anyway(client: Any, project: Project, question: str) -> tuple[list[Operation], str]:
+def derive_anyway(
+    client: Any, project: Project, question: str,
+    images: list[str] | None = None,
+) -> tuple[list[Operation], str]:
     """Run the pipeline even when the intent agent said nothing needs deriving.
 
     That judgement is a guess, and it is wrong often enough to matter: it
@@ -297,7 +306,7 @@ def derive_anyway(client: Any, project: Project, question: str) -> tuple[list[Op
     """
     state: dict[str, Any] = {"force": True}
     try:
-        plan = _plan_for(client, question, state)
+        plan = _plan_for(client, question, state, images=images)
     except Exception as error:  # noqa: BLE001 - the caller falls back again
         log.info("forced derivation failed: %s", error)
         return [], ""

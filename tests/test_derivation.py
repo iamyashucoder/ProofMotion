@@ -23,7 +23,7 @@ class TestPlanned(unittest.TestCase):
     def test_an_incomplete_plan_is_retried_with_the_problems_attached(self):
         calls = []
 
-        def fake_plan(client, intent, *, exam_requirements=None, completion_feedback=None):
+        def fake_plan(client, intent, *, exam_requirements=None, completion_feedback=None, images=None):
             calls.append(completion_feedback)
             return PLAN
 

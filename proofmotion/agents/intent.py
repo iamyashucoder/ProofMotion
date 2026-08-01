@@ -36,8 +36,14 @@ explanation than a thorough one. Only go beyond 45 when the request explicitly
 asks for depth or names several things to cover."""
 
 
-def understand_request(client: Any, user_prompt: str) -> AnimationIntent:
-    """Turn a free-form request into a structured intent."""
+def understand_request(
+    client: Any, user_prompt: str, *, images: list[str] | None = None
+) -> AnimationIntent:
+    """Turn a free-form request into a structured intent.
+
+    `images` are what the person attached — a photographed problem is the
+    request, so reading it here is reading the request.
+    """
     return run_structured(
         client,
         SYSTEM,
@@ -46,4 +52,5 @@ def understand_request(client: Any, user_prompt: str) -> AnimationIntent:
         AnimationIntent,
         max_iterations=6,
         agent_name="intent",
+        images=images,
     )

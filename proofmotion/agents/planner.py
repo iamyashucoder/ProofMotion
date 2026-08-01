@@ -69,6 +69,8 @@ def plan_mathematics(
     intent: AnimationIntent,
     exam_requirements: dict[str, Any] | None = None,
     completion_feedback: str | None = None,
+    *,
+    images: list[str] | None = None,
 ) -> MathematicalPlan:
     """Derive a verified sequence of mathematical steps for the intent."""
     return run_structured(
@@ -81,7 +83,11 @@ def plan_mathematics(
             f"Goal: {intent.educational_goal}\n"
             f"Assumptions so far: {intent.assumptions or 'none'}\n"
             f"Competitive-exam requirements: {exam_requirements or 'not a competitive-exam prompt'}\n"
-            f"Completion feedback from a previous rejected plan: {completion_feedback or 'none'}\n\n"
+            f"Completion feedback from a previous rejected plan: {completion_feedback or 'none'}\n"
+            + (f"Attached problem image(s): {len(images)} shown above — the statement, the "
+               "numbers, the diagram labels and any answer choices are IN the picture; "
+               "read them from it before deriving anything.\n" if images else "")
+            + "\n"
             "Return final_answer_latex and final_answer_explanation in addition to the complete ordered derivation.\n\n"
             "Produce the mathematical plan."
         ),
@@ -89,4 +95,5 @@ def plan_mathematics(
         MathematicalPlan,
         max_iterations=10,
         agent_name="planner",
+        images=images,
     )

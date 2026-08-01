@@ -46,7 +46,7 @@ def open_question_turn(
     from proofmotion.agents.studio import propose
     from proofmotion.studio.compose_full import answer_fully, derive_anyway, draw_by_hand
 
-    operations, reply = answer_fully(client, project, message)
+    operations, reply = answer_fully(client, project, message, images=images)
     if operations:
         return TurnResult(Edit(operations=operations, reply=reply))
 
@@ -66,7 +66,7 @@ def open_question_turn(
         # square. So the full pipeline gets a turn first, because its director
         # searches the catalogue properly.
         headline("Nothing came back; working it through instead")
-        operations, reply = derive_anyway(client, project, message)
+        operations, reply = derive_anyway(client, project, message, images=images)
         if not operations:
             # Only now, with both routes spent.
             operations, reply = draw_by_hand(client, message)
@@ -100,7 +100,7 @@ def follow_up_turn(
         # agent inventing derivations is how a deck becomes confident and
         # wrong.
         headline("This needs working out; running the full pipeline")
-        operations, reply = answer_fully(client, project, message)
+        operations, reply = answer_fully(client, project, message, images=images)
         return TurnResult(Edit(operations=operations, reply=reply))
     if edit.needs_full_derivation:
         # Escalating from a remake box loses the one thing that box means.
