@@ -75,6 +75,21 @@ class ManimApiTests(unittest.TestCase):
         self.assertIn("'opacity'", problem["problem"])
         self.assertIn("fill_opacity", problem.get("did_you_mean", []))
 
+    def test_a_scene_may_not_repaint_the_camera_background(self):
+        """set_background_from_func with a ManimColor-returning function dies
+        deep in numpy ninety seconds into a render — and the background is
+        the deck's to own, not the scene's."""
+        from proofmotion.tools.manim_api import manim_validate_code
+
+        out = manim_validate_code(
+            "from manim import *\n"
+            "class GeneratedScene(ThreeDScene):\n"
+            "    def construct(self):\n"
+            "        self.camera.set_background_from_func(lambda p: BLUE)\n"
+        )
+        self.assertFalse(out["valid"])
+        self.assertIn("repaint the camera background", out["problems"][0]["problem"])
+
     def test_catches_the_hallucinated_keyword_that_broke_a_render(self):
         code = (
             "from manim import *\n"

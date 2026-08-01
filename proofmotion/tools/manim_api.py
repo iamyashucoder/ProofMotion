@@ -93,6 +93,39 @@ def _component_beat_animation_errors(tree: ast.AST) -> list[dict[str, Any]]:
     return problems
 
 
+#: Camera-background mutations a generated scene must not make. The deck's
+#: style owns the background — a scene repainting it fights every palette —
+#: and these APIs are treacherous besides: set_background_from_func expects
+#: float RGB arrays per pixel, and a function returning a ManimColor builds a
+#: two-dimensional pixel array that dies deep in numpy ("axis 2 is out of
+#: bounds"), ninety seconds into a render, pointing at nothing.
+_CAMERA_PAINT = {"set_background_from_func", "set_pixel_array", "set_background"}
+
+
+def _camera_background_errors(tree: ast.AST) -> list[dict[str, Any]]:
+    problems = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+            continue
+        if node.func.attr not in _CAMERA_PAINT:
+            continue
+        receiver = node.func.value
+        if isinstance(receiver, ast.Attribute) and receiver.attr == "camera":
+            problems.append(
+                {
+                    "line": node.lineno,
+                    "call": f"self.camera.{node.func.attr}(...)",
+                    "problem": (
+                        "the scene must not repaint the camera background — the deck's "
+                        "style owns it, and this call crashes when its function returns "
+                        "colors instead of float RGB arrays"
+                    ),
+                    "fix": "remove the call; the background comes from the deck's palette",
+                }
+            )
+    return problems
+
+
 def _axis_config_label_errors(tree: ast.AST) -> list[dict[str, Any]]:
     """Reject ``label`` inside an axis configuration before Manim forwards it.
 
@@ -334,6 +367,7 @@ def manim_validate_code(code: str) -> dict[str, Any]:
     problems: list[dict[str, Any]] = []
     problems.extend(_component_beat_animation_errors(tree))
     problems.extend(_axis_config_label_errors(tree))
+    problems.extend(_camera_background_errors(tree))
 
     # A helper that builds a mobject and forgets to return it. The caller gets
     # None, and the failure surfaces far away — always_redraw reporting that
