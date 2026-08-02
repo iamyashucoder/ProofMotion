@@ -1,0 +1,23 @@
+{
+  "slides": [
+    {
+      "loop": true,
+      "auto_next": false,
+      "playback_rate": 1.0,
+      "reversed_playback_rate": 1.0,
+      "notes": "Meet the Hero: Our hero swings into the scene, following a curved path through the air.",
+      "dedent_notes": true,
+      "skip_animations": false,
+      "src": null,
+      "type": "video",
+      "direction": "horizontal",
+      "file": "studio_projects/20260801T134226Z-b36ed924/slides/4b7ec627f4eaadbd.mp4",
+      "rev_file": "studio_projects/20260801T134226Z-b36ed924/slides/4b7ec627f4eaadbd-rev.mp4"
+    }
+  ],
+  "resolution": [
+    854,
+    480
+  ],
+  "background_color": "black"
+}

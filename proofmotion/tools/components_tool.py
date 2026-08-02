@@ -117,6 +117,23 @@ def component_search(query: str = "", domain: str = "") -> dict[str, Any]:
     }
 
 
+def catalogue_text() -> str:
+    """Every component's name and one-line summary, for riding a briefing.
+
+    A model trusts its prior over a tool it has not called: the edit agent
+    claimed the catalogue held nothing for a hero swinging through a built
+    world, and the director storyboarded 'gradient descent on a 3D surface'
+    as prose with surface_descent sitting in the library. It cannot claim
+    something listed in front of it does not exist, so every agent that
+    chooses components gets this block in its prompt.
+    """
+    lines = [
+        f"  {spec.name} — {spec.summary}"
+        for spec in sorted(COMPONENTS.values(), key=lambda s: (s.domain, s.name))
+    ]
+    return "The catalogue, in full:\n" + "\n".join(lines)
+
+
 @tool
 def component_parameters(names: list[str]) -> dict[str, Any]:
     """The exact parameter schemas of the components you name — nothing else.

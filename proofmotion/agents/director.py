@@ -139,10 +139,13 @@ def direct_storyboard(
         f"  {s.index}. {s.concept}: {s.equation_latex or '(prose)'} — {s.explanation}"
         for s in plan.concept_sequence
     )
+    from proofmotion.tools.components_tool import catalogue_text
+
     return run_structured(
         client,
         SYSTEM,
         (
+            f"{catalogue_text()}\n\n"
             f"Topic: {intent.topic}\n"
             f"Audience: {intent.audience} ({intent.difficulty})\n"
             f"Goal: {intent.educational_goal}\n"

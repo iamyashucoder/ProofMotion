@@ -1,11 +1,206 @@
 {
   "project_id": "20260801T102850Z-a26ff51a",
-  "question": "",
-  "revision": 0,
+  "question": "can you explain gradint decend in 3d surface",
+  "revision": 1,
   "created_at": "2026-08-01T10:28:50Z",
   "style": "dark",
   "quality": "l",
   "voice": "",
   "fit_narration": true,
-  "slides": []
+  "slides": [
+    {
+      "id": "s1",
+      "title": "The loss surface",
+      "component": null,
+      "parameters": {},
+      "caption": "z=f(x,y)=x^2+2y^2",
+      "seconds": 10.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "We study the loss function f of x and y, equal to x squared plus 2y squared. Its graph is an upward-opening bowl, and height represents loss.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s2",
+      "title": "The bottom of the bowl",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "f(x,y)=x^2+2y^2",
+          "f(x,y)\\geq 0",
+          "f(0,0)=0"
+        ],
+        "region": "stage"
+      },
+      "caption": "f(x,y)=x^2+2y^2\\geq 0,\\qquad f(0,0)=0",
+      "seconds": 10.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Both squared terms are nonnegative, so the smallest possible loss is zero. It occurs at x equals zero and y equals zero, the bottom of the bowl.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s3",
+      "title": "The uphill direction",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "\\nabla f(x,y)=\\begin{bmatrix}\\frac{\\partial f}{\\partial x}\\\\[2pt]\\frac{\\partial f}{\\partial y}\\end{bmatrix}",
+          "\\nabla f(x,y)=\\begin{bmatrix}2x\\\\4y\\end{bmatrix}"
+        ],
+        "region": "stage"
+      },
+      "caption": "\\nabla f(x,y)=\\begin{bmatrix}2x\\\\4y\\end{bmatrix}",
+      "seconds": 8.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "At any location, the gradient gives the direction in the xy-plane where the loss increases most quickly. It points uphill.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s4",
+      "title": "Turn downhill",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "\\nabla f(x,y)=\\begin{bmatrix}2x\\\\4y\\end{bmatrix}",
+          "-\\nabla f(x,y)=(-2x,-4y)"
+        ],
+        "region": "stage"
+      },
+      "caption": "-\\nabla f(x,y)=(-2x,-4y)",
+      "seconds": 7.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "To reduce the loss, we move in the opposite direction. The negative gradient points downhill toward the minimum.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s5",
+      "title": "Choose a step",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "\\begin{bmatrix}x_{k+1}\\\\y_{k+1}\\end{bmatrix}=\\begin{bmatrix}x_k\\\\y_k\\end{bmatrix}-\\eta\\begin{bmatrix}2x_k\\\\4y_k\\end{bmatrix}",
+          "\\begin{bmatrix}x_{k+1}\\\\y_{k+1}\\end{bmatrix}-\\begin{bmatrix}x_k\\\\y_k\\end{bmatrix}=-\\eta\\begin{bmatrix}2x_k\\\\4y_k\\end{bmatrix}"
+        ],
+        "region": "stage"
+      },
+      "caption": "\\begin{bmatrix}x_{k+1}\\\\y_{k+1}\\end{bmatrix}=\\begin{bmatrix}x_k\\\\y_k\\end{bmatrix}-\\eta\\begin{bmatrix}2x_k\\\\4y_k\\end{bmatrix}",
+      "seconds": 7.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Gradient descent takes a step opposite the gradient. The learning rate eta controls how large that step is.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s6",
+      "title": "The coordinate updates",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "\\begin{bmatrix}x_{k+1}\\\\y_{k+1}\\end{bmatrix}=\\begin{bmatrix}x_k\\\\y_k\\end{bmatrix}-\\eta\\begin{bmatrix}2x_k\\\\4y_k\\end{bmatrix}",
+          "\\eta=0.1",
+          "\\begin{aligned}x_{k+1}&=x_k-0.1(2x_k)=0.8x_k,\\\\y_{k+1}&=y_k-0.1(4y_k)=0.6y_k.\\end{aligned}"
+        ],
+        "region": "stage"
+      },
+      "caption": "x_{k+1}=0.8x_k,\\qquad y_{k+1}=0.6y_k",
+      "seconds": 11.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "With a learning rate of zero point one, x is multiplied by zero point eight and y by zero point six. The y-coordinate shrinks faster because the bowl is steeper in that direction.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s7",
+      "title": "The first descent step",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "(x_0,y_0)=(3,2)",
+          "f(3,2)=3^2+2(2^2)=17",
+          "(x_1,y_1)=(0.8\\cdot3,\\,0.6\\cdot2)=(2.4,1.2)",
+          "f(2.4,1.2)=2.4^2+2(1.2^2)=8.64"
+        ],
+        "region": "stage"
+      },
+      "caption": "(x_0,y_0)=(3,2),\\qquad (x_1,y_1)=(2.4,1.2)",
+      "seconds": 9.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Start at the point three comma two. One update moves it to two point four comma one point two, and the loss falls from seventeen to eight point six four.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s8",
+      "title": "Repeated downhill steps",
+      "component": null,
+      "parameters": {},
+      "caption": "(x_k,y_k)=(3\\cdot0.8^k,\\,2\\cdot0.6^k)",
+      "seconds": 14.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Repeating the calculation gives points such as two point four comma one point two, one point nine two comma zero point seven two, and one point five three six comma zero point four three two. The path descends toward the origin.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s9",
+      "title": "Why it converges",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "x_k=3(0.8)^k,\\qquad y_k=2(0.6)^k",
+          "\\lim_{k\\to\\infty}3(0.8)^k=0,\\qquad \\lim_{k\\to\\infty}2(0.6)^k=0",
+          "\\lim_{k\\to\\infty}(x_k,y_k)=(0,0)"
+        ],
+        "region": "stage"
+      },
+      "caption": "\\lim_{k\\to\\infty}(x_k,y_k)=(0,0)",
+      "seconds": 11.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Each coordinate is repeatedly multiplied by a number smaller than one. Therefore both coordinates approach zero, and the three-dimensional point approaches the minimum at zero loss.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s10",
+      "title": "Final update rule",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "\\begin{bmatrix}x_{k+1}\\\\y_{k+1}\\end{bmatrix}=\\begin{bmatrix}x_k\\\\y_k\\end{bmatrix}-0.1\\begin{bmatrix}2x_k\\\\4y_k\\end{bmatrix}",
+          "=\\begin{bmatrix}0.8x_k\\\\0.6y_k\\end{bmatrix}",
+          "(x_k,y_k)\\to(0,0),\\qquad z=f(x_k,y_k)\\to0"
+        ],
+        "region": "stage"
+      },
+      "caption": "\\boxed{\\begin{bmatrix}x_{k+1}\\\\y_{k+1}\\end{bmatrix}=\\begin{bmatrix}0.8x_k\\\\0.6y_k\\end{bmatrix},\\qquad (x_k,y_k)\\to(0,0)}",
+      "seconds": 13.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Gradient descent subtracts zero point one times the gradient at every step. Starting from three comma two, the point moves downhill and approaches the minimum at zero comma zero comma zero, where the loss is zero.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    }
+  ]
 }

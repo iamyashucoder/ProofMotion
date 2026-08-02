@@ -1,0 +1,353 @@
+{
+  "project_id": "20260801T220314Z-4ffbbbca",
+  "question": "Make a time series of Euler mathoed and render 3d",
+  "revision": 2,
+  "created_at": "2026-08-01T22:03:14Z",
+  "style": "dark",
+  "quality": "l",
+  "voice": "",
+  "fit_narration": true,
+  "slides": [
+    {
+      "id": "s1",
+      "title": "The decay problem",
+      "component": "function_plot",
+      "parameters": {
+        "expr": "exp(-x)",
+        "x_min": 0,
+        "x_max": 1,
+        "label": "y(t)=e^{-t}",
+        "y_min": 0,
+        "y_max": 1.05,
+        "region": "stage"
+      },
+      "caption": "\\frac{dy}{dt}=-y,\\qquad y(0)=1",
+      "seconds": 8.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "We begin with a quantity whose rate of change is the negative of its current value, starting from one at time zero.",
+      "code": "",
+      "loop": false,
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s2",
+      "title": "The exact path",
+      "component": "function_plot",
+      "parameters": {
+        "expr": "exp(-x)",
+        "x_min": 0,
+        "x_max": 1
+      },
+      "caption": "y_{\\mathrm{exact}}(t)=e^{-t}",
+      "seconds": 6.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "The exact solution is the smooth exponential decay curve, e to the negative t.",
+      "code": "",
+      "loop": false,
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s3",
+      "title": "A ten-step grid",
+      "component": "number_line_marks",
+      "parameters": {
+        "start": 0,
+        "stop": 1,
+        "marks": {
+          "t_0=0": 0,
+          "t_1=0.1": 0.1,
+          "t_2=0.2": 0.2,
+          "t_3=0.3": 0.3,
+          "t_4=0.4": 0.4,
+          "t_5=0.5": 0.5,
+          "t_6=0.6": 0.6,
+          "t_7=0.7": 0.7,
+          "t_8=0.8": 0.8,
+          "t_9=0.9": 0.9,
+          "t_{10}=1": 1
+        },
+        "interval": [
+          0,
+          1
+        ],
+        "region": "stage"
+      },
+      "caption": "t_n=nh,\\qquad h=0.1,\\qquad n=0,1,\\ldots,10",
+      "seconds": 8.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Instead of following the curve continuously, we sample time in ten equal steps of length zero point one.",
+      "code": "",
+      "loop": false,
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s4",
+      "title": "Follow the tangent",
+      "component": "tangent_secant",
+      "parameters": {
+        "expr": "exp(-x)",
+        "at": 0,
+        "dx": 0.1,
+        "x_min": 0,
+        "x_max": 0.3
+      },
+      "caption": "y_{n+1}=y_n+h\\,f(t_n,y_n)=y_n+h(-y_n)",
+      "seconds": 9.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "At each known point, Euler follows the tangent for one short time step. The slope is the differential equation evaluated at the current point.",
+      "code": "",
+      "loop": false,
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s5",
+      "title": "The update rule",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "y_{n+1}=y_n+h(-y_n)",
+          "y_{n+1}=y_n(1-h)"
+        ]
+      },
+      "caption": "y_{n+1}=y_n+h(-y_n)=y_n(1-h)",
+      "seconds": 8.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "For this particular equation, adding the negative slope is the same as multiplying by one minus the step size.",
+      "code": "",
+      "loop": false,
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s6",
+      "title": "The first step",
+      "component": "tangent_secant",
+      "parameters": {
+        "expr": "exp(-x)",
+        "at": 0,
+        "dx": 0.1,
+        "x_min": 0,
+        "x_max": 0.3
+      },
+      "caption": "y_1=y_0(1-h)=1(1-0.1)=0.9",
+      "seconds": 8.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Starting from one, the first Euler step moves forward by zero point one and gives a new value of zero point nine.",
+      "code": "",
+      "loop": false,
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s7",
+      "title": "The numerical trajectory",
+      "component": "function_plot",
+      "parameters": {
+        "expr": "0.9**(10*x)",
+        "x_min": 0,
+        "x_max": 1,
+        "label": "y_n=0.9^{10t_n}",
+        "y_min": 0.3,
+        "y_max": 1.05,
+        "region": "stage"
+      },
+      "caption": "y_0=1,\\quad y_1=0.9,\\quad y_2=0.81,\\quad y_3=0.729,\\quad \\ldots,\\quad y_{10}=0.3486784401",
+      "seconds": 8.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Repeating the same multiplication produces the Euler time series, ending at about zero point three four eight seven at time one.",
+      "code": "",
+      "loop": false,
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s8",
+      "title": "Measure the gap",
+      "component": "function_plot",
+      "parameters": {
+        "expr": "abs(0.9**(10*x)-exp(-x))",
+        "x_min": 0,
+        "x_max": 1,
+        "label": "e(t)=|0.9^{10t}-e^{-t}|",
+        "y_min": 0,
+        "y_max": 0.025,
+        "region": "stage"
+      },
+      "caption": "e_n=\\left|y_n-y_{\\mathrm{exact}}(t_n)\\right|=\\left|y_n-e^{-t_n}\\right|",
+      "seconds": 7.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "At every time grid point, the error is the vertical distance between the Euler value and the exact value.",
+      "code": "",
+      "loop": false,
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s9",
+      "title": "Error accumulates",
+      "component": "comparison",
+      "parameters": {
+        "left_title": "First step",
+        "right_title": "Final step",
+        "rows": [
+          [
+            "t_1=0.1",
+            "t_{10}=1"
+          ],
+          [
+            "e_1\\approx0.0048374180",
+            "e_{10}\\approx0.0192010011"
+          ]
+        ],
+        "row_labels": [
+          "time",
+          "absolute error"
+        ],
+        "highlight": [
+          1
+        ]
+      },
+      "caption": "e_1=\\left|0.9-e^{-0.1}\\right|\\approx0.0048374180,\\qquad e_{10}=\\left|0.3486784401-e^{-1}\\right|\\approx0.0192010011",
+      "seconds": 9.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "After the first step the error is about zero point zero zero four eight four. By time one, it has grown to about zero point zero one nine two.",
+      "code": "",
+      "loop": false,
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s10",
+      "title": "Make error a dimension",
+      "component": "vector_plane_3d",
+      "parameters": {
+        "vector": [
+          1,
+          0.3486784401,
+          0.0192010011
+        ],
+        "region": "stage"
+      },
+      "caption": "P_n=\\bigl(t_n,y_n,e_n\\bigr)=\\left(t_n,y_n,\\left|y_n-e^{-t_n}\\right|\\right)",
+      "seconds": 6.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Each sample now becomes a point whose coordinates are time, numerical value, and error.",
+      "code": "",
+      "loop": false,
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s11",
+      "title": "The exact reference curve",
+      "component": null,
+      "parameters": {},
+      "caption": "C_{\\mathrm{exact}}(t)=\\bigl(t,e^{-t},0\\bigr),\\qquad 0\\le t\\le1",
+      "seconds": 8.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "The exact solution lies in the zero-error plane and provides a continuous reference path for the Euler points.",
+      "code": "",
+      "loop": false,
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s12",
+      "title": "Step through time",
+      "component": null,
+      "parameters": {},
+      "caption": "P_n\\longrightarrow P_{n+1},\\qquad n=0,1,\\ldots,9",
+      "seconds": 10.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Reveal the numerical trajectory one step at a time. Each point advances in time, decays in value, and rises according to its accumulated error.",
+      "code": "",
+      "loop": false,
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s13",
+      "title": "Read the 3D picture",
+      "component": "layers",
+      "parameters": {
+        "layers": [
+          "time: t_n",
+          "numerical value: y_n",
+          "error: e_n"
+        ],
+        "highlight": [
+          0,
+          1,
+          2
+        ]
+      },
+      "caption": "\\text{time}=t_n,\\qquad \\text{numerical value}=y_n,\\qquad \\text{error}=e_n",
+      "seconds": 7.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Time moves forward, the Euler value decays, and the third coordinate records the distance from the exact solution.",
+      "code": "",
+      "loop": false,
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s14",
+      "title": "The complete construction",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "P_n=\\left(t_n,y_n,\\left|y_n-e^{-t_n}\\right|\\right)",
+          "t_n=nh,\\quad y_0=1,\\quad y_{n+1}=y_n(1-h)",
+          "h=0.1,\\quad n=0,\\ldots,10"
+        ]
+      },
+      "caption": "\\boxed{P_n=\\left(nh,\\,y_n,\\,\\left|y_n-e^{-nh}\\right|\\right),\\quad y_0=1,\\quad y_{n+1}=y_n(1-h),\\quad h=0.1,\\quad n=0,\\ldots,10}",
+      "seconds": 9.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "The construction is complete: generate the Euler values recursively, attach their absolute errors, and place the points at their corresponding times.",
+      "code": "",
+      "loop": false,
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s15",
+      "title": "FINAL ANSWER",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "y_{n+1}=0.9y_n,\\quad y_0=1",
+          "P_n=\\left(nh,y_n,\\left|y_n-e^{-nh}\\right|\\right)",
+          "h=0.1,\\quad n=0,\\ldots,10"
+        ]
+      },
+      "caption": "\\boxed{P_n=\\left(nh,\\,y_n,\\,\\left|y_n-e^{-nh}\\right|\\right),\\quad y_0=1,\\quad y_{n+1}=y_n(1-h),\\quad h=0.1,\\quad n=0,\\ldots,10}",
+      "seconds": 14.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Using step size zero point one, repeatedly apply y sub n plus one equals zero point nine y sub n. Each point records time, numerical value, and absolute error from the exact exponential solution.",
+      "code": "",
+      "loop": false,
+      "origin": "agent",
+      "locked": false
+    }
+  ]
+}

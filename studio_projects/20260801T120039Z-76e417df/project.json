@@ -1,0 +1,303 @@
+{
+  "project_id": "20260801T120039Z-76e417df",
+  "question": "can you explain gradient descent in 3d surface prrof it equation full end to end",
+  "revision": 2,
+  "created_at": "2026-08-01T12:00:39Z",
+  "style": "dark",
+  "quality": "l",
+  "voice": "",
+  "fit_narration": true,
+  "slides": [
+    {
+      "id": "s1",
+      "title": "The Bowl",
+      "component": "surface_plot",
+      "parameters": {
+        "expr": "x**2 + y**2",
+        "x_range": [
+          -3,
+          3
+        ],
+        "y_range": [
+          -3,
+          3
+        ]
+      },
+      "caption": "f(x,y) = x^2 + y^2",
+      "seconds": 11.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "This is the bowl we will descend: f of x, y equals x squared plus y squared. It is a paraboloid opening upward, with its global minimum at the origin where f equals zero.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s2",
+      "title": "The Gradient",
+      "component": "vector_field",
+      "parameters": {
+        "x_component": "2*x",
+        "y_component": "2*y",
+        "extent": 3.0
+      },
+      "caption": "\\nabla f = \\left(\\frac{\\partial f}{\\partial x}, \\frac{\\partial f}{\\partial y}\\right) = (2x, 2y)",
+      "seconds": 15.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "The gradient of f is the vector of partial derivatives: partial f over partial x, partial f over partial y, which for our bowl is 2x, 2y. At every point, this vector points radially outward \u2014 the direction of steepest ascent.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s3",
+      "title": "Where is the Minimum?",
+      "component": "vector_field",
+      "parameters": {
+        "x_component": "-2*x",
+        "y_component": "-2*y",
+        "extent": 3.0
+      },
+      "caption": "\\nabla f = 0 \\implies (x,y) = (0,0)",
+      "seconds": 14.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Setting the gradient equal to zero gives the critical point at the origin. There, f equals zero \u2014 the global minimum. The negative gradient, minus 2x, minus 2y, points radially inward, toward the minimum.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s4",
+      "title": "First-Order Taylor",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "f(\\mathbf{x} + \\Delta\\mathbf{x}) \\approx f(\\mathbf{x}) + \\nabla f(\\mathbf{x}) \\cdot \\Delta\\mathbf{x}",
+          "\\text{error } O(\\|\\Delta\\mathbf{x}\\|^2)"
+        ]
+      },
+      "caption": "f(\\mathbf{x} + \\Delta\\mathbf{x}) \\approx f(\\mathbf{x}) + \\nabla f(\\mathbf{x}) \\cdot \\Delta\\mathbf{x}",
+      "seconds": 15.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "The first-order Taylor expansion says: for a small displacement delta x, the function value changes by approximately the gradient dotted with delta x. This is the linear approximation of f near x, and the error is of order the squared step size.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s5",
+      "title": "Step Opposite the Gradient",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "\\Delta\\mathbf{x} = -\\eta\\nabla f(\\mathbf{x})",
+          "\\eta > 0"
+        ]
+      },
+      "caption": "\\Delta\\mathbf{x} = -\\eta\\nabla f(\\mathbf{x}), \\qquad \\eta > 0",
+      "seconds": 16.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Since the gradient points in the direction of steepest ascent, moving in the direction of the negative gradient descends the surface most rapidly. We choose delta x equals minus eta times the gradient, where eta is a positive learning rate that scales how far we step.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s6",
+      "title": "Substitute the Step",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "f(\\mathbf{x} - \\eta\\nabla f) \\approx f(\\mathbf{x}) + \\nabla f \\cdot (-\\eta\\nabla f)",
+          "= f(\\mathbf{x}) - \\eta\\|\\nabla f\\|^2"
+        ]
+      },
+      "caption": "\\nabla f \\cdot (-\\eta\\nabla f) = -\\eta\\|\\nabla f\\|^2",
+      "seconds": 12.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Substituting delta x equals minus eta times the gradient into the Taylor expansion, the dot product becomes minus eta times the squared norm of the gradient. This is the key algebraic step.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s7",
+      "title": "Descent Guaranteed",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "f(\\mathbf{x} - \\eta\\nabla f) \\approx f(\\mathbf{x}) - \\eta\\|\\nabla f\\|^2",
+          "\\le f(\\mathbf{x}) \\quad \\text{since } \\|\\nabla f\\|^2 \\ge 0"
+        ]
+      },
+      "caption": "f(\\mathbf{x} - \\eta\\nabla f) \\approx f(\\mathbf{x}) - \\eta\\|\\nabla f\\|^2 \\le f(\\mathbf{x})",
+      "seconds": 18.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Since the squared norm of the gradient is always non-negative and eta is positive, the term minus eta times the squared norm is non-positive. Therefore the function value at the new point is less than or equal to the value at the old point. Whenever the gradient is nonzero, the decrease is strict.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s8",
+      "title": "Exact for the Bowl",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "\\mathbf{x}_{k+1} = \\mathbf{x}_k - \\eta(2x_k, 2y_k)",
+          "= (1-2\\eta)\\mathbf{x}_k"
+        ]
+      },
+      "caption": "\\mathbf{x}_{k+1} = \\mathbf{x}_k - \\eta(2x_k, 2y_k) = (1-2\\eta)\\mathbf{x}_k",
+      "seconds": 14.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "For our bowl, the gradient is 2x, 2y, so the update becomes x_{k+1} equals x_k minus eta times 2x_k, 2y_k, which simplifies componentwise to 1 minus 2 eta times x_k.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s9",
+      "title": "The Contraction Factor",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "f(\\mathbf{x}_{k+1}) = (1-2\\eta)^2(x_k^2 + y_k^2)",
+          "= (1-2\\eta)^2 f(\\mathbf{x}_k)",
+          "\\eta = 0.1 \\implies f(\\mathbf{x}_{k+1}) = 0.64\\, f(\\mathbf{x}_k)"
+        ]
+      },
+      "caption": "f(\\mathbf{x}_{k+1}) = (1-2\\eta)^2 f(\\mathbf{x}_k)",
+      "seconds": 22.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Plugging the update into the bowl function, f of x_{k+1} equals 1 minus 2 eta, squared, times x_k squared plus y_k squared, which is 1 minus 2 eta squared times f of x_k. With eta equal to 0.1, the factor is 0.8 squared, which is 0.64 \u2014 a strict decrease each step.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s10",
+      "title": "Rolling Down the Bowl",
+      "component": "surface_descent",
+      "parameters": {
+        "expr": "x**2 + y**2",
+        "x_range": [
+          -3,
+          3
+        ],
+        "y_range": [
+          -3,
+          3
+        ],
+        "start": [
+          1,
+          1
+        ],
+        "eta": 0.1,
+        "steps": 8
+      },
+      "caption": "\\mathbf{x}_k = (0.8^k, 0.8^k) \\to (0,0)",
+      "seconds": 19.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Here is the ball rolling down the bowl. Starting at the point 1, 1, each step moves along the negative gradient, and the function value contracts by a factor of 0.64. The trajectory is x_k equals 0.8 to the k, 0.8 to the k, converging geometrically to the origin.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s11",
+      "title": "When Does It Converge?",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "(1-2\\eta)^2 < 1",
+          "\\iff 0 < \\eta < 1"
+        ]
+      },
+      "caption": "0 < \\eta < 1",
+      "seconds": 14.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "For the factor 1 minus 2 eta squared to be less than 1, we need 1 minus 2 eta to have magnitude less than 1, which gives 0 less than eta less than 1. This is the exact convergence condition for the bowl.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s12",
+      "title": "\u03b7 Too Large: Overshoot",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "\\eta > 1 \\implies (1-2\\eta)^2 > 1",
+          "\\implies f(\\mathbf{x}_{k+1}) > f(\\mathbf{x}_k)"
+        ]
+      },
+      "caption": "\\eta > 1 \\implies (1-2\\eta)^2 > 1 \\implies f(\\mathbf{x}_{k+1}) > f(\\mathbf{x}_k)",
+      "seconds": 21.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "If eta is too large \u2014 greater than 1 for the bowl \u2014 the factor 1 minus 2 eta squared exceeds 1, and the function value grows each step. With eta equal to 1.5, the trajectory is 1, minus 2, 4, minus 8, 16, and so on \u2014 diverging, oscillating across the minimum and climbing the opposite wall.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s13",
+      "title": "\u03b7 Too Small: Slow",
+      "component": "comparison",
+      "parameters": {
+        "left_title": "\u03b7 too large",
+        "right_title": "\u03b7 too small",
+        "rows": [
+          [
+            "overshoot, diverge",
+            "slow convergence"
+          ],
+          [
+            "(1-2\u03b7)\u00b2 > 1",
+            "(1-2\u03b7)\u00b2 \u2248 1"
+          ]
+        ]
+      },
+      "caption": "\\eta \\ll 1 \\implies (1-2\\eta)^2 \\approx 1",
+      "seconds": 15.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "If eta is too small, the factor 1 minus 2 eta squared is close to 1, and convergence is very slow. The ball creeps toward the minimum, taking many steps to get there. A balanced choice like eta equals 0.1 gives a good trade-off.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s14",
+      "title": "FINAL ANSWER",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "\\mathbf{x}_{k+1} = \\mathbf{x}_k - \\eta\\nabla f(\\mathbf{x}_k)",
+          "f(\\mathbf{x} - \\eta\\nabla f) \\approx f(\\mathbf{x}) - \\eta\\|\\nabla f\\|^2 \\le f(\\mathbf{x})",
+          "f = x^2 + y^2 \\implies f(\\mathbf{x}_{k+1}) = (1-2\\eta)^2 f(\\mathbf{x}_k)",
+          "\\text{converges to } (0,0) \\text{ iff } 0 < \\eta < 1"
+        ]
+      },
+      "caption": "\\mathbf{x}_{k+1} = \\mathbf{x}_k - \\eta\\nabla f(\\mathbf{x}_k), \\quad f(\\mathbf{x} - \\eta\\nabla f) \\approx f(\\mathbf{x}) - \\eta\\|\\nabla f\\|^2 \\le f(\\mathbf{x})",
+      "seconds": 32.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "The gradient-descent update is x_{k+1} equals x_k minus eta times the gradient of f at x_k. The first-order Taylor expansion shows the function value drops by eta times the squared norm of the gradient, so f strictly decreases whenever the gradient is nonzero. For the bowl f equals x squared plus y squared, the update is exact and the function value contracts by the factor 1 minus 2 eta squared each step, converging to the minimum at the origin if and only if eta lies between 0 and 1.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "project_id": "20260801T134226Z-b36ed924",
+  "question": "Lets create somthing with this charator",
+  "revision": 5,
+  "created_at": "2026-08-01T13:42:26Z",
+  "style": "dark",
+  "quality": "l",
+  "voice": "",
+  "fit_narration": true,
+  "slides": [
+    {
+      "id": "s1",
+      "title": "Meet the Hero",
+      "component": "spyder_math",
+      "parameters": {
+        "pose": "swing",
+        "facing": "right",
+        "at_x": 0,
+        "web": true,
+        "anchor_x": 2,
+        "anchor_y": 3.2,
+        "show_maths": true,
+        "region": "stage"
+      },
+      "caption": "A hero swings into the scene along a curved path.",
+      "seconds": 5.0,
+      "overrides": {
+        "shift": {
+          "built.group": {
+            "dx": -12.06,
+            "dy": -0.08
+          }
+        }
+      },
+      "bridge": "",
+      "narration": "Our hero swings into the scene, following a curved path through the air.",
+      "code": "",
+      "loop": true,
+      "origin": "agent",
+      "locked": false
+    }
+  ]
+}

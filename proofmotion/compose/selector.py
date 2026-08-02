@@ -19,6 +19,7 @@ from typing import Any
 
 from proofmotion.compose.assembler import ScenePlan, check, coverage
 from proofmotion.compose.shapes import SHAPE_FIRST
+from proofmotion.tools.components_tool import catalogue_text
 from proofmotion.runtime.loop import run_structured
 from proofmotion.tools import toolset
 
@@ -88,7 +89,7 @@ def select_components(
         plan = run_structured(
             client,
             SYSTEM,
-            f"Map this storyboard onto components.\n\n{brief}",
+            f"{catalogue_text()}\n\nMap this storyboard onto components.\n\n{brief}",
             toolset("visual").subset(["component_search", "component_build"]),
             ScenePlan,
             max_iterations=max_iterations,

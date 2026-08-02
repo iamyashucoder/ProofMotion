@@ -1,0 +1,44 @@
+{
+  "project_id": "20260801T110320Z-3184a6a7",
+  "question": "can you explain gradient descent in 3d surface",
+  "revision": 1,
+  "created_at": "2026-08-01T11:03:20Z",
+  "style": "dark",
+  "quality": "l",
+  "voice": "",
+  "fit_narration": true,
+  "slides": [
+    {
+      "id": "s1",
+      "title": "Gradient Descent on a 3D Loss Surface",
+      "component": "surface_descent",
+      "parameters": {
+        "expr": "x**2 + 2*y**2",
+        "x_range": [
+          -3.5,
+          3.5
+        ],
+        "y_range": [
+          -3.5,
+          3.5
+        ],
+        "start": [
+          3,
+          2
+        ],
+        "eta": 0.1,
+        "steps": 7,
+        "show_projection": true,
+        "region": "stage"
+      },
+      "caption": "Each step follows  (x,y) \u2190 (x,y) \u2212 \u03b7\u2207f(x,y), moving downhill toward the minimum.",
+      "seconds": 13.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Gradient descent starts at the point on the surface and repeatedly moves opposite the gradient. With learning rate eta equal to 0.1, seven updates roll the point toward the minimum, where the loss is smallest.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    }
+  ]
+}

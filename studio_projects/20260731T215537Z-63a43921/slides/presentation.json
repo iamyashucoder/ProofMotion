@@ -1,0 +1,37 @@
+{
+  "slides": [
+    {
+      "loop": false,
+      "auto_next": false,
+      "playback_rate": 1.0,
+      "reversed_playback_rate": 1.0,
+      "notes": "The Challenger Takes Form: Spyder Math stands his ground as ProofMotion gathers itself out of raw geometry — vertices, chords, and intent. Neither moves first.\n\nRound One: The Chasm: ProofMotion strings a chasm on a hanging cable. Spyder Math answers with a pendulum: grab, swing, release, catch. The rope does the mathematics; he just holds on.\n\nRound Two: The Tilted Ground: The floor itself betrays him, curling into a smooth cubic ramp. He leans into the slope and runs it, feet tracing the curve exactly — a derivative kept underfoot.\n\nRound Three: The Quantized Stair: ProofMotion shatters the slope into discrete steps. Continuous is forbidden now — so Spyder Math goes discrete too, hopping parabola after parabola, landing every tread.\n\nFinal Round: The Golden Coil: Its final form: the golden spiral, coiled to swallow him toward the center. He does not resist the mathematics. He rides it, arc by shrinking arc.",
+      "dedent_notes": true,
+      "skip_animations": false,
+      "src": null,
+      "type": "video",
+      "direction": "horizontal",
+      "file": "studio_projects/20260731T215537Z-63a43921/slides/129c9e989ed0acc7.mp4",
+      "rev_file": "studio_projects/20260731T215537Z-63a43921/slides/129c9e989ed0acc7-rev.mp4"
+    },
+    {
+      "loop": false,
+      "auto_next": false,
+      "playback_rate": 1.0,
+      "reversed_playback_rate": 1.0,
+      "notes": "Geometry Yields: And ProofMotion, out of forms, dissolves back into theorems. Spyder Math celebrates the only way a mathematician should.",
+      "dedent_notes": true,
+      "skip_animations": false,
+      "src": null,
+      "type": "video",
+      "direction": "horizontal",
+      "file": "studio_projects/20260731T215537Z-63a43921/slides/45ea025d2b15e387.mp4",
+      "rev_file": "studio_projects/20260731T215537Z-63a43921/slides/45ea025d2b15e387-rev.mp4"
+    }
+  ],
+  "resolution": [
+    854,
+    480
+  ],
+  "background_color": "black"
+}

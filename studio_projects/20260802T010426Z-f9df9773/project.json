@@ -1,0 +1,33 @@
+{
+  "project_id": "20260802T010426Z-f9df9773",
+  "question": "Schr\u00f6dinger Equation simulation (with dynamic scaling) #schrodinger #wavefunction #quantum #physics",
+  "revision": 2,
+  "created_at": "2026-08-02T01:04:26Z",
+  "style": "dark",
+  "quality": "l",
+  "voice": "",
+  "fit_narration": true,
+  "slides": [
+    {
+      "id": "s1",
+      "title": "A Wavefunction That Evolves",
+      "component": "wave_form",
+      "parameters": {
+        "amplitude": 1.0,
+        "wavelength": 2.4,
+        "cycles": 2.0,
+        "annotate": true,
+        "region": "stage"
+      },
+      "caption": "i\\hbar\\frac{\\partial \\psi(x,t)}{\\partial t}=\\left[-\\frac{\\hbar^2}{2m}\\frac{\\partial^2}{\\partial x^2}+V(x,t)\\right]\\psi(x,t)\\quad\\text{with dynamic amplitude scaling}",
+      "seconds": 11.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "The wavefunction evolves according to the Schr\u00f6dinger equation. Watch its amplitude rescale dynamically while the wavelength and phase structure remain clear.",
+      "code": "",
+      "loop": true,
+      "origin": "agent",
+      "locked": false
+    }
+  ]
+}

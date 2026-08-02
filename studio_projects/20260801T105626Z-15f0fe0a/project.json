@@ -1,0 +1,278 @@
+{
+  "project_id": "20260801T105626Z-15f0fe0a",
+  "question": "can you explain gradient descent in 3d surface",
+  "revision": 1,
+  "created_at": "2026-08-01T10:56:26Z",
+  "style": "dark",
+  "quality": "l",
+  "voice": "",
+  "fit_narration": true,
+  "slides": [
+    {
+      "id": "s1",
+      "title": "The Loss Surface",
+      "component": null,
+      "parameters": {
+        "description": "3D surface z=x^2+2y^2 over x,y in [-3,3], with x and y base axes, vertical z axis labelled loss, and minimum marked at (0,0,0)."
+      },
+      "caption": "z=f(x,y)=x^2+2y^2",
+      "seconds": 10.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Think of the loss as height above the x-y plane. The surface z equals x squared plus 2y squared is a bowl, and its lowest point is at the origin.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s2",
+      "title": "Choose a Starting Point",
+      "component": null,
+      "parameters": {
+        "description": "Retain the 3D bowl z=x^2+2y^2 over x,y in [-3,3]. Mark the surface point (3,2,22), label it current point (3,2), and project it vertically to (3,2,0)."
+      },
+      "caption": "(x_0,y_0)=(3,2)",
+      "seconds": 9.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "To make the descent concrete, start at the surface point whose horizontal coordinates are x zero equals 3 and y zero equals 2.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s3",
+      "title": "Measure the Slope",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "z=f(x,y)=x^2+2y^2",
+          "\\nabla f(x,y)=\\begin{bmatrix}2x\\\\4y\\end{bmatrix}"
+        ],
+        "region": "stage"
+      },
+      "caption": "\\nabla f(x,y)=\\begin{bmatrix}2x\\\\4y\\end{bmatrix}",
+      "seconds": 9.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "The gradient collects the rate of change in the x direction and the rate of change in the y direction. Differentiating gives 2x and 4y.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s4",
+      "title": "The Gradient Points Uphill",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "\\nabla f(x,y)=\\begin{bmatrix}2x\\\\4y\\end{bmatrix}",
+          "-\\nabla f(x,y)=\\begin{bmatrix}-2x\\\\-4y\\end{bmatrix}"
+        ],
+        "region": "stage"
+      },
+      "caption": "-\\nabla f(x,y)=\\begin{bmatrix}-2x\\\\-4y\\end{bmatrix}",
+      "seconds": 8.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "The gradient points in the direction where the loss rises fastest. To reduce the loss, we travel in the opposite direction.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s5",
+      "title": "The Update Rule",
+      "component": "flow_diagram",
+      "parameters": {
+        "stages": [
+          "current point (x_k,y_k)",
+          "compute gradient (2x_k,4y_k)",
+          "scale by \\eta=0.1",
+          "subtract",
+          "next point (x_{k+1},y_{k+1})"
+        ],
+        "highlight": [
+          1,
+          2,
+          3
+        ],
+        "feedback": true,
+        "region": "stage"
+      },
+      "caption": "(x_{k+1},y_{k+1})=(x_k,y_k)-\\eta\\nabla f(x_k,y_k)",
+      "seconds": 9.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "At each step, multiply the gradient by the learning rate eta, then subtract that vector from the current coordinates. This produces the next point.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s6",
+      "title": "First Downhill Step",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "(x_0,y_0)=(3,2)",
+          "\\nabla f(3,2)=(6,8)",
+          "(x_1,y_1)=(3-0.1(2\\cdot3),\\;2-0.1(4\\cdot2))=(2.4,1.2)"
+        ],
+        "region": "stage"
+      },
+      "caption": "(x_1,y_1)=(3-0.1(2\\cdot3),\\;2-0.1(4\\cdot2))=(2.4,1.2)",
+      "seconds": 12.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "At the starting coordinates, the gradient is 6 in x and 8 in y. With eta equal to 0.1, subtracting the scaled gradient moves the point to 2.4 comma 1.2.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s7",
+      "title": "The x-Coordinate Shrinks",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "x_0=3",
+          "x_1=0.8x_0=2.4",
+          "x_2=0.8x_1=1.92",
+          "x_3=1.536",
+          "x_4=1.2288",
+          "x_5=0.98304"
+        ],
+        "region": "stage"
+      },
+      "caption": "x:\\;3,\\;2.4,\\;1.92,\\;1.536,\\;1.2288,\\;0.98304",
+      "seconds": 14.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Repeating the x update gives 3, 2.4, 1.92, 1.536, 1.2288, and 0.98304. The x coordinate steadily moves toward zero.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s8",
+      "title": "The y-Coordinate Shrinks Faster",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "y_0=2",
+          "y_1=0.6y_0=1.2",
+          "y_2=0.72",
+          "y_3=0.432",
+          "y_4=0.2592",
+          "y_5=0.15552"
+        ],
+        "region": "stage"
+      },
+      "caption": "y:\\;2,\\;1.2,\\;0.72,\\;0.432,\\;0.2592,\\;0.15552",
+      "seconds": 16.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "The y sequence is 2, 1.2, 0.72, 0.432, 0.2592, and 0.15552. It contracts faster because the surface is steeper in the y direction.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s9",
+      "title": "Every Step Lowers the Loss",
+      "component": "comparison",
+      "parameters": {
+        "left_title": "Before update",
+        "right_title": "After update",
+        "rows": [
+          [
+            "x^2+2y^2",
+            "0.64x^2+0.72y^2"
+          ],
+          [
+            "1",
+            "0.64"
+          ],
+          [
+            "2",
+            "0.72"
+          ]
+        ],
+        "row_labels": [
+          "loss expression",
+          "x^2 coefficient",
+          "y^2 coefficient"
+        ],
+        "highlight": [
+          0,
+          1,
+          2
+        ],
+        "region": "stage"
+      },
+      "caption": "f(x-0.1(2x),y-0.1(4y))=0.64x^2+0.72y^2",
+      "seconds": 13.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "After one update, the loss becomes 0.64x squared plus 0.72y squared. Both coefficients are smaller than before, so every nonzero point loses height for this learning rate.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s10",
+      "title": "Convergence to the Minimum",
+      "component": null,
+      "parameters": {
+        "description": "Animate the 3D trajectory on z=x^2+2y^2 from the verified points (3,2,22), (2.4,1.2,8.64), (1.92,0.72,4.9152), (1.536,0.432,2.654208), (1.2288,0.2592,1.431853056), (0.98304,0.15552,0.7721866524672), then continue with shrinking steps toward (0,0,0)."
+      },
+      "caption": "\\lim_{k\\to\\infty}(x_k,y_k)=(0,0)",
+      "seconds": 7.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "As the point gets closer to the bottom, the gradient gets smaller. The steps shrink, and the coordinates converge to zero.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s11",
+      "title": "The Complete Descent",
+      "component": null,
+      "parameters": {
+        "description": "Show the complete 3D surface z=x^2+2y^2 over x,y in [-3,3], axes, start point (3,2,22), connected trajectory points with the verified sequences, negative-gradient arrows, and minimum (0,0,0) labelled z=0."
+      },
+      "caption": "\\text{plot }z=x^2+2y^2\\text{ together with }(x_k,y_k,f(x_k,y_k))",
+      "seconds": 11.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "The whole process is now visible: the path begins at (3,2), follows negative-gradient directions down the bowl, and approaches the minimum at the origin, where the loss is zero.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s12",
+      "title": "FINAL ANSWER",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "z=x^2+2y^2",
+          "\\nabla f(x,y)=\\begin{bmatrix}2x\\\\4y\\end{bmatrix}",
+          "(x_{k+1},y_{k+1})=(x_k,y_k)-\\eta\\begin{bmatrix}2x_k\\\\4y_k\\end{bmatrix}",
+          "\\boxed{(x_{k+1},y_{k+1})=(x_k,y_k)-\\eta\\begin{bmatrix}2x_k\\\\4y_k\\end{bmatrix},\\qquad \\eta=0.1}"
+        ],
+        "region": "stage"
+      },
+      "caption": "\\boxed{(x_{k+1},y_{k+1})=(x_k,y_k)-\\eta\\begin{bmatrix}2x_k\\\\4y_k\\end{bmatrix},\\qquad \\eta=0.1}",
+      "seconds": 11.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "The gradient-descent rule is the current point minus eta times the gradient. Here eta is 0.1, generating a descending sequence from (3,2) toward the minimum (0,0,0).",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    }
+  ]
+}

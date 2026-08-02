@@ -1,0 +1,497 @@
+{
+  "project_id": "20260802T114741Z-35fc06f5",
+  "question": "attention in mathemtics visualization for LLM",
+  "revision": 2,
+  "created_at": "2026-08-02T11:47:41Z",
+  "style": "dark",
+  "quality": "l",
+  "voice": "",
+  "fit_narration": true,
+  "slides": [
+    {
+      "id": "s1",
+      "title": "The attention pipeline",
+      "component": "flow_diagram",
+      "parameters": {
+        "stages": [
+          "query-key dot products",
+          "divide by sqrt(2)",
+          "softmax weights",
+          "weighted value sum"
+        ],
+        "highlight": [
+          0,
+          2,
+          3
+        ],
+        "feedback": false
+      },
+      "caption": "",
+      "seconds": 9.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Attention follows a simple pipeline. A query compares with every key, the scores become weights, and those weights blend the corresponding value vectors.",
+      "code": "",
+      "loop": false,
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s2",
+      "title": "Four tokens, three ingredients",
+      "component": "grid_map",
+      "parameters": {
+        "row_labels": [
+          "token 1",
+          "token 2",
+          "token 3",
+          "token 4"
+        ],
+        "col_labels": [
+          "k_1",
+          "k_2",
+          "v_1",
+          "v_2"
+        ],
+        "cells": [
+          [
+            "1",
+            "0",
+            "1",
+            "0"
+          ],
+          [
+            "2",
+            "1",
+            "2",
+            "1"
+          ],
+          [
+            "1",
+            "1",
+            "-1",
+            "1"
+          ],
+          [
+            "-1",
+            "0",
+            "0",
+            "-1"
+          ]
+        ],
+        "highlight": [
+          [
+            1,
+            0
+          ],
+          [
+            1,
+            1
+          ]
+        ],
+        "region": "stage"
+      },
+      "caption": "n=4,\\qquad d_k=2",
+      "seconds": 8.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "We will update the first token. Its query is q_1, and it compares with four keys; each key has a matching value vector.",
+      "code": "",
+      "loop": false,
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s3",
+      "title": "Compare query with keys",
+      "component": "grid_map",
+      "parameters": {
+        "row_labels": [
+          "k_1",
+          "k_2",
+          "k_3",
+          "k_4"
+        ],
+        "col_labels": [
+          "q_1\\cdot k_i"
+        ],
+        "cells": [
+          [
+            "1"
+          ],
+          [
+            "2"
+          ],
+          [
+            "1"
+          ],
+          [
+            "-1"
+          ]
+        ],
+        "highlight": [
+          [
+            1,
+            0
+          ]
+        ],
+        "region": "stage"
+      },
+      "caption": "q_1K^{\\mathsf T}=\\begin{bmatrix}1&2&1&-1\\end{bmatrix}",
+      "seconds": 9.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "The query takes a dot product with each key. The four raw similarities are one, two, one, and negative one, so key two scores highest.",
+      "code": "",
+      "loop": false,
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s4",
+      "title": "Scale the scores",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "d_k=2",
+          "\\widetilde{s}=\\frac{q_1K^{\\mathsf T}}{\\sqrt{d_k}}",
+          "\\widetilde{s}=\\frac{1}{\\sqrt{2}}\\begin{bmatrix}1&2&1&-1\\end{bmatrix}",
+          "\\widetilde{s}=\\begin{bmatrix}\\frac{1}{\\sqrt{2}}&\\sqrt{2}&\\frac{1}{\\sqrt{2}}&-\\frac{1}{\\sqrt{2}}\\end{bmatrix}"
+        ]
+      },
+      "caption": "\\widetilde{s}=\\frac{q_1K^{\\mathsf T}}{\\sqrt{d_k}}",
+      "seconds": 7.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Because the key dimension is two, divide every score by the square root of two before applying softmax.",
+      "code": "",
+      "loop": false,
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s5",
+      "title": "Softmax turns scores into weights",
+      "component": "grid_map",
+      "parameters": {
+        "row_labels": [
+          "token 1",
+          "token 2",
+          "token 3",
+          "token 4"
+        ],
+        "col_labels": [
+          "scaled score",
+          "softmax weight"
+        ],
+        "cells": [
+          [
+            "1/\\sqrt{2}",
+            "0.2341"
+          ],
+          [
+            "\\sqrt{2}",
+            "0.4748"
+          ],
+          [
+            "1/\\sqrt{2}",
+            "0.2341"
+          ],
+          [
+            "-1/\\sqrt{2}",
+            "0.0569"
+          ]
+        ],
+        "highlight": [
+          [
+            1,
+            0
+          ],
+          [
+            1,
+            1
+          ]
+        ],
+        "region": "stage"
+      },
+      "caption": "\\alpha_i=\\frac{e^{\\widetilde{s}_i}}{\\sum_{j=1}^{4}e^{\\widetilde{s}_j}}",
+      "seconds": 10.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Softmax exponentiates each scaled score and divides by the total of all four exponentials. The result is a set of nonnegative weights.",
+      "code": "",
+      "loop": false,
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s6",
+      "title": "The four attention weights",
+      "component": "comparison",
+      "parameters": {
+        "left_title": "Scaled scores",
+        "right_title": "Attention weights",
+        "rows": [
+          [
+            "1/\u221a2, \u221a2, 1/\u221a2, \u22121/\u221a2",
+            "0.2341, 0.4748, 0.2341, 0.0569"
+          ],
+          [
+            "token 1",
+            "0.2341"
+          ],
+          [
+            "token 2",
+            "0.4748"
+          ],
+          [
+            "token 3",
+            "0.2341"
+          ],
+          [
+            "token 4",
+            "0.0569"
+          ]
+        ],
+        "row_labels": [
+          "values",
+          "1",
+          "2",
+          "3",
+          "4"
+        ],
+        "highlight": [
+          0,
+          2
+        ],
+        "region": "stage"
+      },
+      "caption": "\\boldsymbol{\\alpha}\\approx\\begin{bmatrix}0.2341&0.4748&0.2341&0.0569\\end{bmatrix}",
+      "seconds": 15.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Evaluating softmax gives weights 0.2341, 0.4748, 0.2341, and 0.0569. The second token receives the most attention, while the fourth receives the least.",
+      "code": "",
+      "loop": false,
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s7",
+      "title": "Weights sum to one",
+      "component": "comparison",
+      "parameters": {
+        "left_title": "Property",
+        "right_title": "Numerical check",
+        "rows": [
+          [
+            "nonnegative",
+            "0.2341, 0.4748, 0.2341, 0.0569 \u2265 0"
+          ],
+          [
+            "sum",
+            "0.2341+0.4748+0.2341+0.0569 = 1"
+          ],
+          [
+            "interpretation",
+            "probability-like distribution"
+          ]
+        ],
+        "row_labels": [
+          "weights",
+          "total",
+          "meaning"
+        ],
+        "highlight": [
+          1
+        ],
+        "region": "stage"
+      },
+      "caption": "\\sum_{i=1}^{4}\\alpha_i=1,\\qquad \\alpha_i\\ge 0",
+      "seconds": 8.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Every weight is nonnegative, and together they add to one. That is why the values will be blended rather than arbitrarily scaled.",
+      "code": "",
+      "loop": false,
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s8",
+      "title": "Blend the value vectors",
+      "component": "grid_map",
+      "parameters": {
+        "row_labels": [
+          "token 1",
+          "token 2",
+          "token 3",
+          "token 4"
+        ],
+        "col_labels": [
+          "\\alpha_i",
+          "v_{i,1}",
+          "v_{i,2}"
+        ],
+        "cells": [
+          [
+            "0.2341",
+            "1",
+            "0"
+          ],
+          [
+            "0.4748",
+            "2",
+            "1"
+          ],
+          [
+            "0.2341",
+            "-1",
+            "1"
+          ],
+          [
+            "0.0569",
+            "0",
+            "-1"
+          ]
+        ],
+        "highlight": [
+          [
+            1,
+            0
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            2
+          ]
+        ],
+        "region": "stage"
+      },
+      "caption": "z_1=\\boldsymbol{\\alpha}V=\\sum_{i=1}^{4}\\alpha_i v_i",
+      "seconds": 8.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Attention does not choose just one value. It multiplies every value vector by its matching weight and adds all four contributions.",
+      "code": "",
+      "loop": false,
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s9",
+      "title": "First output coordinate",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "z_{1,1}=\\alpha_1(1)+\\alpha_2(2)+\\alpha_3(-1)+\\alpha_4(0)",
+          "z_{1,1}=0.2341(1)+0.4748(2)+0.2341(-1)+0.0569(0)",
+          "z_{1,1}\\approx 0.9497"
+        ]
+      },
+      "caption": "z_{1,1}=0.2341(1)+0.4748(2)+0.2341(-1)+0.0569(0)\\approx 0.9497",
+      "seconds": 10.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "For the first coordinate, multiply each attention weight by the corresponding first value coordinate. The contributions add to approximately 0.9497.",
+      "code": "",
+      "loop": false,
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s10",
+      "title": "Second output coordinate",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "z_{1,2}=\\alpha_1(0)+\\alpha_2(1)+\\alpha_3(1)+\\alpha_4(-1)",
+          "z_{1,2}=0.2341(0)+0.4748(1)+0.2341(1)+0.0569(-1)",
+          "z_{1,2}\\approx 0.6520"
+        ]
+      },
+      "caption": "z_{1,2}=0.2341(0)+0.4748(1)+0.2341(1)+0.0569(-1)\\approx 0.6520",
+      "seconds": 8.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Repeat the same process for the second coordinate. The weighted contributions add to approximately 0.6520.",
+      "code": "",
+      "loop": false,
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s11",
+      "title": "Assemble the attended vector",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "z_1=\\begin{bmatrix}z_{1,1}\\\\z_{1,2}\\end{bmatrix}",
+          "z_1=\\begin{bmatrix}0.9497\\\\0.6520\\end{bmatrix}"
+        ]
+      },
+      "caption": "z_1=\\begin{bmatrix}z_{1,1}\\\\z_{1,2}\\end{bmatrix}\\approx\\begin{bmatrix}0.9497\\\\0.6520\\end{bmatrix}",
+      "seconds": 10.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Put the two coordinates together. The first token's attended representation is approximately the vector 0.9497, 0.6520.",
+      "code": "",
+      "loop": false,
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s12",
+      "title": "The general formula",
+      "component": "flow_diagram",
+      "parameters": {
+        "stages": [
+          "QK^T score rows",
+          "divide by sqrt(d_k)",
+          "row-wise softmax",
+          "multiply by V"
+        ],
+        "highlight": [
+          0,
+          2,
+          3
+        ],
+        "feedback": false
+      },
+      "caption": "\\operatorname{Attention}(Q,K,V)=\\operatorname{softmax}\\!\\left(\\frac{QK^{\\mathsf T}}{\\sqrt{d_k}}\\right)V",
+      "seconds": 9.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "For a whole sequence, every query gets its own score row and weight row. Stacking the outputs gives the standard scaled dot-product attention formula.",
+      "code": "",
+      "loop": false,
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s13",
+      "title": "FINAL ANSWER",
+      "component": "equation_chain",
+      "parameters": {
+        "steps": [
+          "\\widetilde{s}=\\begin{bmatrix}\\frac{1}{\\sqrt{2}}&\\sqrt{2}&\\frac{1}{\\sqrt{2}}&-\\frac{1}{\\sqrt{2}}\\end{bmatrix}",
+          "\\boldsymbol{\\alpha}=\\begin{bmatrix}0.2341&0.4748&0.2341&0.0569\\end{bmatrix}",
+          "z_1=\\frac{e^{1/\\sqrt{2}}\\begin{bmatrix}1\\\\0\\end{bmatrix}+e^{\\sqrt{2}}\\begin{bmatrix}2\\\\1\\end{bmatrix}+e^{1/\\sqrt{2}}\\begin{bmatrix}-1\\\\1\\end{bmatrix}+e^{-1/\\sqrt{2}}\\begin{bmatrix}0\\\\-1\\end{bmatrix}}{2e^{1/\\sqrt{2}}+e^{\\sqrt{2}}+e^{-1/\\sqrt{2}}}",
+          "z_1\\approx\\begin{bmatrix}0.9497\\\\0.6520\\end{bmatrix}"
+        ]
+      },
+      "caption": "z_1\\approx\\begin{bmatrix}0.9497\\\\0.6520\\end{bmatrix}",
+      "seconds": 21.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "For the first token, softmax gives weights 0.2341, 0.4748, 0.2341, and 0.0569. Their weighted combination of the four value vectors is the attended representation z_1, approximately the vector 0.9497, 0.6520.",
+      "code": "",
+      "loop": false,
+      "origin": "agent",
+      "locked": false
+    }
+  ]
+}

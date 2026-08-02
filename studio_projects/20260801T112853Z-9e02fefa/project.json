@@ -1,0 +1,643 @@
+{
+  "project_id": "20260801T112853Z-9e02fefa",
+  "question": "prove that sin(x)/x approaches 1 as x approaches 0, and explain it",
+  "revision": 5,
+  "created_at": "2026-08-01T11:28:53Z",
+  "style": "dark",
+  "quality": "l",
+  "voice": "",
+  "fit_narration": true,
+  "slides": [
+    {
+      "id": "s1",
+      "title": "The target limit",
+      "component": "function_plot",
+      "parameters": {
+        "expr": "sin(x)/x",
+        "x_min": -6.0,
+        "x_max": 6.0,
+        "label": "\\frac{\\sin x}{x}",
+        "y_min": -0.3,
+        "y_max": 1.2,
+        "region": "stage"
+      },
+      "caption": "\\lim_{x\\to 0}\\frac{\\sin x}{x}=1",
+      "seconds": 12.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "We measure angles in radians and begin with positive angles between zero and pi over two. Our goal is to understand what sin x divided by x approaches as x approaches zero.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s2",
+      "title": "The unit-circle picture",
+      "component": "geometry_construction",
+      "parameters": {
+        "points": {
+          "O": [
+            0,
+            0
+          ],
+          "B": [
+            1,
+            0
+          ],
+          "A": [
+            0.7071,
+            0.7071
+          ],
+          "D": [
+            0.7071,
+            0
+          ],
+          "T": [
+            1,
+            1
+          ]
+        },
+        "segments": [
+          [
+            "O",
+            "A"
+          ],
+          [
+            "O",
+            "B"
+          ],
+          [
+            "A",
+            "D"
+          ],
+          [
+            "D",
+            "B"
+          ],
+          [
+            "O",
+            "T"
+          ],
+          [
+            "B",
+            "T"
+          ]
+        ],
+        "mark_angles": [
+          [
+            "B",
+            "O",
+            "A"
+          ]
+        ],
+        "show_lengths": true,
+        "circles": [
+          {
+            "center": [
+              0,
+              0
+            ],
+            "radius": 1.0,
+            "label": "unit circle"
+          }
+        ],
+        "arcs": [
+          {
+            "center": [
+              0,
+              0
+            ],
+            "radius": 0.35,
+            "from_deg": 0,
+            "to_deg": 45,
+            "label": "x"
+          }
+        ],
+        "shaded": [
+          {
+            "kind": "polygon",
+            "points": [
+              "O",
+              "A",
+              "D"
+            ],
+            "color_role": "secondary"
+          }
+        ],
+        "region": "stage"
+      },
+      "caption": "O=(0,0),\\qquad A=(\\cos x,\\sin x),\\qquad B=(1,0)",
+      "seconds": 11.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Draw a unit circle with center O. Let B be the point one unit to the right, and let the radius at angle x end at A. The ray OA meets the tangent at B at T.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s3",
+      "title": "Inner triangle area",
+      "component": "geometry_construction",
+      "parameters": {
+        "points": {
+          "O": [
+            0,
+            0
+          ],
+          "A": [
+            0.70710678,
+            0.70710678
+          ],
+          "B": [
+            1,
+            0
+          ]
+        },
+        "segments": [
+          [
+            "O",
+            "A"
+          ],
+          [
+            "A",
+            "B"
+          ],
+          [
+            "B",
+            "O"
+          ]
+        ],
+        "mark_angles": [
+          [
+            "B",
+            "O",
+            "A"
+          ]
+        ],
+        "show_lengths": true,
+        "shaded": [
+          {
+            "kind": "polygon",
+            "points": [
+              "O",
+              "A",
+              "B"
+            ],
+            "color_role": "secondary"
+          }
+        ],
+        "region": "stage"
+      },
+      "caption": "[\\triangle OAB]=\\frac12\\lvert OA\\rvert\\lvert OB\\rvert\\sin x=\\frac12\\sin x",
+      "seconds": 9.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Both radii have length one. The area formula for two sides and their included angle gives the area of triangle OAB as one half sin x.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s4",
+      "title": "Sector area",
+      "component": "geometry_construction",
+      "parameters": {
+        "points": {
+          "O": [
+            0,
+            0
+          ],
+          "A": [
+            0.70710678,
+            0.70710678
+          ],
+          "B": [
+            1,
+            0
+          ]
+        },
+        "segments": [
+          [
+            "O",
+            "A"
+          ],
+          [
+            "O",
+            "B"
+          ]
+        ],
+        "circles": [
+          {
+            "center": [
+              0,
+              0
+            ],
+            "radius": 1.0,
+            "label": "unit circle"
+          }
+        ],
+        "arcs": [
+          {
+            "center": [
+              0,
+              0
+            ],
+            "radius": 1.0,
+            "from_deg": 0,
+            "to_deg": 45,
+            "label": "x"
+          }
+        ],
+        "shaded": [
+          {
+            "kind": "polygon",
+            "points": [
+              "O",
+              "A",
+              "B"
+            ],
+            "color_role": "secondary"
+          }
+        ],
+        "region": "stage"
+      },
+      "caption": "[\\mbox{sector }OBA]=\\frac12x",
+      "seconds": 9.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "A sector with radius one and radian angle x has area one half times x. This simple formula is exactly where radians enter the proof.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s5",
+      "title": "Outer triangle area",
+      "component": "geometry_construction",
+      "parameters": {
+        "points": {
+          "O": [
+            0,
+            0
+          ],
+          "B": [
+            1,
+            0
+          ],
+          "T": [
+            1,
+            1
+          ]
+        },
+        "segments": [
+          [
+            "O",
+            "B"
+          ],
+          [
+            "B",
+            "T"
+          ],
+          [
+            "T",
+            "O"
+          ]
+        ],
+        "mark_angles": [
+          [
+            "B",
+            "O",
+            "T"
+          ]
+        ],
+        "show_lengths": true,
+        "shaded": [
+          {
+            "kind": "polygon",
+            "points": [
+              "O",
+              "B",
+              "T"
+            ],
+            "color_role": "secondary"
+          }
+        ],
+        "region": "stage"
+      },
+      "caption": "[\\triangle OBT]=\\frac12\\tan x",
+      "seconds": 11.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "The tangent at B is vertical. Since OA makes angle x with the horizontal, its height at the tangent is tan x. So the outer triangle has area one half tan x.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s6",
+      "title": "Containment gives bounds",
+      "component": "geometry_construction",
+      "parameters": {
+        "points": {
+          "O": [
+            0,
+            0
+          ],
+          "B": [
+            1,
+            0
+          ],
+          "A": [
+            0.70710678,
+            0.70710678
+          ],
+          "T": [
+            1,
+            1
+          ]
+        },
+        "segments": [
+          [
+            "O",
+            "A"
+          ],
+          [
+            "A",
+            "B"
+          ],
+          [
+            "B",
+            "O"
+          ],
+          [
+            "O",
+            "T"
+          ],
+          [
+            "T",
+            "B"
+          ]
+        ],
+        "circles": [
+          {
+            "center": [
+              0,
+              0
+            ],
+            "radius": 1.0,
+            "label": "unit circle"
+          }
+        ],
+        "arcs": [
+          {
+            "center": [
+              0,
+              0
+            ],
+            "radius": 1.0,
+            "from_deg": 0,
+            "to_deg": 45,
+            "label": "sector"
+          }
+        ],
+        "shaded": [
+          {
+            "kind": "polygon",
+            "points": [
+              "O",
+              "A",
+              "B"
+            ],
+            "color_role": "secondary"
+          },
+          {
+            "kind": "polygon",
+            "points": [
+              "O",
+              "B",
+              "T"
+            ],
+            "color_role": "highlight"
+          }
+        ],
+        "region": "stage"
+      },
+      "caption": "\\frac12\\sin x\\le \\frac12x\\le \\frac12\\tan x",
+      "seconds": 11.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "For a positive angle less than pi over two, the inner triangle lies inside the sector, and the sector lies inside the tangent triangle. Their areas therefore increase from left to right.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s7",
+      "title": "Remove the common factor",
+      "component": "comparison",
+      "parameters": {
+        "left_title": "Before",
+        "right_title": "After",
+        "row_labels": [
+          "multiply by 2"
+        ],
+        "rows": [
+          [
+            "\\frac12\\sin x\\le\\frac12x\\le\\frac12\\tan x",
+            "\\sin x\\le x\\le\\tan x"
+          ]
+        ],
+        "highlight": [
+          0
+        ]
+      },
+      "caption": "\\sin x\\le x\\le\\tan x",
+      "seconds": 6.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Multiply every part by two. Because two is positive, the order does not change.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s8",
+      "title": "Rewrite tangent",
+      "component": "flow_diagram",
+      "parameters": {
+        "stages": [
+          "\\sin x\\le x\\le\\tan x",
+          "\\tan x=\\frac{\\sin x}{\\cos x}",
+          "x>0,\\ \\cos x>0"
+        ],
+        "highlight": [
+          1,
+          2
+        ]
+      },
+      "caption": "\\sin x\\le x\\le\\frac{\\sin x}{\\cos x}",
+      "seconds": 10.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Use tan x equals sin x over cos x. In our domain, x and cos x are both positive, so the next divisions will be safe.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s9",
+      "title": "The upper bound",
+      "component": "function_plot",
+      "parameters": {
+        "expr": "sin(x)/x",
+        "x_min": -3.0,
+        "x_max": 3.0,
+        "label": "\\frac{\\sin x}{x}",
+        "y_min": 0.0,
+        "y_max": 1.2,
+        "region": "stage"
+      },
+      "caption": "\\sin x\\le x\\quad\\Longrightarrow\\quad \\frac{\\sin x}{x}\\le 1",
+      "seconds": 8.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "From sin x less than or equal to x, divide by the positive number x. This places sin x over x below one.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s10",
+      "title": "The lower bound",
+      "component": "function_plot",
+      "parameters": {
+        "expr": "sin(x)/x",
+        "x_min": -3.0,
+        "x_max": 3.0,
+        "label": "\\frac{\\sin x}{x}",
+        "y_min": 0.0,
+        "y_max": 1.2,
+        "region": "stage"
+      },
+      "caption": "x\\le\\frac{\\sin x}{\\cos x}\\quad\\Longrightarrow\\quad x\\cos x\\le\\sin x\\quad\\Longrightarrow\\quad \\cos x\\le\\frac{\\sin x}{x}",
+      "seconds": 12.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Start with x less than or equal to sin x over cos x. Multiply by positive cos x, then divide by positive x. The result places cos x below sin x over x.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s11",
+      "title": "Positive-side squeeze",
+      "component": "function_plot",
+      "parameters": {
+        "expr": "sin(x)/x",
+        "x_min": -3.0,
+        "x_max": 3.0,
+        "label": "\\frac{\\sin x}{x}",
+        "y_min": 0.0,
+        "y_max": 1.2,
+        "region": "stage"
+      },
+      "caption": "\\cos x\\le\\frac{\\sin x}{x}\\le 1\\qquad\\left(0<x<\\frac{\\pi}{2}\\right)",
+      "seconds": 5.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Combining the two results gives the complete squeeze for positive x near zero.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s12",
+      "title": "Symmetry across zero",
+      "component": "function_plot",
+      "parameters": {
+        "expr": "sin(x)/x",
+        "x_min": -3.0,
+        "x_max": 3.0,
+        "label": "\\frac{\\sin x}{x}",
+        "y_min": 0.0,
+        "y_max": 1.2,
+        "region": "stage"
+      },
+      "caption": "\\frac{\\sin(-x)}{-x}=\\frac{\\sin x}{x}",
+      "seconds": 12.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Because sine is odd, changing x to negative x changes both the numerator and denominator's signs. The signs cancel, so the ratio is even and the same bounds apply on the negative side.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s13",
+      "title": "Both bounds converge",
+      "component": "function_plot",
+      "parameters": {
+        "expr": "cos(x)",
+        "x_min": -1.5,
+        "x_max": 1.5,
+        "label": "\\cos x",
+        "y_min": 0.0,
+        "y_max": 1.2,
+        "region": "stage"
+      },
+      "caption": "\\lim_{x\\to0}\\cos x=\\cos 0=1,\\qquad \\lim_{x\\to0}1=1",
+      "seconds": 11.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "As x approaches zero, cosine approaches cos zero, which is one. The constant upper bound is already one. Both sides therefore meet at the same limiting value.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s14",
+      "title": "Apply the squeeze theorem",
+      "component": "function_plot",
+      "parameters": {
+        "expr": "sin(x)/x",
+        "x_min": -3.0,
+        "x_max": 3.0,
+        "label": "\\frac{\\sin x}{x}",
+        "y_min": 0.0,
+        "y_max": 1.2,
+        "region": "stage"
+      },
+      "caption": "\\cos x\\le\\frac{\\sin x}{x}\\le 1\\quad\\mbox{and}\\quad \\lim_{x\\to0}\\cos x=\\lim_{x\\to0}1=1\\quad\\Longrightarrow\\quad \\lim_{x\\to0}\\frac{\\sin x}{x}=1",
+      "seconds": 9.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "A function trapped between two functions with the same limit must share that limit. Therefore sin x over x approaches one from both sides of zero.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    },
+    {
+      "id": "s15",
+      "title": "FINAL ANSWER",
+      "component": "function_plot",
+      "parameters": {
+        "expr": "sin(x)/x",
+        "x_min": -3.0,
+        "x_max": 3.0,
+        "label": "\\frac{\\sin x}{x}",
+        "y_min": 0.0,
+        "y_max": 1.2,
+        "region": "stage"
+      },
+      "caption": "\\boxed{\\displaystyle\\lim_{x\\to0}\\frac{\\sin x}{x}=1}",
+      "seconds": 11.0,
+      "overrides": {},
+      "bridge": "",
+      "narration": "Thus, when x is measured in radians, the ratio of sin x to x approaches one as x approaches zero from either side. Near zero, sin x is approximately x.",
+      "code": "",
+      "origin": "agent",
+      "locked": false
+    }
+  ]
+}
